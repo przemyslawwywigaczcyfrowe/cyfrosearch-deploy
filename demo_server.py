@@ -105,6 +105,17 @@ def _normalize_model_query(q: str) -> str:
     return _RE_DIGIT_TO_ALPHA.sub(r'\1 \2', q)
 
 
+# ── Roman numeral merging (matches ES analyzer behavior) ──
+# The polish_folded analyzer concatenates "mark" + Roman numerals into one token:
+# "mark III" → "markiii", "mark II" → "markii", "5D Mark IV" → "5d markiv"
+# We must do the same at query time so match_phrase/multi_match align with the index.
+_RE_MARK_ROMAN = re.compile(r'\bmark\s+(i{1,4}v?|iv|v)\b', re.IGNORECASE)
+
+def _merge_mark_roman(q: str) -> str:
+    """Merge 'mark III' → 'markIII' etc. to match ES analyzer tokenization."""
+    return _RE_MARK_ROMAN.sub(lambda m: 'mark' + m.group(1), q)
+
+
 # ── Precompiled constants (module-level, not per-request) ──
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
@@ -241,7 +252,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     popular_queries: list[dict] = []
 
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
-    q = _normalize_model_query(q)
+    q = _merge_mark_roman(_normalize_model_query(q))
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
@@ -925,7 +936,7 @@ async def search(
 ):
     es = await get_es()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
-    q = _normalize_model_query(q)
+    q = _merge_mark_roman(_normalize_model_query(q))
     offset = (page - 1) * per_page
 
     filters = []
