@@ -496,7 +496,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         q_trimmed = q.strip()
         q_upper = q_trimmed.upper()
         # When brand-intent detected, reduce phrase match boosts so that
-        # function_score signals (brand +300, main_cat +300, price) can outweigh
+        # function_score signals (brand +300, main_cat +1000, price) can outweigh
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
         _phrase_boost = 10 if _brand_intent else 50
         _phrase_prefix_boost = 2 if _brand_intent else 5
@@ -627,9 +627,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Price matters more here (Canon → EOS R5, not RC-6 remote)
         #
         # Brand-intent: when detected, boost products of that brand (+300)
-        # and strongly boost main categories (+300) so cameras/lenses beat
+        # and strongly boost main categories (+1000) so cameras/lenses beat
         # accessories, scopes, and other non-core products of the same brand.
-        _main_cat_weight = 300 if _brand_intent else 120
+        _main_cat_weight = 1000 if _brand_intent else 120
         _price_weight = 30 if _brand_intent else 15
         scoring_functions = [
             # Brand-intent boost — if user searches a brand, prefer that brand's products
