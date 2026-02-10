@@ -24,7 +24,7 @@
     inputSelector: SCRIPT.getAttribute("data-input") || '[name="q"], [name="search"], #search-input, .search-input, input[type="search"]',
     limit: parseInt(SCRIPT.getAttribute("data-limit") || "7", 10),
     debounce: parseInt(SCRIPT.getAttribute("data-debounce") || "80", 10),
-    minChars: parseInt(SCRIPT.getAttribute("data-min-chars") || "2", 10),
+    minChars: parseInt(SCRIPT.getAttribute("data-min-chars") || "1", 10),
     lang: SCRIPT.getAttribute("data-lang") || "pl",
   };
 

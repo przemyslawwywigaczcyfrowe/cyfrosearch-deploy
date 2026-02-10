@@ -172,6 +172,60 @@ SKIP_CATS = frozenset({
 # Condition-intent keywords (module-level, not per-request)
 USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 
+# ── Brand-intent detection ──
+# Brand alias mapping — common abbreviations → canonical brand names
+BRAND_ALIASES: dict[str, str] = {
+    "fuji": "fujifilm",
+    "pana": "panasonic",
+}
+
+# Brand cache — populated once from ES on first request
+_brand_set: set[str] = set()            # {"nikon", "canon", "sigma", ...}
+_brand_original: dict[str, str] = {}    # {"nikon": "Nikon", "sigma": "Sigma", ...}
+
+
+async def _ensure_brands(es: AsyncElasticsearch) -> None:
+    """One-time load of all brand names from ES for brand-intent detection."""
+    global _brand_set, _brand_original
+    if _brand_set:
+        return
+    try:
+        resp = await es.search(
+            index=ES_INDEX,
+            body={"size": 0, "aggs": {"brands": {"terms": {"field": "brand", "size": 500}}}},
+        )
+        for b in resp["aggregations"]["brands"]["buckets"]:
+            key = b["key"]
+            _brand_set.add(key.lower())
+            _brand_original[key.lower()] = key
+        print(f"[OK] Loaded {len(_brand_set)} brands for brand-intent detection")
+    except Exception as e:
+        print(f"Warning: Could not load brands: {e}")
+
+
+def _detect_brand_intent(q_lower: str) -> str | None:
+    """Detect if query starts with (or IS) a brand name. Returns original-cased brand or None."""
+    tokens = q_lower.split()
+    if not tokens:
+        return None
+    # Check 2-word brands first ("peak design"), then 1-word
+    for n in (2, 1):
+        if n > len(tokens):
+            continue
+        prefix = " ".join(tokens[:n])
+        if prefix in _brand_set:
+            return _brand_original[prefix]
+    # Check brand aliases ("fuji" → "fujifilm", "pana" → "panasonic")
+    for n in (2, 1):
+        if n > len(tokens):
+            continue
+        prefix = " ".join(tokens[:n])
+        if prefix in BRAND_ALIASES:
+            alias_target = BRAND_ALIASES[prefix]
+            if alias_target in _brand_set:
+                return _brand_original[alias_target]
+    return None
+
 TOKEN_RE = re.compile(r'[A-Za-z0-9\u0080-\u024F]+')
 
 
@@ -259,6 +313,27 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
+
+    # ── Brand-intent detection ──
+    await _ensure_brands(es)
+    _brand_intent = _detect_brand_intent(q_lower)
+
+    # If brand alias matched (e.g. "fuji"→"Fujifilm"), also rewrite the ES query
+    # so text matching finds products with the canonical brand name
+    if _brand_intent:
+        canonical_lower = _brand_intent.lower()
+        # Check if the query used an alias (not the canonical name itself)
+        tokens = q_lower.split()
+        for n in (2, 1):
+            if n > len(tokens):
+                continue
+            prefix = " ".join(tokens[:n])
+            if prefix in BRAND_ALIASES and BRAND_ALIASES[prefix] == canonical_lower:
+                # Replace the alias with canonical brand name in query
+                q = _brand_intent + q[len(prefix):]
+                q_lower = q.lower().strip()
+                q_words = set(q_lower.split())
+                break
 
     # ── Condition-intent detection ──
     # If query contains "używany"/"uzywany" (or prefix like "uży"/"uzy"),
@@ -439,7 +514,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     else:
         # Standard text-matching: brand queries like "canon", "sony a7" etc.
         # Price matters more here (Canon → EOS R5, not RC-6 remote)
+        #
+        # Brand-intent: when detected, boost products of that brand (+300)
+        # and increase main_cat weight (80→150) so cameras/lenses beat accessories
+        _main_cat_weight = 150 if _brand_intent else 80
         scoring_functions = [
+            # Brand-intent boost — if user searches a brand, prefer that brand's products
+            *(
+                [{"filter": {"term": {"brand": _brand_intent}}, "weight": 300}]
+                if _brand_intent else []
+            ),
             # Popularity — strongest signal
             {
                 "field_value_factor": {
@@ -469,12 +553,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             # Bestseller — strong signal
             {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
             # Main product categories get boosted over accessories
+            # Higher weight when brand-intent detected (cameras > lens caps)
             {"filter": {"terms": {"subcategory": [
                 "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
                 "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
                 "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
                 "kamery cyfrowe", "kamery sportowe", "drony",
-            ]}}, "weight": 80},
+            ]}}, "weight": _main_cat_weight},
             # Image available
             {"filter": {"term": {"has_image": True}}, "weight": 10},
             # Promo
@@ -482,10 +567,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
             # Condition-based boost — dynamically switch based on user intent
+            # Higher "new" weight when brand-intent (prefer new over used products)
             *(
                 [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
                 if _used_intent else
-                [{"filter": {"term": {"condition": "new"}}, "weight": 25}]
+                [{"filter": {"term": {"condition": "new"}}, "weight": 50 if _brand_intent else 25}]
             ),
         ]
 
@@ -952,8 +1038,25 @@ async def search(
     if price_max is not None:
         filters.append({"range": {"price": {"lte": price_max}}})
 
-    # ── Condition-intent detection (same logic as suggest) ──
+    # ── Brand-intent detection (same logic as suggest) ──
+    await _ensure_brands(es)
     q_lower_s = q.lower().strip()
+    _brand_intent_s = _detect_brand_intent(q_lower_s)
+
+    # Rewrite alias in query text (e.g. "fuji xt5" → "Fujifilm xt5")
+    if _brand_intent_s:
+        canonical_lower_s = _brand_intent_s.lower()
+        tokens_s = q_lower_s.split()
+        for n in (2, 1):
+            if n > len(tokens_s):
+                continue
+            prefix_s = " ".join(tokens_s[:n])
+            if prefix_s in BRAND_ALIASES and BRAND_ALIASES[prefix_s] == canonical_lower_s:
+                q = _brand_intent_s + q[len(prefix_s):]
+                q_lower_s = q.lower().strip()
+                break
+
+    # ── Condition-intent detection (same logic as suggest) ──
     _used_intent_s = any(
         any(w.startswith(kw) for kw in USED_INTENT_PREFIXES)
         for w in q_lower_s.split()
@@ -997,7 +1100,31 @@ async def search(
         }
     }
 
-    query = {"bool": {"must": [must], "filter": filters}} if filters else must
+    base_query = {"bool": {"must": [must], "filter": filters}} if filters else must
+
+    # Wrap in function_score when brand-intent detected (same pattern as suggest)
+    if _brand_intent_s:
+        _main_cat_w_s = 150
+        query = {
+            "function_score": {
+                "query": base_query,
+                "functions": [
+                    {"filter": {"term": {"brand": _brand_intent_s}}, "weight": 300},
+                    {"filter": {"terms": {"subcategory": [
+                        "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
+                        "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+                        "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+                        "kamery cyfrowe", "kamery sportowe", "drony",
+                    ]}}, "weight": _main_cat_w_s},
+                    {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
+                    {"filter": {"term": {"condition": "new"}}, "weight": 50},
+                ],
+                "score_mode": "sum",
+                "boost_mode": "sum",
+            }
+        }
+    else:
+        query = base_query
 
     body: dict[str, Any] = {
         "query": query,

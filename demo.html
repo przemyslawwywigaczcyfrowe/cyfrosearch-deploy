@@ -498,7 +498,7 @@ fetch(`${API_BASE}/api/health`)
 input.addEventListener('input', () => {
   const q = input.value.trim();
   clearBtn.style.display = q ? 'block' : 'none';
-  if (q.length < 2) { hideDropdown(); return; }
+  if (q.length < 1) { hideDropdown(); return; }
 
   // If same as last query, skip
   if (q === lastQuery) return;
@@ -704,7 +704,7 @@ function renderDropdown(data, query) {
         input.value = mq;
         clearBtn.style.display = mq ? 'block' : 'none';
         clearTimeout(debounceTimer);
-        if (mq.length >= 2) {
+        if (mq.length >= 1) {
           debounceTimer = setTimeout(() => doSearch(mq), 80);
         } else if (mq.length === 0) {
           showZeroState();
@@ -763,7 +763,7 @@ function renderZeroState(data) {
         input.value = mq;
         clearBtn.style.display = mq ? 'block' : 'none';
         clearTimeout(debounceTimer);
-        if (mq.length >= 2) {
+        if (mq.length >= 1) {
           debounceTimer = setTimeout(() => doSearch(mq), 80);
         } else if (mq.length === 0) {
           showZeroState();
