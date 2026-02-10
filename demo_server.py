@@ -364,6 +364,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 },
                 "weight": 2,
             },
+            # Prefer NEW condition products over USED — same model, new ranks higher
+            {"filter": {"term": {"condition": "new"}}, "weight": 25},
         ]
     else:
         # Standard text-matching: brand queries like "canon", "sony a7" etc.
@@ -410,6 +412,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"is_promo": True}}, "weight": 20},
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
+            # Prefer NEW condition products over USED — same model, new ranks higher
+            {"filter": {"term": {"condition": "new"}}, "weight": 25},
         ]
 
     product_body = {
@@ -432,7 +436,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         },
         "_source": [
             "name", "brand", "price", "sale_price",
-            "availability", "image_url", "product_url",
+            "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
         ],
     }
@@ -1005,19 +1009,19 @@ async def widget_test_page(request: Request):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sklep Foto-Video — Widget Test</title>
+<title>cyfrowe.pl — Widget Test</title>
 <style>
   body {{ font-family: Arial, sans-serif; margin: 0; background: #f9f9f9; color: #333; }}
   header {{ background: #1a1a2e; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 20px; }}
-  header .logo {{ font-size: 20px; font-weight: bold; }}
-  header .logo span {{ color: #e94560; }}
+  header .logo {{ font-size: 20px; font-weight: bold; text-decoration: none; color: #fff; }}
+  header .logo span {{ color: #e53935; }}
   .search-box {{ flex: 1; max-width: 500px; }}
   .search-box input {{
     width: 100%; padding: 10px 14px; font-size: 14px;
     border: 2px solid #555; border-radius: 4px; background: #fff; color: #333;
     outline: none;
   }}
-  .search-box input:focus {{ border-color: #e94560; }}
+  .search-box input:focus {{ border-color: #e53935; }}
   nav {{ background: #16213e; padding: 8px 24px; display: flex; gap: 20px; }}
   nav a {{ color: #ccc; text-decoration: none; font-size: 13px; }}
   nav a:hover {{ color: #fff; }}
@@ -1025,19 +1029,19 @@ async def widget_test_page(request: Request):
   .banner {{ background: #fff; border-radius: 8px; padding: 40px; text-align: center; border: 1px solid #ddd; margin-bottom: 24px; }}
   .banner h1 {{ font-size: 22px; margin-bottom: 8px; }}
   .banner p {{ color: #777; }}
-  .code-box {{ background: #1a1a2e; color: #e94560; padding: 16px 20px; border-radius: 6px; font-family: monospace; font-size: 13px; margin: 20px 0; overflow-x: auto; }}
+  .code-box {{ background: #1a1a2e; color: #e53935; padding: 16px 20px; border-radius: 6px; font-family: monospace; font-size: 13px; margin: 20px 0; overflow-x: auto; }}
   .products {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }}
   .product {{ background: #fff; border: 1px solid #eee; border-radius: 6px; padding: 16px; text-align: center; }}
   .product .placeholder {{ width: 100px; height: 100px; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; }}
   .product .name {{ font-size: 13px; margin-bottom: 6px; }}
-  .product .price {{ font-weight: bold; color: #e94560; }}
+  .product .price {{ font-weight: bold; color: #e53935; }}
   footer {{ text-align: center; padding: 30px; color: #aaa; font-size: 12px; }}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">Foto<span>Sklep</span>.pl</div>
+  <div class="logo">cyfr<span>o</span>we.pl</div>
   <div class="search-box">
     <input type="search" id="search" placeholder="Szukaj aparatów, obiektywów, akcesoriów...">
   </div>
@@ -1070,7 +1074,7 @@ async def widget_test_page(request: Request):
 </main>
 
 <footer>
-  To jest strona testowa demonstrująca embedowalny widget CyfroSearch. Nie jest to prawdziwy sklep.
+  cyfrowe.pl — strona testowa demonstrująca embedowalny widget CyfroSearch.
 </footer>
 
 <!-- ✨ This is the only line needed to add CyfroSearch to any website ✨ -->

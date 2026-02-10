@@ -35,17 +35,17 @@
 
   // ── Inject CSS ──
   const WIDGET_CSS = `
-/* CyfroSearch Widget — Scoped styles */
+/* CyfroSearch Widget — Scoped styles (cyfrowe.pl design) */
 .cfs-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.2); z-index: 99998;
+  background: rgba(0,0,0,0.25); z-index: 99998;
 }
 .cfs-overlay.cfs-active { display: block; }
 .cfs-dropdown {
   display: none; position: absolute; z-index: 99999;
   background: #fff; border: 1px solid #ddd; box-shadow: 0 8px 30px rgba(0,0,0,0.18);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px; color: #333; width: 720px; max-width: 95vw;
+  font-size: 13px; color: #333; width: 780px; max-width: 95vw;
   overflow: hidden; border-radius: 0 0 6px 6px;
 }
 .cfs-dropdown.cfs-active { display: block; }
@@ -54,74 +54,76 @@
   font-size: 20px; cursor: pointer; color: #999; line-height: 1; z-index: 10; padding: 2px 6px;
 }
 .cfs-close:hover { color: #333; }
-.cfs-body { display: flex; min-height: 200px; }
+.cfs-body { display: flex; min-height: 220px; }
 
 /* Column 1: Queries + Categories */
-.cfs-col-left { width: 180px; min-width: 180px; border-right: 1px solid #eee; padding: 12px 0; }
-.cfs-heading { font-size: 11px; font-weight: 700; color: #333; padding: 0 12px 5px; text-transform: uppercase; letter-spacing: 0.3px; }
-.cfs-tags { padding: 0 8px 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.cfs-col-left { width: 200px; min-width: 200px; border-right: 1px solid #eee; padding: 14px 0; }
+.cfs-heading { font-size: 10px; font-weight: 700; color: #888; padding: 0 14px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.cfs-tags { padding: 0 10px 8px; display: flex; flex-wrap: wrap; gap: 5px; }
 .cfs-tag {
-  display: inline-block; padding: 3px 8px; background: #f0f0f0; border: 1px solid #ddd;
-  border-radius: 3px; font-size: 11px; color: #333; cursor: pointer; white-space: nowrap;
+  display: inline-block; padding: 4px 10px; background: #2c2c2c; border: none;
+  border-radius: 3px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap;
   transition: background 0.15s;
 }
-.cfs-tag:hover { background: #e0e0e0; }
-.cfs-cats { margin-top: 8px; }
+.cfs-tag:hover { background: #444; }
+.cfs-cats { margin-top: 10px; }
 .cfs-cat {
-  display: block; padding: 3px 12px; font-size: 12px; color: #333;
-  text-decoration: none; cursor: pointer;
+  display: block; padding: 4px 14px; font-size: 12px; color: #333;
+  text-decoration: none; cursor: pointer; line-height: 1.4;
 }
-.cfs-cat:hover { background: #f5f5f5; text-decoration: underline; }
-.cfs-cat mark { background: none; font-weight: 700; }
+.cfs-cat:hover { background: #f5f5f5; color: #0077b6; }
+.cfs-cat mark { background: none; font-weight: 700; color: #0077b6; }
 
 /* Column 2: Featured product */
 .cfs-col-feat {
-  width: 190px; min-width: 190px; border-right: 1px solid #eee;
-  padding: 12px 14px; display: flex; flex-direction: column; align-items: center;
+  width: 210px; min-width: 210px; border-right: 1px solid #eee;
+  padding: 14px; display: flex; flex-direction: column; align-items: center;
 }
-.cfs-feat-img { width: 130px; height: 130px; object-fit: contain; margin-bottom: 6px; }
+.cfs-feat-img { width: 150px; height: 150px; object-fit: contain; margin-bottom: 8px; }
 .cfs-feat-name {
-  font-size: 12px; color: #333; text-align: center; line-height: 1.3;
-  margin-bottom: 4px; text-decoration: none; display: -webkit-box;
+  font-size: 12px; color: #333; text-align: center; line-height: 1.35;
+  margin-bottom: 6px; text-decoration: none; display: -webkit-box;
   -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.cfs-feat-name:hover { text-decoration: underline; }
+.cfs-feat-name:hover { text-decoration: underline; color: #0077b6; }
 .cfs-feat-name mark { background: none; font-weight: 700; }
-.cfs-feat-price { font-size: 17px; font-weight: 700; color: #333; }
-.cfs-feat-old { font-size: 12px; color: #999; text-decoration: line-through; }
+.cfs-feat-brand { color: #0077b6; font-weight: 600; }
+.cfs-feat-price { font-size: 18px; font-weight: 700; color: #e53935; margin-top: 2px; }
+.cfs-feat-old { font-size: 12px; color: #999; text-decoration: line-through; margin-top: 1px; }
 
 /* Column 3: Product grid */
-.cfs-col-prods { flex: 1; padding: 12px 10px 12px 14px; min-width: 0; overflow: hidden; }
-.cfs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.cfs-col-prods { flex: 1; padding: 14px 12px 14px 16px; min-width: 0; overflow: hidden; }
+.cfs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .cfs-prod {
-  display: flex; align-items: center; gap: 6px; padding: 4px;
-  border-radius: 3px; text-decoration: none; color: inherit; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; padding: 5px;
+  border-radius: 4px; text-decoration: none; color: inherit; cursor: pointer;
 }
 .cfs-prod:hover { background: #f5f5f5; }
 .cfs-prod-img {
-  width: 48px; height: 48px; object-fit: contain; flex-shrink: 0;
-  border: 1px solid #eee; border-radius: 2px; background: #fafafa;
+  width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;
+  border: 1px solid #eee; border-radius: 3px; background: #fafafa;
 }
 .cfs-prod-info { min-width: 0; overflow: hidden; }
 .cfs-prod-name {
-  font-size: 11px; color: #333; line-height: 1.25;
+  font-size: 11px; color: #333; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; word-break: break-word;
 }
 .cfs-prod-name mark { background: none; font-weight: 700; }
-.cfs-prod-price { font-size: 12px; font-weight: 700; color: #333; margin-top: 1px; }
+.cfs-prod-brand { color: #0077b6; font-weight: 600; }
+.cfs-prod-price { font-size: 13px; font-weight: 700; color: #e53935; margin-top: 2px; }
 .cfs-prod-old { font-size: 10px; color: #999; text-decoration: line-through; }
 
 /* Footer */
 .cfs-footer {
-  border-top: 1px solid #eee; padding: 8px 14px; text-align: center;
+  border-top: 1px solid #eee; padding: 10px 14px; text-align: center;
 }
 .cfs-show-all {
-  display: inline-block; background: #333; color: #fff; padding: 8px 36px;
+  display: inline-block; background: #e53935; color: #fff; padding: 9px 40px;
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
   border: none; border-radius: 3px; cursor: pointer; text-decoration: none;
 }
-.cfs-show-all:hover { background: #555; }
+.cfs-show-all:hover { background: #c62828; }
 
 /* Powered by */
 .cfs-powered {
@@ -134,7 +136,7 @@
 .cfs-spinner { display: none; padding: 50px; text-align: center; width: 100%; }
 .cfs-spinner::after {
   content: ''; display: inline-block; width: 22px; height: 22px;
-  border: 3px solid #ddd; border-top-color: #333; border-radius: 50%;
+  border: 3px solid #ddd; border-top-color: #e53935; border-radius: 50%;
   animation: cfs-spin 0.6s linear infinite;
 }
 @keyframes cfs-spin { to { transform: rotate(360deg); } }
@@ -146,7 +148,7 @@
   .cfs-body { flex-direction: column; }
   .cfs-col-left { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; }
   .cfs-col-feat { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; flex-direction: row; gap: 12px; }
-  .cfs-feat-img { width: 70px; height: 70px; }
+  .cfs-feat-img { width: 80px; height: 80px; }
   .cfs-col-prods { padding: 8px; }
   .cfs-grid { grid-template-columns: 1fr; }
 }
@@ -179,6 +181,32 @@
     let r = esc(t);
     q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
       r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
+    });
+    return r;
+  }
+  function hlBrand(name, brand, q) {
+    if (!brand) return hl(name, q);
+    let r = esc(name);
+    // Highlight brand with colored span
+    const brandEsc = esc(brand);
+    r = r.replace(new RegExp("(" + er(brandEsc) + ")", "gi"), '<span class="cfs-prod-brand">$1</span>');
+    // Then highlight query terms (skip brand if already colored)
+    q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
+      if (w.toLowerCase() !== brand.toLowerCase()) {
+        r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
+      }
+    });
+    return r;
+  }
+  function hlFeatBrand(name, brand, q) {
+    if (!brand) return hl(name, q);
+    let r = esc(name);
+    const brandEsc = esc(brand);
+    r = r.replace(new RegExp("(" + er(brandEsc) + ")", "gi"), '<span class="cfs-feat-brand">$1</span>');
+    q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
+      if (w.toLowerCase() !== brand.toLowerCase()) {
+        r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
+      }
     });
     return r;
   }
@@ -222,7 +250,7 @@
   function positionDropdown() {
     if (!inputEl) return;
     const rect = inputEl.getBoundingClientRect();
-    const ddWidth = Math.min(720, window.innerWidth - 10);
+    const ddWidth = Math.min(780, window.innerWidth - 10);
     // Center under the search bar
     let left = rect.left + (rect.width / 2) - (ddWidth / 2);
     left = Math.max(5, Math.min(left, window.innerWidth - ddWidth - 5));
@@ -308,10 +336,10 @@
     if (featured) {
       const img = featured.image_url || PH_IMG;
       c2 += '<img class="cfs-feat-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'">';
-      c2 += '<a class="cfs-feat-name" href="' + ea(featured.product_url || '#') + '" target="_blank">' + (featured.highlight || esc(featured.name)) + '</a>';
-      c2 += '<div class="cfs-feat-price">' + fp(featured.price) + ' zł</div>';
+      c2 += '<a class="cfs-feat-name" href="' + ea(featured.product_url || '#') + '" target="_blank">' + hlFeatBrand(featured.name, featured.brand, query) + '</a>';
       if (featured.original_price && featured.original_price > featured.price)
         c2 += '<div class="cfs-feat-old">' + fp(featured.original_price) + ' zł</div>';
+      c2 += '<div class="cfs-feat-price">' + fp(featured.price) + ' zł</div>';
     }
     c2 += '</div>';
 
@@ -326,7 +354,7 @@
           ph = '<div class="cfs-prod-old">' + fp(p.original_price) + ' zł</div>' + ph;
         c3 += '<a class="cfs-prod" href="' + ea(p.product_url || '#') + '" target="_blank">' +
           '<img class="cfs-prod-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'">' +
-          '<div class="cfs-prod-info"><div class="cfs-prod-name">' + (p.highlight || esc(p.name)) + '</div>' + ph + '</div></a>';
+          '<div class="cfs-prod-info"><div class="cfs-prod-name">' + hlBrand(p.name, p.brand, query) + '</div>' + ph + '</div></a>';
       });
       c3 += '</div>';
     }
