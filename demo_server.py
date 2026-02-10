@@ -578,9 +578,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
         ]
 
-    # Temporary debug: log the brand intent
-    if _brand_intent:
-        print(f"[BRAND-INTENT] q='{q}', brand='{_brand_intent}', main_cat_weight={_main_cat_weight}, funcs={len(scoring_functions)}")
+    # Temporary debug: log the brand intent and matched category
+    print(f"[SUGGEST-DEBUG] q='{q}', q_for_es='{q_for_es}', brand='{_brand_intent}', matched_subcat='{matched_subcategory}', used={_used_intent}, main_cat_w={_main_cat_weight if not matched_subcategory else 'N/A (cat-intent)'}, funcs={len(scoring_functions)}")
 
     product_body = {
         "size": limit,
