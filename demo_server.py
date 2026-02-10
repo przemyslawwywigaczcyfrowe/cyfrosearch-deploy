@@ -579,11 +579,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         ]
 
     # Temporary debug: log the brand intent and matched category
-    print(f"[SUGGEST-DEBUG] q='{q}', q_for_es='{q_for_es}', brand='{_brand_intent}', matched_subcat='{matched_subcategory}', used={_used_intent}, main_cat_w={_main_cat_weight if not matched_subcategory else 'N/A (cat-intent)'}, funcs={len(scoring_functions)}")
-    # Log first product in ES response for comparison
-    import json as _json
-    _dbg_body = _json.dumps(product_body, ensure_ascii=False)[:2000]
-    print(f"[SUGGEST-QUERY] {_dbg_body}")
+    print(f"[SUGGEST-DEBUG] q='{q}', brand='{_brand_intent}', matched_subcat='{matched_subcategory}', funcs={len(scoring_functions)}")
 
     product_body = {
         "size": limit,
@@ -724,6 +720,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
+                "_score": round(hit.get("_score", 0), 2),
             })
     except Exception as e:
         print(f"Product parse error: {e}")
