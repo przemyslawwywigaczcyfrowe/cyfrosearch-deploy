@@ -231,9 +231,36 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     # Additional useful aliases
     "klatka": ["klatki"],
     "plecak": ["plecaki fotograficzne"],
+    "plecaki": ["plecaki fotograficzne"],
+    "plecak fotograficzny": ["plecaki fotograficzne"],
     "statyw": ["statywy (trójnogi)", "statywy do filmowania"],
     "filtr": ["filtry", "połówkowe i szare"],
     "akumulator": ["akumulatory i baterie"],
+    # pasek / paski → strap subcategory
+    "pasek": ["paski", "pasy biodrowe, szelki i kamizelki"],
+    "paski": ["paski", "pasy biodrowe, szelki i kamizelki"],
+    # karta sd / karty sd → memory card subcategories
+    "karta sd": ["SD / SDHC / SDXC", "SD / SDHC"],
+    "karty sd": ["SD / SDHC / SDXC", "SD / SDHC"],
+    "karta pamięci": ["SD / SDHC / SDXC", "CFexpress", "microSD",
+                       "SD / SDHC", "CompactFlash"],
+    "karta cfexpress": ["CFexpress", "CFexpress Typ A", "CFexpress Type B"],
+    "karta microsd": ["microSD"],
+    # softbox → all softbox subcategories
+    "softbox": ["softboxy", "softboxy oktagonalne", "softboxy prostokątne",
+                "softboxy heksagonalne", "softboxy paraboliczne", "softboxy wideo",
+                "stripboxy"],
+    "softboxy": ["softboxy", "softboxy oktagonalne", "softboxy prostokątne",
+                 "softboxy heksagonalne", "softboxy paraboliczne", "softboxy wideo",
+                 "stripboxy"],
+    # gimbal → gimbal subcategories
+    "gimbal": ["gimbale", "stabilizatory", "systemy stabilizacji"],
+    "gimbale": ["gimbale", "stabilizatory", "systemy stabilizacji"],
+    # statyw oświetleniowy
+    "statyw oswietleniowy": ["statywy studyjne", "statywy wolnostojące",
+                              "statywy podłogowe (piesek)"],
+    "statyw oświetleniowy": ["statywy studyjne", "statywy wolnostojące",
+                              "statywy podłogowe (piesek)"],
 }
 
 # Brand cache — populated once from ES on first request
@@ -421,16 +448,36 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # If the query matches a subcategory name (or a CATEGORY_ALIAS), treat it as a
     # category search — filter to those subcategories so accessories and bundles
     # don't pollute results. Supports MULTIPLE subcategories via CATEGORY_ALIASES.
-    # IMPORTANT: Skip category-intent when brand-intent is detected — brand takes priority
+    # When brand-intent is active, check the REMAINDER of the query (after removing
+    # brand name) for category aliases (e.g. "peak design paski" → brand=Peak Design + cat=paski).
     matched_subcategories: list[str] | None = None
-    if not _brand_intent:
-        q_folded = _fold_polish(q_lower)
+
+    # Determine what text to check for category aliases
+    _cat_check_text = q_lower
+    if _brand_intent:
+        # Remove brand name from query to check remainder for category intent
+        brand_lower = _brand_intent.lower()
+        remainder = q_lower.replace(brand_lower, "").strip()
+        # Also try removing alias form
+        for alias, canonical in BRAND_ALIASES.items():
+            if canonical == brand_lower and alias in q_lower:
+                remainder2 = q_lower.replace(alias, "").strip()
+                if len(remainder2) > len(remainder):
+                    pass  # keep shorter remainder
+                else:
+                    remainder = remainder2
+        _cat_check_text = remainder if remainder else ""
+
+    if _cat_check_text:
+        q_folded = _fold_polish(_cat_check_text)
         # 0) Alias match — CATEGORY_ALIASES handles singular forms, short words
-        if q_lower in CATEGORY_ALIASES:
-            matched_subcategories = CATEGORY_ALIASES[q_lower]
+        if _cat_check_text in CATEGORY_ALIASES:
+            matched_subcategories = CATEGORY_ALIASES[_cat_check_text]
         elif q_folded in CATEGORY_ALIASES:
             matched_subcategories = CATEGORY_ALIASES[q_folded]
-        elif _subcategory_set:
+    if not matched_subcategories and not _brand_intent and _cat_check_text:
+        q_folded = _fold_polish(_cat_check_text)
+        if _subcategory_set:
             # 1) Exact match (with original Polish characters)
             if q_lower in _subcategory_set:
                 es_key = _subcategory_lower_to_original.get(q_lower, q_lower)
@@ -485,9 +532,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if len(matched_subcategories) == 1
             else {"terms": {"subcategory": matched_subcategories}}
         )
+        # When both brand-intent and category-intent are active (e.g. "peak design paski"),
+        # combine both filters: brand + subcategory
+        _combined_filters = [subcat_filter]
+        if _brand_intent:
+            _combined_filters.append({"term": {"brand": _brand_intent}})
         product_bool_query = {
             "constant_score": {
-                "filter": subcat_filter,
+                "filter": {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter,
                 "boost": 1,
             }
         }
