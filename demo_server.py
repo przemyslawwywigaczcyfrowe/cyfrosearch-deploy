@@ -358,8 +358,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # If the query exactly matches (or closely matches) a subcategory name,
     # treat it as a category search — filter to that subcategory so accessories
     # like "adapter do obiektywów" don't pollute results for "obiektywy do lustrzanek"
+    # IMPORTANT: Skip category-intent when brand-intent is detected — brand takes priority
+    # (e.g. "nikon" is both a brand and a subcategory "do Nikon"/etc., but user means the brand)
     matched_subcategory: str | None = None
-    if _subcategory_set:
+    if _subcategory_set and not _brand_intent:
         # 1) Exact match (with original Polish characters)
         if q_lower in _subcategory_set:
             matched_subcategory = q_lower
