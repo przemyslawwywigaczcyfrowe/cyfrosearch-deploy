@@ -186,6 +186,7 @@ USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 BRAND_ALIASES: dict[str, str] = {
     "fuji": "fujifilm",
     "pana": "panasonic",
+    "think tank": "thinktank",
 }
 
 # ── Category-intent aliases ──
@@ -261,6 +262,46 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
                               "statywy podłogowe (piesek)"],
     "statyw oświetleniowy": ["statywy studyjne", "statywy wolnostojące",
                               "statywy podłogowe (piesek)"],
+    # mikrofon → microphone subcategories
+    "mikrofon": ["mikrofony", "mikrofony bezprzewodowe", "systemy bezprzewodowe"],
+    "mikrofony": ["mikrofony", "mikrofony bezprzewodowe", "systemy bezprzewodowe"],
+    "mic": ["mikrofony", "mikrofony bezprzewodowe", "systemy bezprzewodowe"],
+    # lampa led → LED light subcategories
+    "lampa led": ["lampy LED", "lampy studyjne LED", "lampy panelowe LED",
+                  "miecze świetlne LED", "lampy pierścieniowe LED"],
+    "lampy led": ["lampy LED", "lampy studyjne LED", "lampy panelowe LED",
+                  "miecze świetlne LED", "lampy pierścieniowe LED"],
+    # instax → instant cameras (NOT albums!)
+    "instax": ["kompakty z natychmiastowym wydrukiem", "mobilne do fotografii natychmiastowej",
+               "Instax / Polaroid"],
+    # klatka → cage subcategories (broader)
+    "klatki": ["klatki", "zestawy do foto-video"],
+    # blenda → reflector subcategories
+    "blenda": ["blendy", "mocowania do blend i paneli"],
+    "blendy": ["blendy", "mocowania do blend i paneli"],
+    # monopod
+    "monopod": ["statywy monopody"],
+    "monopody": ["statywy monopody"],
+    # boom → boom stands
+    "boom": ["statywy typu boom"],
+    # beauty dish
+    "beauty dish": ["beauty dish"],
+    # strumienica → snoot subcategories
+    "strumienica": ["strumienice"],
+    "strumienice": ["strumienice"],
+    # monitor podglądowy
+    "monitor podgladowy": ["Monitory podglądowe"],
+    "monitor podglądowy": ["Monitory podglądowe"],
+    "monitory podgladowe": ["Monitory podglądowe"],
+    "monitory podglądowe": ["Monitory podglądowe"],
+    # karta cf express
+    "karta cf express": ["CFexpress", "CFexpress Typ A", "CFexpress Type B"],
+    "karta cfexpress": ["CFexpress", "CFexpress Typ A", "CFexpress Type B"],
+    # hdmi
+    "hdmi": ["HDMI"],
+    # torba fotograficzna
+    "torba fotograficzna": ["torby fotograficzne", "torby kufry i walizki"],
+    "torby fotograficzne": ["torby fotograficzne", "torby kufry i walizki"],
 }
 
 # Brand cache — populated once from ES on first request
@@ -451,6 +492,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # When brand-intent is active, check the REMAINDER of the query (after removing
     # brand name) for category aliases (e.g. "peak design paski" → brand=Peak Design + cat=paski).
     matched_subcategories: list[str] | None = None
+    _cat_remainder_text: str = ""  # remaining query text after stripping category prefix
 
     # Determine what text to check for category aliases
     _cat_check_text = q_lower
@@ -475,6 +517,24 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             matched_subcategories = CATEGORY_ALIASES[_cat_check_text]
         elif q_folded in CATEGORY_ALIASES:
             matched_subcategories = CATEGORY_ALIASES[q_folded]
+        # 0b) First-word alias match — "klatka sony a7 iv" → check "klatka"
+        #     Also try first two words: "lampa led godox" → check "lampa led"
+        #     Saves the REMAINDER text for use in text-matching within the category.
+        if not matched_subcategories:
+            cat_tokens = _cat_check_text.split()
+            for nw in (2, 1):
+                if nw > len(cat_tokens) or nw >= len(cat_tokens):
+                    continue  # only if there are MORE words after the prefix
+                prefix_cat = " ".join(cat_tokens[:nw])
+                prefix_folded = _fold_polish(prefix_cat)
+                if prefix_cat in CATEGORY_ALIASES:
+                    matched_subcategories = CATEGORY_ALIASES[prefix_cat]
+                    _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
+                    break
+                elif prefix_folded in CATEGORY_ALIASES:
+                    matched_subcategories = CATEGORY_ALIASES[prefix_folded]
+                    _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
+                    break
     if not matched_subcategories and not _brand_intent and _cat_check_text:
         q_folded = _fold_polish(_cat_check_text)
         if _subcategory_set:
@@ -523,9 +583,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
     # Build the core bool query — if category intent detected, add a strong category filter
     if matched_subcategories:
-        # Category-intent query: use constant_score filter so BM25 text relevance
-        # does NOT affect ranking — all products in the category are equally relevant.
-        # Ranking comes entirely from function_score (popularity, pageviews, etc.)
+        # Category-intent query: filter to subcategories.
         # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
         subcat_filter = (
             {"term": {"subcategory": matched_subcategories[0]}}
@@ -537,12 +595,37 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         _combined_filters = [subcat_filter]
         if _brand_intent:
             _combined_filters.append({"term": {"brand": _brand_intent}})
-        product_bool_query = {
-            "constant_score": {
-                "filter": {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter,
-                "boost": 1,
+        _all_cat_filters = {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter
+
+        if _cat_remainder_text:
+            # Category + additional text (e.g. "klatka sony a7 iv" → cat=klatki, text="sony a7 iv")
+            # Use text matching within the category filter so results are relevant to remainder
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": _cat_remainder_text,
+                                "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
+                                           "name.folded^2", "brand^3"],
+                                "fuzziness": "AUTO",
+                                "prefix_length": 2,
+                                "minimum_should_match": "70%",
+                            }
+                        }
+                    ],
+                    "filter": [_all_cat_filters],
+                }
             }
-        }
+        else:
+            # Pure category browse (e.g. "lampa", "karta sd") — constant_score
+            # so BM25 text relevance does NOT affect ranking
+            product_bool_query = {
+                "constant_score": {
+                    "filter": _all_cat_filters,
+                    "boost": 1,
+                }
+            }
     else:
         # Standard text-matching query
         q_trimmed = q.strip()
