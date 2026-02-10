@@ -411,6 +411,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Standard text-matching query
         q_trimmed = q.strip()
         q_upper = q_trimmed.upper()
+        # When brand-intent detected, reduce phrase match boosts so that
+        # function_score signals (brand +300, main_cat +300, price) can outweigh
+        # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
+        _phrase_boost = 10 if _brand_intent else 50
+        _phrase_prefix_boost = 2 if _brand_intent else 5
         product_bool_query = {
             "bool": {
                 "should": [
@@ -431,12 +436,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     },
                     {
                         "match_phrase": {
-                            "name": {"query": q_for_es, "boost": 50}
+                            "name": {"query": q_for_es, "boost": _phrase_boost}
                         }
                     },
                     {
                         "match_phrase_prefix": {
-                            "name": {"query": q_for_es, "boost": 5}
+                            "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
                         }
                     },
                     # Exact-match on keyword fields (case-sensitive) for product codes
@@ -580,9 +585,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
         ]
 
-    # Temporary debug: log the brand intent and matched category
-    print(f"[SUGGEST-DEBUG] q='{q}', brand='{_brand_intent}', matched_subcat='{matched_subcategory}', funcs={len(scoring_functions)}")
-
     product_body = {
         "size": limit,
         "query": {
@@ -722,7 +724,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
-                "_score": round(hit.get("_score", 0), 2),
             })
     except Exception as e:
         print(f"Product parse error: {e}")
@@ -768,14 +769,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "time_ms": 0,
             "total_products": len(product_results),
             "cached": False,
-        },
-        "_debug": {
-            "brand_intent": _brand_intent,
-            "matched_subcategory": matched_subcategory,
-            "used_intent": _used_intent,
-            "q_for_es": q_for_es,
-            "num_scoring_functions": len(scoring_functions),
-            "is_cat_intent": matched_subcategory is not None,
         },
         "popular_queries": popular_queries[:5],
         "categories": category_results[:5],
@@ -1201,73 +1194,6 @@ async def search(
 # ──────────────────────────────────────────────────
 # HEALTH
 # ──────────────────────────────────────────────────
-
-@app.get("/api/debug-brand")
-async def debug_brand(q: str = Query("nikon"), limit: int = 5):
-    """Debug endpoint to verify brand-intent detection and raw ES scores."""
-    es = await get_es()
-    await _ensure_brands(es)
-    q_lower = q.lower().strip()
-    brand = _detect_brand_intent(q_lower)
-
-    # Build the EXACT same query as _suggest_internal
-    q_norm = _merge_mark_roman(_normalize_model_query(q))
-    q_for_es = q_norm
-    scoring_functions = []
-    _main_cat_weight = 300 if brand else 80
-    _price_weight = 30 if brand else 15
-    if brand:
-        scoring_functions.append({"filter": {"term": {"brand": brand}}, "weight": 300})
-    scoring_functions.extend([
-        {"field_value_factor": {"field": "ga4.popularity_score", "factor": 1.5, "modifier": "log1p", "missing": 0}, "weight": 80},
-        {"field_value_factor": {"field": "sales_30d", "factor": 1.0, "modifier": "log1p", "missing": 0}, "weight": 30},
-        {"field_value_factor": {"field": "price", "factor": 0.001, "modifier": "log1p", "missing": 0}, "weight": _price_weight},
-        {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
-        {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
-        {"filter": {"terms": {"subcategory": [
-            "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
-            "obiektywy sta\u0142oogniskowe", "obiektywy zmiennoogniskowe (zoom)",
-            "obiektywy do lustrzanek", "obiektywy do bezlusterkowc\u00f3w",
-            "kamery cyfrowe", "kamery sportowe", "drony",
-        ]}}, "weight": _main_cat_weight},
-        {"filter": {"term": {"has_image": True}}, "weight": 10},
-        {"filter": {"term": {"is_promo": True}}, "weight": 20},
-        {"filter": {"term": {"is_new": True}}, "weight": 30},
-        {"filter": {"term": {"condition": "new"}}, "weight": 50 if brand else 25},
-    ])
-    body = {
-        "size": limit,
-        "query": {
-            "function_score": {
-                "query": {
-                    "bool": {
-                        "should": [
-                            {"multi_match": {"query": q_for_es, "type": "best_fields", "fields": ["name^3", "name.prefix^2", "name.morfologik^2", "name.folded^2", "brand^3", "sku^6", "ean^6", "manufacturer_code^8", "id_erp^8"], "fuzziness": "AUTO", "prefix_length": 2, "minimum_should_match": "70%"}},
-                            {"match_phrase": {"name": {"query": q_for_es, "boost": 50}}},
-                            {"match_phrase_prefix": {"name": {"query": q_for_es, "boost": 5}}},
-                        ],
-                        "minimum_should_match": 1,
-                    }
-                },
-                "functions": scoring_functions,
-                "score_mode": "sum",
-                "boost_mode": "sum",
-                "max_boost": 2000,
-            }
-        },
-        "_source": ["name", "brand", "subcategory", "availability", "condition", "ga4.popularity_score", "price"],
-    }
-    resp = await es.search(index=ES_INDEX, body=body)
-    hits = []
-    for h in resp["hits"]["hits"]:
-        hits.append({"id": h["_id"], "score": round(h["_score"], 2), "src": h["_source"]})
-    return {
-        "brand_intent": brand,
-        "main_cat_weight": _main_cat_weight,
-        "num_functions": len(scoring_functions),
-        "total_hits": resp["hits"]["total"]["value"],
-        "hits": hits,
-    }
 
 
 @app.get("/api/health")
