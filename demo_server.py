@@ -507,6 +507,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _focal_intent else []
         )
 
+        # Brand-intent filter: restrict to products of the detected brand.
+        # This prevents 3rd-party products with brand name in title
+        # (e.g. "7Artisans 50mm Canon R") from outscoring actual brand products
+        # due to high BM25 text match on the brand name in the product name.
+        _brand_filter = (
+            [{"term": {"brand": _brand_intent}}]
+            if _brand_intent else []
+        )
+
         product_bool_query = {
             "bool": {
                 "should": [
@@ -545,8 +554,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
                 ],
                 "minimum_should_match": 1,
-                # Focal-length intent: restrict to lens subcategories
-                **({"filter": _focal_filter} if _focal_filter else {}),
+                # Filters: brand-intent + focal-length intent (both optional)
+                "filter": _brand_filter + _focal_filter,
             }
         }
 
@@ -775,10 +784,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     }
 
     # ── Execute all 3 queries as a single msearch call ──
+    # Use a fixed "preference" so ES always routes to the SAME shard copy.
+    # Without this, ES round-robins between primary and replica, which can
+    # return different BM25 scores (term statistics diverge after bulk writes).
+    _msearch_header = {"index": ES_INDEX, "preference": "cyfrosearch"}
     try:
         msearch_body = []
         for body in (product_body, agg_body, suggest_source_body):
-            msearch_body.append({"index": ES_INDEX})
+            msearch_body.append(_msearch_header)
             msearch_body.append(body)
 
         ms_resp = await es.msearch(body=msearch_body)
@@ -1260,7 +1273,7 @@ async def search(
     elif sort == "popularity":
         body["sort"] = [{"ga4.popularity_score": {"order": "desc", "missing": "_last"}}]
 
-    resp = await es.search(index=ES_INDEX, body=body)
+    resp = await es.search(index=ES_INDEX, body=body, preference="cyfrosearch")
     total = resp["hits"]["total"]["value"]
 
     products = []
@@ -1330,8 +1343,9 @@ async def trending():
     es = await get_es()
     try:
         # Two queries in one msearch: top products + top categories
+        _hdr = {"index": ES_INDEX, "preference": "cyfrosearch"}
         msearch_body = [
-            {"index": ES_INDEX},
+            _hdr,
             {
                 "size": 6,
                 "query": {
@@ -1377,7 +1391,7 @@ async def trending():
                     "image_url", "product_url", "is_bestseller", "is_promo", "is_new",
                 ],
             },
-            {"index": ES_INDEX},
+            _hdr,
             {
                 "size": 0,
                 "query": {"term": {"availability": "in_stock"}},
