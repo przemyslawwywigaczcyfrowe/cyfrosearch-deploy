@@ -65,7 +65,7 @@
   border-radius: 4px; font-size: 12px; color: #fff; cursor: pointer; white-space: nowrap;
   transition: background 0.15s;
 }
-.cfs-tag:hover { background: #555; }
+.cfs-tag:hover, .cfs-tag.cfs-tag-active { background: #555; }
 .cfs-cats { margin-top: 6px; }
 .cfs-cat {
   display: block; padding: 4px 16px; font-size: 13px; color: #333;
@@ -203,6 +203,20 @@
     });
     return r;
   }
+  function hlInverted(text, query) {
+    // Inverted highlighting for query suggestions: bold the UN-typed part
+    const qLower = query.toLowerCase().trim();
+    const tLower = text.toLowerCase();
+    const idx = tLower.indexOf(qLower);
+    if (idx >= 0) {
+      const before = esc(text.substring(0, idx));
+      const match = esc(text.substring(idx, idx + qLower.length));
+      const after = esc(text.substring(idx + qLower.length));
+      return (before ? '<strong>' + before + '</strong>' : '') + match + (after ? '<strong>' + after + '</strong>' : '');
+    }
+    // Fallback: bold entire suggestion
+    return '<strong>' + esc(text) + '</strong>';
+  }
   const PH_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3C/svg%3E";
 
   // ── Client-side cache ──
@@ -211,6 +225,10 @@
   function cacheGet(k) { const e = _cache.get(k); if (e && Date.now() - e.ts < CACHE_TTL) return e.data; _cache.delete(k); return null; }
   function cachePut(k, d) { _cache.set(k, { ts: Date.now(), data: d }); if (_cache.size > 200) _cache.delete(_cache.keys().next().value); }
 
+  // ── Zero-state (trending) cache ──
+  let _trendingData = null;
+  let _trendingFetching = false;
+
   // ── Create DOM elements ──
   const overlay = document.createElement("div");
   overlay.className = "cfs-overlay";
@@ -218,7 +236,9 @@
 
   const dropdown = document.createElement("div");
   dropdown.className = "cfs-dropdown";
-  dropdown.innerHTML = '<button class="cfs-close">&times;</button><div class="cfs-spinner"></div><div class="cfs-content"></div>';
+  dropdown.setAttribute("role", "listbox");
+  dropdown.setAttribute("id", "cfs-listbox");
+  dropdown.innerHTML = '<button class="cfs-close" aria-label="Zamknij">&times;</button><div class="cfs-spinner"></div><div class="cfs-content"></div>';
   document.body.appendChild(dropdown);
 
   const closeBtn = dropdown.querySelector(".cfs-close");
@@ -234,10 +254,12 @@
   function showDropdown() {
     dropdown.classList.add("cfs-active");
     overlay.classList.add("cfs-active");
+    if (inputEl) inputEl.setAttribute("aria-expanded", "true");
   }
   function hideDropdown() {
     dropdown.classList.remove("cfs-active");
     overlay.classList.remove("cfs-active");
+    if (inputEl) inputEl.setAttribute("aria-expanded", "false");
   }
 
   function positionDropdown() {
@@ -309,8 +331,8 @@
     let c1 = '<div class="cfs-col-left">';
     if (data.popular_queries?.length) {
       c1 += '<div class="cfs-heading">Zapytania</div><div class="cfs-tags">';
-      data.popular_queries.forEach(pq => {
-        c1 += '<span class="cfs-tag" data-cfs-search="' + ea(pq.text) + '">' + esc(pq.text) + '</span>';
+      data.popular_queries.forEach((pq, idx) => {
+        c1 += '<span class="cfs-tag" role="option" id="cfs-opt-' + idx + '" data-cfs-search="' + ea(pq.text) + '">' + hlInverted(pq.text, query) + '</span>';
       });
       c1 += '</div>';
     }
@@ -366,6 +388,74 @@
     });
   }
 
+  // ── Zero-state (trending) rendering ──
+  function renderZeroState(data) {
+    if (!data.products?.length && !data.categories?.length) return;
+
+    let c1 = '<div class="cfs-col-left" style="width:220px;min-width:220px;">';
+    c1 += '<div class="cfs-heading">Popularne kategorie</div>';
+    if (data.categories?.length) {
+      c1 += '<div class="cfs-cats">';
+      data.categories.forEach(cat => {
+        c1 += '<a class="cfs-cat" data-cfs-search="' + ea(cat.name) + '">' + esc(cat.name) + ' <span style="color:#999;font-size:11px;">(' + cat.count + ')</span></a>';
+      });
+      c1 += '</div>';
+    }
+    c1 += '</div>';
+
+    let c2 = '<div class="cfs-col-prods" style="flex:1;padding:16px 14px;">';
+    c2 += '<div class="cfs-heading">Popularne produkty</div>';
+    if (data.products?.length) {
+      c2 += '<div class="cfs-grid">';
+      data.products.forEach(p => {
+        const img = p.image_url || PH_IMG;
+        let ph = '<div class="cfs-prod-price">' + fp(p.price) + ' zł</div>';
+        if (p.original_price && p.original_price > p.price)
+          ph = '<div class="cfs-prod-old">' + fp(p.original_price) + ' zł</div>' + ph;
+        const badgeHtml = p.badge ? '<div style="font-size:10px;color:#e53935;font-weight:700;">' + esc(p.badge) + '</div>' : '';
+        c2 += '<a class="cfs-prod" href="' + ea(p.product_url || '#') + '" target="_blank">' +
+          '<img class="cfs-prod-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'">' +
+          '<div class="cfs-prod-info">' + badgeHtml + '<div class="cfs-prod-name">' + esc(p.name) + '</div>' + ph + '</div></a>';
+      });
+      c2 += '</div>';
+    }
+    c2 += '</div>';
+
+    content.innerHTML = '<div class="cfs-body">' + c1 + c2 + '</div>';
+
+    // Bind click events for category links
+    content.querySelectorAll("[data-cfs-search]").forEach(el => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        searchFor(el.getAttribute("data-cfs-search"));
+      });
+    });
+  }
+
+  async function showZeroState() {
+    if (_trendingData) {
+      renderZeroState(_trendingData);
+      positionDropdown();
+      showDropdown();
+      return;
+    }
+    if (_trendingFetching) return;
+    _trendingFetching = true;
+    try {
+      const resp = await fetch(CFG.api + "/api/trending");
+      _trendingData = await resp.json();
+      _trendingFetching = false;
+      // Only show if input is still empty and focused
+      if (inputEl && inputEl === document.activeElement && inputEl.value.trim().length === 0) {
+        renderZeroState(_trendingData);
+        positionDropdown();
+        showDropdown();
+      }
+    } catch (e) {
+      _trendingFetching = false;
+    }
+  }
+
   // ── Attach to input ──
   function init() {
     inputEl = document.querySelector(CFG.inputSelector);
@@ -379,6 +469,13 @@
     inputEl.setAttribute("autocomplete", "off");
     inputEl.setAttribute("autocorrect", "off");
     inputEl.setAttribute("spellcheck", "false");
+
+    // WAI-ARIA Combobox Pattern
+    inputEl.setAttribute("role", "combobox");
+    inputEl.setAttribute("aria-autocomplete", "list");
+    inputEl.setAttribute("aria-expanded", "false");
+    inputEl.setAttribute("aria-haspopup", "listbox");
+    inputEl.setAttribute("aria-owns", "cfs-listbox");
 
     // Warm up connection
     fetch(CFG.api + "/api/health").catch(() => {});
@@ -400,14 +497,43 @@
     });
 
     inputEl.addEventListener("focus", () => {
-      if (inputEl.value.trim().length >= CFG.minChars && content.innerHTML) {
+      const q = inputEl.value.trim();
+      if (q.length >= CFG.minChars && content.innerHTML) {
         positionDropdown();
         showDropdown();
+      } else if (q.length === 0) {
+        showZeroState();
       }
     });
 
     inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { hideDropdown(); inputEl.blur(); }
+      if (e.key === "Escape") { hideDropdown(); inputEl.blur(); return; }
+      if (!dropdown.classList.contains("cfs-active")) return;
+
+      const tags = content.querySelectorAll(".cfs-tag");
+      if (!tags.length) return;
+
+      let activeIdx = -1;
+      tags.forEach((t, i) => { if (t.classList.contains("cfs-tag-active")) activeIdx = i; });
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIdx = (activeIdx + 1) % tags.length;
+        tags.forEach(t => t.classList.remove("cfs-tag-active"));
+        tags[activeIdx].classList.add("cfs-tag-active");
+        tags[activeIdx].scrollIntoView({ block: "nearest" });
+        inputEl.setAttribute("aria-activedescendant", "cfs-opt-" + activeIdx);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIdx = activeIdx <= 0 ? tags.length - 1 : activeIdx - 1;
+        tags.forEach(t => t.classList.remove("cfs-tag-active"));
+        tags[activeIdx].classList.add("cfs-tag-active");
+        tags[activeIdx].scrollIntoView({ block: "nearest" });
+        inputEl.setAttribute("aria-activedescendant", "cfs-opt-" + activeIdx);
+      } else if (e.key === "Enter" && activeIdx >= 0) {
+        e.preventDefault();
+        searchFor(tags[activeIdx].getAttribute("data-cfs-search"));
+      }
     });
 
     overlay.addEventListener("click", hideDropdown);

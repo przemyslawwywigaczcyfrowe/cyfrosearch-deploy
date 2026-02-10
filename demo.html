@@ -122,7 +122,7 @@
     cursor: pointer; transition: background 0.15s;
     white-space: nowrap;
   }
-  .query-tag:hover { background: #555; }
+  .query-tag:hover, .query-tag.tag-active { background: #555; }
 
   .cat-section { margin-top: 6px; }
   .cat-link {
@@ -287,7 +287,7 @@
   <a class="logo" href="#">cyfr<span>o</span>we.pl</a>
   <div class="search-wrapper">
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Szukaj produktow... np. Sony A7IV, obiektyw 50mm, statyw" autocomplete="off" autocorrect="off" spellcheck="false">
+      <input type="text" id="search-input" placeholder="Szukaj produktow... np. Sony A7IV, obiektyw 50mm, statyw" autocomplete="off" autocorrect="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" aria-owns="suggest-listbox">
       <button class="clear-btn" id="clear-btn">&times;</button>
       <button class="search-btn" id="search-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></svg>
@@ -300,7 +300,7 @@
 <div class="dropdown-overlay" id="overlay"></div>
 
 <!-- Dropdown (outside search-wrapper, fixed position) -->
-<div class="dropdown" id="dropdown">
+<div class="dropdown" id="dropdown" role="listbox" id="suggest-listbox">
   <button class="dropdown-close" id="dropdown-close">&times;</button>
   <div class="spinner" id="spinner"></div>
   <div id="dropdown-content"></div>
@@ -365,6 +365,8 @@ const spinner = document.getElementById('spinner');
 let debounceTimer = null;
 let currentRequest = null;
 let lastQuery = '';
+let _trendingData = null;
+let _trendingFetching = false;
 
 // Client-side response cache (avoids network for repeated queries)
 const _clientCache = new Map();
@@ -415,14 +417,39 @@ input.addEventListener('input', () => {
 });
 
 input.addEventListener('focus', () => {
-  if (input.value.trim().length >= 2 && dropdownContent.innerHTML) showDropdown();
+  const q = input.value.trim();
+  if (q.length >= 2 && dropdownContent.innerHTML) showDropdown();
+  else if (q.length === 0) showZeroState();
 });
 
 overlay.addEventListener('click', hideDropdown);
 closeBtn.addEventListener('click', hideDropdown);
 
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hideDropdown(); input.blur(); }
+  if (e.key === 'Escape') { hideDropdown(); input.blur(); return; }
+  if (!dropdown.classList.contains('active')) return;
+  const tags = dropdownContent.querySelectorAll('.query-tag');
+  if (!tags.length) return;
+  let activeIdx = -1;
+  tags.forEach((t, i) => { if (t.classList.contains('tag-active')) activeIdx = i; });
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIdx = (activeIdx + 1) % tags.length;
+    tags.forEach(t => t.classList.remove('tag-active'));
+    tags[activeIdx].classList.add('tag-active');
+    tags[activeIdx].scrollIntoView({ block: 'nearest' });
+    input.setAttribute('aria-activedescendant', 'opt-' + activeIdx);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIdx = activeIdx <= 0 ? tags.length - 1 : activeIdx - 1;
+    tags.forEach(t => t.classList.remove('tag-active'));
+    tags[activeIdx].classList.add('tag-active');
+    tags[activeIdx].scrollIntoView({ block: 'nearest' });
+    input.setAttribute('aria-activedescendant', 'opt-' + activeIdx);
+  } else if (e.key === 'Enter' && activeIdx >= 0) {
+    e.preventDefault();
+    tags[activeIdx].click();
+  }
 });
 
 clearBtn.addEventListener('click', () => {
@@ -436,10 +463,12 @@ clearBtn.addEventListener('click', () => {
 function showDropdown() {
   dropdown.classList.add('active');
   overlay.classList.add('active');
+  input.setAttribute('aria-expanded', 'true');
 }
 function hideDropdown() {
   dropdown.classList.remove('active');
   overlay.classList.remove('active');
+  input.setAttribute('aria-expanded', 'false');
 }
 
 async function doSearch(q) {
@@ -498,8 +527,8 @@ function renderDropdown(data, query) {
   let c1 = '<div class="col-queries">';
   if (data.popular_queries?.length > 0) {
     c1 += '<div class="col-heading">Zapytania</div><div class="query-tags-wrap">';
-    data.popular_queries.forEach(pq => {
-      c1 += `<span class="query-tag" onclick="searchFor('${ea(pq.text)}')">${esc(pq.text)}</span>`;
+    data.popular_queries.forEach((pq, idx) => {
+      c1 += `<span class="query-tag" role="option" id="opt-${idx}" onclick="searchFor('${ea(pq.text)}')">${hlInverted(pq.text, query)}</span>`;
     });
     c1 += '</div>';
   }
@@ -547,6 +576,51 @@ function renderDropdown(data, query) {
   dropdownContent.innerHTML = html;
 }
 
+function renderZeroState(data) {
+  if (!data.products?.length && !data.categories?.length) return;
+  let c1 = '<div class="col-queries" style="width:220px;min-width:220px;">';
+  c1 += '<div class="col-heading">Popularne kategorie</div>';
+  if (data.categories?.length) {
+    c1 += '<div class="cat-section">';
+    data.categories.forEach(cat => {
+      c1 += `<a class="cat-link" onclick="searchFor('${ea(cat.name)}')">${esc(cat.name)} <span style="color:#999;font-size:11px;">(${cat.count})</span></a>`;
+    });
+    c1 += '</div>';
+  }
+  c1 += '</div>';
+  let c2 = '<div class="col-products" style="flex:1;padding:16px 14px;">';
+  c2 += '<div class="products-heading">Popularne produkty</div>';
+  if (data.products?.length) {
+    c2 += '<div class="product-grid">';
+    data.products.forEach(p => {
+      const img = p.image_url || phImg();
+      let ph = `<div class="pgrid-price">${fp(p.price)} zl</div>`;
+      if (p.original_price && p.original_price > p.price)
+        ph = `<div class="pgrid-old-price">${fp(p.original_price)} zl</div>` + ph;
+      const badgeHtml = p.badge ? `<div style="font-size:10px;color:#e53935;font-weight:700;">${esc(p.badge)}</div>` : '';
+      c2 += `<a class="pgrid-item" href="${ea(p.product_url||'#')}" target="_blank">
+        <img class="pgrid-img" src="${ea(img)}" alt="" loading="lazy" onerror="this.src='${phImg()}'">
+        <div class="pgrid-info">${badgeHtml}<div class="pgrid-name">${esc(p.name)}</div>${ph}</div></a>`;
+    });
+    c2 += '</div>';
+  }
+  c2 += '</div>';
+  dropdownContent.innerHTML = '<div class="dropdown-body">' + c1 + c2 + '</div>';
+}
+async function showZeroState() {
+  if (_trendingData) { renderZeroState(_trendingData); showDropdown(); return; }
+  if (_trendingFetching) return;
+  _trendingFetching = true;
+  try {
+    const resp = await fetch(`${API_BASE}/api/trending`);
+    _trendingData = await resp.json();
+    _trendingFetching = false;
+    if (input === document.activeElement && input.value.trim().length === 0) {
+      renderZeroState(_trendingData);
+      showDropdown();
+    }
+  } catch (e) { _trendingFetching = false; }
+}
 function searchFor(t) { input.value = t; clearBtn.style.display = 'block'; doSearch(t); input.focus(); }
 function hl(t, q) { let r = esc(t); q.trim().split(/\s+/).filter(w=>w.length>1).forEach(w => { r = r.replace(new RegExp(`(${er(w)})`,'gi'),'<mark>$1</mark>'); }); return r; }
 function hlBrand(name, brand, q, cls) {
@@ -558,6 +632,18 @@ function hlBrand(name, brand, q, cls) {
     if (w.toLowerCase() !== brand.toLowerCase()) r = r.replace(new RegExp(`(${er(w)})`,'gi'),'<mark>$1</mark>');
   });
   return r;
+}
+function hlInverted(text, query) {
+  const qLower = query.toLowerCase().trim();
+  const tLower = text.toLowerCase();
+  const idx = tLower.indexOf(qLower);
+  if (idx >= 0) {
+    const before = esc(text.substring(0, idx));
+    const match = esc(text.substring(idx, idx + qLower.length));
+    const after = esc(text.substring(idx + qLower.length));
+    return (before ? '<strong>' + before + '</strong>' : '') + match + (after ? '<strong>' + after + '</strong>' : '');
+  }
+  return '<strong>' + esc(text) + '</strong>';
 }
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 function ea(s) { return s ? s.replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }

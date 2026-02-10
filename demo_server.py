@@ -283,6 +283,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         }
     else:
         # Standard text-matching query
+        q_trimmed = q.strip()
+        q_upper = q_trimmed.upper()
         product_bool_query = {
             "bool": {
                 "should": [
@@ -294,6 +296,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                                 "name^3", "name.prefix^2",
                                 "name.morfologik^2", "name.folded^2",
                                 "brand^3", "sku^6", "ean^6",
+                                "manufacturer_code^8", "id_erp^8",
                             ],
                             "fuzziness": "AUTO",
                             "prefix_length": 2,
@@ -305,6 +308,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             "name": {"query": q, "boost": 3}
                         }
                     },
+                    # Exact-match on keyword fields (case-sensitive) for product codes
+                    {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
+                    # Case-insensitive fallback (uppercase variant)
+                    {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
+                    {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
                 ],
                 "minimum_should_match": 1,
             }
@@ -438,6 +449,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "name", "brand", "price", "sale_price",
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
+            "sku", "ean", "manufacturer_code",
         ],
     }
 
@@ -877,15 +889,32 @@ async def search(
     if price_max is not None:
         filters.append({"range": {"price": {"lte": price_max}}})
 
+    q_trimmed = q.strip()
+    q_upper = q_trimmed.upper()
     must = {
-        "multi_match": {
-            "query": q,
-            "fields": [
-                "name^5", "name.prefix^3", "name.morfologik^2",
-                "name.folded^2", "brand^3", "description", "tags^2",
+        "bool": {
+            "should": [
+                {
+                    "multi_match": {
+                        "query": q,
+                        "fields": [
+                            "name^5", "name.prefix^3", "name.morfologik^2",
+                            "name.folded^2", "brand^3", "description", "tags^2",
+                            "sku^6", "ean^6", "manufacturer_code^8", "id_erp^8",
+                        ],
+                        "fuzziness": "AUTO",
+                        "minimum_should_match": "70%",
+                    }
+                },
+                # Exact-match on keyword fields for product codes
+                {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
+                {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
+                {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
+                {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
+                {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
+                {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
             ],
-            "fuzziness": "AUTO",
-            "minimum_should_match": "70%",
+            "minimum_should_match": 1,
         }
     }
 
@@ -964,6 +993,120 @@ async def health():
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+
+# ──────────────────────────────────────────────────
+# TRENDING / ZERO-STATE ENDPOINT
+# ──────────────────────────────────────────────────
+
+_trending_cache = TTLCache(maxsize=1, ttl=300.0)  # 5-min cache for trending
+
+
+@app.get("/api/trending")
+async def trending():
+    """Return trending products and top categories for zero-state display (empty search box focus)."""
+    cached = _trending_cache.get("__trending__")
+    if cached is not None:
+        return cached
+
+    es = await get_es()
+    try:
+        # Two queries in one msearch: top products + top categories
+        msearch_body = [
+            {"index": ES_INDEX},
+            {
+                "size": 6,
+                "query": {
+                    "function_score": {
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {"term": {"availability": "in_stock"}},
+                                    {"term": {"has_image": True}},
+                                    {"terms": {"subcategory": [
+                                        "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
+                                        "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+                                        "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+                                        "kamery cyfrowe", "kamery sportowe", "drony",
+                                    ]}},
+                                ]
+                            }
+                        },
+                        "functions": [
+                            {
+                                "field_value_factor": {
+                                    "field": "ga4.popularity_score",
+                                    "factor": 1.5, "modifier": "sqrt", "missing": 0,
+                                },
+                                "weight": 80,
+                            },
+                            {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
+                            {
+                                "field_value_factor": {
+                                    "field": "ga4.add_to_carts_30d",
+                                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                                },
+                                "weight": 40,
+                            },
+                            {"filter": {"term": {"condition": "new"}}, "weight": 25},
+                        ],
+                        "score_mode": "sum",
+                        "boost_mode": "sum",
+                    }
+                },
+                "_source": [
+                    "name", "brand", "price", "sale_price",
+                    "image_url", "product_url", "is_bestseller", "is_promo", "is_new",
+                ],
+            },
+            {"index": ES_INDEX},
+            {
+                "size": 0,
+                "query": {"term": {"availability": "in_stock"}},
+                "aggs": {
+                    "subcategories": {"terms": {"field": "subcategory", "size": 8}},
+                },
+            },
+        ]
+
+        ms_resp = await es.msearch(body=msearch_body)
+        responses = ms_resp["responses"]
+
+        products = []
+        for hit in responses[0].get("hits", {}).get("hits", []):
+            src = hit["_source"]
+            price = src.get("sale_price") or src.get("price", 0)
+            original_price = src.get("price") if src.get("sale_price") else None
+            badge = None
+            if src.get("is_bestseller"):
+                badge = "Bestseller"
+            elif src.get("is_promo"):
+                badge = "Promocja"
+            elif src.get("is_new"):
+                badge = "Nowość"
+            products.append({
+                "name": src["name"],
+                "brand": src.get("brand", ""),
+                "price": price,
+                "original_price": original_price,
+                "image_url": src.get("image_url"),
+                "product_url": src.get("product_url", "#"),
+                "badge": badge,
+            })
+
+        categories = []
+        for bucket in responses[1].get("aggregations", {}).get("subcategories", {}).get("buckets", []):
+            name = bucket["key"]
+            if name and len(name) > 2:
+                categories.append({"name": name, "count": bucket["doc_count"]})
+
+        result = {"products": products, "categories": categories[:6]}
+        _trending_cache.put("__trending__", result)
+        return result
+
+    except Exception as e:
+        print(f"Trending endpoint error: {e}")
+        return {"products": [], "categories": []}
 
 
 # ──────────────────────────────────────────────────
