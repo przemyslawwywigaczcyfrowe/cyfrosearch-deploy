@@ -57,13 +57,13 @@
 .cfs-body { display: flex; min-height: 260px; }
 
 /* Column 1: Queries + Categories */
-.cfs-col-left { width: 190px; min-width: 190px; border-right: 1px solid #eee; padding: 16px 0; }
+.cfs-col-left { width: 190px; min-width: 190px; max-width: 190px; border-right: 1px solid #eee; padding: 16px 0; overflow: hidden; }
 .cfs-heading { font-size: 13px; font-weight: 700; color: #333; padding: 0 16px 8px; }
 .cfs-tags { padding: 0 12px 10px; display: flex; flex-wrap: wrap; gap: 5px; }
 .cfs-tag {
-  display: inline-block; padding: 5px 12px; background: #333; border: none;
-  border-radius: 4px; font-size: 12px; color: #fff; cursor: pointer; white-space: nowrap;
-  transition: background 0.15s;
+  display: inline-block; padding: 4px 10px; background: #333; border: none;
+  border-radius: 4px; font-size: 11px; color: #fff; cursor: pointer; white-space: normal;
+  transition: background 0.15s; line-height: 1.3; max-width: 100%;
 }
 .cfs-tag:hover, .cfs-tag.cfs-tag-active { background: #555; }
 .cfs-cats { margin-top: 6px; }
@@ -105,8 +105,8 @@
 }
 .cfs-prod-info { min-width: 0; overflow: hidden; }
 .cfs-prod-name {
-  font-size: 12px; color: #333; line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: 12px; color: #333; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden; word-break: break-word;
 }
 .cfs-prod-name mark { background: none; font-weight: 700; }
