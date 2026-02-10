@@ -272,28 +272,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Resolve to original ES key (preserves casing like "lampy LED")
         es_subcategory = _subcategory_lower_to_original.get(matched_subcategory, matched_subcategory)
 
-        # Category-intent query: use subcategory filter as primary signal
-        # Still include text matching for ranking within category
+        # Category-intent query: use constant_score filter so BM25 text relevance
+        # does NOT affect ranking — all products in the category are equally relevant.
+        # Ranking comes entirely from function_score (popularity, pageviews, etc.)
         product_bool_query = {
-            "bool": {
-                "must": [
-                    {"term": {"subcategory": es_subcategory}},
-                ],
-                "should": [
-                    {
-                        "multi_match": {
-                            "query": q,
-                            "type": "best_fields",
-                            "fields": [
-                                "name^3", "name.prefix^2",
-                                "name.morfologik^2", "name.folded^2",
-                                "brand^3",
-                            ],
-                            "fuzziness": "AUTO",
-                            "prefix_length": 2,
-                        }
-                    },
-                ],
+            "constant_score": {
+                "filter": {"term": {"subcategory": es_subcategory}},
+                "boost": 1,
             }
         }
     else:
@@ -325,58 +310,117 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             }
         }
 
+    # ── Build function_score functions based on query type ──
+    if matched_subcategory:
+        # Category-intent: user browses a category → rank by POPULARITY, not price
+        # Use sqrt modifier (not log1p) so differences in pageviews actually matter:
+        # sqrt(400)=20 vs sqrt(20)=4.5 → 4.4x difference (log1p would only give 2x)
+        scoring_functions = [
+            # Pageviews — strongest signal for category browsing
+            {
+                "field_value_factor": {
+                    "field": "ga4.pageviews_30d",
+                    "factor": 1.0, "modifier": "sqrt", "missing": 0,
+                },
+                "weight": 50,
+            },
+            # Sessions — complements pageviews
+            {
+                "field_value_factor": {
+                    "field": "ga4.sessions_30d",
+                    "factor": 1.0, "modifier": "sqrt", "missing": 0,
+                },
+                "weight": 30,
+            },
+            # Popularity score (composite GA4 metric)
+            {
+                "field_value_factor": {
+                    "field": "ga4.popularity_score",
+                    "factor": 1.0, "modifier": "sqrt", "missing": 0,
+                },
+                "weight": 20,
+            },
+            # Add-to-carts — high purchase intent signal
+            {
+                "field_value_factor": {
+                    "field": "ga4.add_to_carts_30d",
+                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 40,
+            },
+            # Availability — crucial for category browsing
+            {"filter": {"term": {"availability": "in_stock"}}, "weight": 30},
+            # Bestseller
+            {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
+            # Image available
+            {"filter": {"term": {"has_image": True}}, "weight": 10},
+            # Promo
+            {"filter": {"term": {"is_promo": True}}, "weight": 10},
+            # Minimal price boost — just enough to prefer real products over free samples
+            {
+                "field_value_factor": {
+                    "field": "price",
+                    "factor": 0.001, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 2,
+            },
+        ]
+    else:
+        # Standard text-matching: brand queries like "canon", "sony a7" etc.
+        # Price matters more here (Canon → EOS R5, not RC-6 remote)
+        scoring_functions = [
+            # Popularity — strongest signal
+            {
+                "field_value_factor": {
+                    "field": "ga4.popularity_score",
+                    "factor": 1.5, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 80,
+            },
+            # Sales volume boost
+            {
+                "field_value_factor": {
+                    "field": "sales_30d",
+                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 30,
+            },
+            # Price tier boost — flagship products are more relevant for brand queries
+            {
+                "field_value_factor": {
+                    "field": "price",
+                    "factor": 0.001, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 15,
+            },
+            # Availability
+            {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
+            # Bestseller — strong signal
+            {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
+            # Main product categories get boosted over accessories
+            {"filter": {"terms": {"subcategory": [
+                "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
+                "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+                "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+                "kamery cyfrowe", "kamery sportowe", "drony",
+            ]}}, "weight": 80},
+            # Image available
+            {"filter": {"term": {"has_image": True}}, "weight": 10},
+            # Promo
+            {"filter": {"term": {"is_promo": True}}, "weight": 20},
+            # New products (cold start problem solver)
+            {"filter": {"term": {"is_new": True}}, "weight": 30},
+        ]
+
     product_body = {
         "size": limit,
         "query": {
             "function_score": {
                 "query": product_bool_query,
-                "functions": [
-                    # Popularity — strongest signal, heavily weighted
-                    {
-                        "field_value_factor": {
-                            "field": "ga4.popularity_score",
-                            "factor": 1.5, "modifier": "log1p", "missing": 0,
-                        },
-                        "weight": 80,
-                    },
-                    # Sales volume boost
-                    {
-                        "field_value_factor": {
-                            "field": "sales_30d",
-                            "factor": 1.0, "modifier": "log1p", "missing": 0,
-                        },
-                        "weight": 30,
-                    },
-                    # Price tier boost — flagship/expensive products are more relevant
-                    # for brand queries (Canon → EOS R5, not RC-6 pilot)
-                    {
-                        "field_value_factor": {
-                            "field": "price",
-                            "factor": 0.001, "modifier": "log1p", "missing": 0,
-                        },
-                        "weight": 15,
-                    },
-                    # Availability
-                    {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
-                    # Bestseller — strong signal
-                    {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
-                    # Main product categories get boosted over accessories
-                    {"filter": {"terms": {"subcategory": [
-                        "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
-                        "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
-                        "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
-                        "kamery cyfrowe", "kamery sportowe", "drony",
-                    ]}}, "weight": 80},
-                    # Image available
-                    {"filter": {"term": {"has_image": True}}, "weight": 10},
-                    # Promo
-                    {"filter": {"term": {"is_promo": True}}, "weight": 20},
-                    # New products (cold start problem solver)
-                    {"filter": {"term": {"is_new": True}}, "weight": 30},
-                ],
+                "functions": scoring_functions,
                 "score_mode": "sum",
                 "boost_mode": "sum",
-                "max_boost": 500,
+                "max_boost": 2000,
             }
         },
         "highlight": {
