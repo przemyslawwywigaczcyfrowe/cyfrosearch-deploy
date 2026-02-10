@@ -268,15 +268,90 @@
   .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
   .demo-footer { text-align: center; padding: 30px 20px; color: #aaa; font-size: 12px; }
 
-  /* ── Responsive ── */
+  /* ── Responsive — mobile: single-column list like cyfrowe.pl production ── */
   @media (max-width: 800px) {
-    .dropdown { width: 100%; max-width: 100%; left: 0; transform: none; }
-    .dropdown-body { flex-direction: column; }
-    .col-queries { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; }
-    .col-featured { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; flex-direction: row; gap: 14px; }
-    .featured-img { width: 80px; height: 80px; }
-    .col-products { padding: 10px; }
-    .product-grid { grid-template-columns: 1fr; }
+    .dropdown {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%; max-width: 100%; transform: none;
+      border: none; box-shadow: none;
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+    .dropdown-close { top: 12px; right: 14px; font-size: 26px; z-index: 20; }
+    .dropdown-body { flex-direction: column; min-height: unset; }
+
+    /* Tags row: horizontal scroll */
+    .col-queries {
+      width: 100%; min-width: unset; max-width: unset;
+      border-right: none; border-bottom: none;
+      padding: 12px 14px 0; overflow: visible;
+    }
+    .col-heading { font-size: 12px; padding: 0 0 6px; }
+    .query-tags-wrap {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 0 0 10px;
+    }
+    .cat-section { display: none; }
+
+    /* Mobile tabs for Kategorie */
+    .mobile-tabs {
+      display: flex; border-bottom: 2px solid #eee;
+      padding: 0 14px; gap: 0;
+    }
+    .mobile-tab {
+      padding: 10px 16px; font-size: 13px; font-weight: 600;
+      color: #999; cursor: pointer; border-bottom: 2px solid transparent;
+      margin-bottom: -2px; background: none; border-top: none; border-left: none; border-right: none;
+    }
+    .mobile-tab.active { color: #333; border-bottom-color: #333; }
+    .mobile-tab-content { display: none; }
+    .mobile-tab-content.active { display: block; }
+
+    /* Featured product becomes first list item */
+    .col-featured {
+      width: 100%; min-width: unset;
+      border-right: none; border-bottom: 1px solid #f0f0f0;
+      flex-direction: row; align-items: center;
+      gap: 12px; padding: 12px 14px;
+    }
+    .featured-heading { display: none; }
+    .featured-img { width: 56px; height: 56px; flex-shrink: 0; margin-bottom: 0; }
+    .featured-name {
+      font-size: 13px; text-align: left;
+      -webkit-line-clamp: 2; margin-bottom: 2px;
+    }
+    .featured-price { font-size: 15px; }
+    .featured-old-price { font-size: 11px; }
+
+    /* Product list: single column */
+    .col-products {
+      padding: 0; width: 100%;
+    }
+    .products-heading { display: none; }
+    .product-grid {
+      display: flex; flex-direction: column;
+      gap: 0;
+    }
+    .pgrid-item {
+      display: flex; align-items: center;
+      gap: 12px; padding: 10px 14px;
+      border-bottom: 1px solid #f0f0f0;
+      border-radius: 0;
+    }
+    .pgrid-item:last-child { border-bottom: none; }
+    .pgrid-img { width: 56px; height: 56px; }
+    .pgrid-name { font-size: 13px; -webkit-line-clamp: 2; }
+    .pgrid-price { font-size: 14px; color: #e53935; }
+    .pgrid-old-price { font-size: 11px; color: #999; }
+
+    /* Footer */
+    .dropdown-footer-bar { padding: 14px; }
+    .show-all-btn {
+      display: block; width: 100%;
+      padding: 12px; font-size: 13px;
+      border-radius: 6px;
+    }
+
     .hero { flex-direction: column; }
   }
 </style>
