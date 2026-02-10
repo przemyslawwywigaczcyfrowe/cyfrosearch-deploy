@@ -1188,6 +1188,22 @@ async def search(
 # HEALTH
 # ──────────────────────────────────────────────────
 
+@app.get("/api/debug-brand")
+async def debug_brand(q: str = Query("nikon")):
+    """Debug endpoint to verify brand-intent detection."""
+    es = await get_es()
+    await _ensure_brands(es)
+    q_lower = q.lower().strip()
+    brand = _detect_brand_intent(q_lower)
+    return {
+        "query": q,
+        "q_lower": q_lower,
+        "brand_intent": brand,
+        "brand_set_size": len(_brand_set),
+        "sample_brands": sorted(list(_brand_set))[:20],
+    }
+
+
 @app.get("/api/health")
 async def health():
     es = await get_es()
