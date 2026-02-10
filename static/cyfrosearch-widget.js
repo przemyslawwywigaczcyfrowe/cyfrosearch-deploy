@@ -350,7 +350,7 @@
     let c2 = '<div class="cfs-col-feat"><div class="cfs-heading">Popularny produkt</div>';
     if (featured) {
       const img = featured.image_url || PH_IMG;
-      c2 += '<img class="cfs-feat-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'">';
+      c2 += '<a href="' + ea(featured.product_url || '#') + '" target="_blank"><img class="cfs-feat-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'"></a>';
       c2 += '<a class="cfs-feat-name" href="' + ea(featured.product_url || '#') + '" target="_blank">' + hlFeatBrand(featured.name, featured.brand, query) + '</a>';
       if (featured.original_price && featured.original_price > featured.price)
         c2 += '<div class="cfs-feat-old">' + fp(featured.original_price) + ' zł</div>';

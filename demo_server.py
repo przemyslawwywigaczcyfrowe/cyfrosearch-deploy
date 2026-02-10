@@ -92,6 +92,19 @@ def _fold_polish(text: str) -> str:
     return text.translate(_map)
 
 
+# ── Model number normalization ──
+# Splits tokens on digit→letter boundaries so "a7iv" → "a7 iv", "r6iii" → "r6 iii"
+# This is critical for camera model searches like "sony a7iv", "canon r6ii", "fuji xt5ii"
+_RE_DIGIT_TO_ALPHA = re.compile(r'(\d)([a-zA-Z])')
+
+def _normalize_model_query(q: str) -> str:
+    """Insert space at digit→letter boundaries within words.
+    'sony a7iv' → 'sony a7 iv', 'canon r6ii' → 'canon r6 ii'
+    Preserves original spacing and case.
+    """
+    return _RE_DIGIT_TO_ALPHA.sub(r'\1 \2', q)
+
+
 # ── Precompiled constants (module-level, not per-request) ──
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
@@ -226,6 +239,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     category_results = []
     brand_results = []
     popular_queries: list[dict] = []
+
+    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
+    q = _normalize_model_query(q)
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
@@ -903,6 +919,8 @@ async def search(
     sort: str = "relevance",
 ):
     es = await get_es()
+    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
+    q = _normalize_model_query(q)
     offset = (page - 1) * per_page
 
     filters = []
