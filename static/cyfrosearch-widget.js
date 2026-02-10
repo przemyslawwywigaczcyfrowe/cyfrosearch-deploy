@@ -170,10 +170,17 @@
   function ea(s) { return s ? s.replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""; }
   function er(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
   function fp(p) { return (p || p === 0) ? p.toLocaleString("pl-PL", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "-"; }
+  function _hlOutsideTags(html, word) {
+    // Replace 'word' only in text nodes (outside < > tags) to avoid corrupting HTML tags
+    return html.replace(/([^<]*)(<[^>]*>)?/gi, function(m, text, tag) {
+      var replaced = text ? text.replace(new RegExp("(" + er(word) + ")", "gi"), "<mark>$1</mark>") : "";
+      return replaced + (tag || "");
+    });
+  }
   function hl(t, q) {
     let r = esc(t);
     q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
-      r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
+      r = _hlOutsideTags(r, w);
     });
     return r;
   }
@@ -185,9 +192,7 @@
     r = r.replace(new RegExp("(" + er(brandEsc) + ")", "gi"), '<span class="cfs-prod-brand">$1</span>');
     // Then highlight query terms (skip brand if already colored)
     q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
-      if (w.toLowerCase() !== brand.toLowerCase()) {
-        r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
-      }
+      if (w.toLowerCase() !== brand.toLowerCase()) r = _hlOutsideTags(r, w);
     });
     return r;
   }
@@ -197,9 +202,7 @@
     const brandEsc = esc(brand);
     r = r.replace(new RegExp("(" + er(brandEsc) + ")", "gi"), '<span class="cfs-feat-brand">$1</span>');
     q.trim().split(/\s+/).filter(w => w.length > 1).forEach(w => {
-      if (w.toLowerCase() !== brand.toLowerCase()) {
-        r = r.replace(new RegExp("(" + er(w) + ")", "gi"), "<mark>$1</mark>");
-      }
+      if (w.toLowerCase() !== brand.toLowerCase()) r = _hlOutsideTags(r, w);
     });
     return r;
   }

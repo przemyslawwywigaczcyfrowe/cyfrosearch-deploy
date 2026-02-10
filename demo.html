@@ -623,14 +623,21 @@ async function showZeroState() {
   } catch (e) { _trendingFetching = false; }
 }
 function searchFor(t) { input.value = t; clearBtn.style.display = 'block'; doSearch(t); input.focus(); }
-function hl(t, q) { let r = esc(t); q.trim().split(/\s+/).filter(w=>w.length>1).forEach(w => { r = r.replace(new RegExp(`(${er(w)})`,'gi'),'<mark>$1</mark>'); }); return r; }
+function _hlOutsideTags(html, word) {
+  // Replace 'word' only in text nodes (outside < > tags) to avoid corrupting HTML tags
+  return html.replace(/([^<]*)(<[^>]*>)?/gi, (m, text, tag) => {
+    const replaced = text ? text.replace(new RegExp(`(${er(word)})`, 'gi'), '<mark>$1</mark>') : '';
+    return replaced + (tag || '');
+  });
+}
+function hl(t, q) { let r = esc(t); q.trim().split(/\s+/).filter(w=>w.length>1).forEach(w => { r = _hlOutsideTags(r, w); }); return r; }
 function hlBrand(name, brand, q, cls) {
   if (!brand) return hl(name, q);
   let r = esc(name);
   const b = esc(brand);
   r = r.replace(new RegExp(`(${er(b)})`,'gi'), `<span class="${cls}">$1</span>`);
   q.trim().split(/\s+/).filter(w=>w.length>1).forEach(w => {
-    if (w.toLowerCase() !== brand.toLowerCase()) r = r.replace(new RegExp(`(${er(w)})`,'gi'),'<mark>$1</mark>');
+    if (w.toLowerCase() !== brand.toLowerCase()) r = _hlOutsideTags(r, w);
   });
   return r;
 }
