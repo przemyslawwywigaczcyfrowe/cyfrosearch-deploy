@@ -35,116 +35,109 @@
 
   // ── Inject CSS ──
   const WIDGET_CSS = `
-/* CyfroSearch Widget — Scoped styles (cyfrowe.pl design) */
+/* CyfroSearch Widget — cyfrowe.pl production design */
 .cfs-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.25); z-index: 99998;
+  background: rgba(0,0,0,0.15); z-index: 99998;
 }
 .cfs-overlay.cfs-active { display: block; }
 .cfs-dropdown {
   display: none; position: absolute; z-index: 99999;
-  background: #fff; border: 1px solid #ddd; box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+  background: #fff; border: 1px solid #e0e0e0; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px; color: #333; width: 780px; max-width: 95vw;
-  overflow: hidden; border-radius: 0 0 6px 6px;
+  overflow: hidden;
 }
 .cfs-dropdown.cfs-active { display: block; }
 .cfs-close {
-  position: absolute; top: 4px; right: 8px; background: none; border: none;
-  font-size: 20px; cursor: pointer; color: #999; line-height: 1; z-index: 10; padding: 2px 6px;
+  position: absolute; top: 8px; right: 10px; background: none; border: none;
+  font-size: 22px; cursor: pointer; color: #999; line-height: 1; z-index: 10; padding: 2px 6px;
 }
 .cfs-close:hover { color: #333; }
-.cfs-body { display: flex; min-height: 220px; }
+.cfs-body { display: flex; min-height: 260px; }
 
 /* Column 1: Queries + Categories */
-.cfs-col-left { width: 200px; min-width: 200px; border-right: 1px solid #eee; padding: 14px 0; }
-.cfs-heading { font-size: 10px; font-weight: 700; color: #888; padding: 0 14px 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.cfs-tags { padding: 0 10px 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+.cfs-col-left { width: 190px; min-width: 190px; border-right: 1px solid #eee; padding: 16px 0; }
+.cfs-heading { font-size: 13px; font-weight: 700; color: #333; padding: 0 16px 8px; }
+.cfs-tags { padding: 0 12px 10px; display: flex; flex-wrap: wrap; gap: 5px; }
 .cfs-tag {
-  display: inline-block; padding: 4px 10px; background: #2c2c2c; border: none;
-  border-radius: 3px; font-size: 11px; color: #fff; cursor: pointer; white-space: nowrap;
+  display: inline-block; padding: 5px 12px; background: #333; border: none;
+  border-radius: 4px; font-size: 12px; color: #fff; cursor: pointer; white-space: nowrap;
   transition: background 0.15s;
 }
-.cfs-tag:hover { background: #444; }
-.cfs-cats { margin-top: 10px; }
+.cfs-tag:hover { background: #555; }
+.cfs-cats { margin-top: 6px; }
 .cfs-cat {
-  display: block; padding: 4px 14px; font-size: 12px; color: #333;
-  text-decoration: none; cursor: pointer; line-height: 1.4;
+  display: block; padding: 4px 16px; font-size: 13px; color: #333;
+  text-decoration: none; cursor: pointer; line-height: 1.5;
 }
-.cfs-cat:hover { background: #f5f5f5; color: #0077b6; }
-.cfs-cat mark { background: none; font-weight: 700; color: #0077b6; }
+.cfs-cat:hover { background: #f5f5f5; }
+.cfs-cat mark { background: none; font-weight: 700; color: #333; text-decoration: underline; }
 
 /* Column 2: Featured product */
 .cfs-col-feat {
-  width: 210px; min-width: 210px; border-right: 1px solid #eee;
-  padding: 14px; display: flex; flex-direction: column; align-items: center;
+  width: 240px; min-width: 240px; border-right: 1px solid #eee;
+  padding: 16px 18px; display: flex; flex-direction: column; align-items: center;
 }
-.cfs-feat-img { width: 150px; height: 150px; object-fit: contain; margin-bottom: 8px; }
+.cfs-feat-img { width: 180px; height: 180px; object-fit: contain; margin-bottom: 10px; }
 .cfs-feat-name {
-  font-size: 12px; color: #333; text-align: center; line-height: 1.35;
-  margin-bottom: 6px; text-decoration: none; display: -webkit-box;
+  font-size: 13px; color: #333; text-align: center; line-height: 1.4;
+  margin-bottom: 8px; text-decoration: none; display: -webkit-box;
   -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.cfs-feat-name:hover { text-decoration: underline; color: #0077b6; }
+.cfs-feat-name:hover { text-decoration: underline; }
 .cfs-feat-name mark { background: none; font-weight: 700; }
-.cfs-feat-brand { color: #0077b6; font-weight: 600; }
-.cfs-feat-price { font-size: 18px; font-weight: 700; color: #e53935; margin-top: 2px; }
-.cfs-feat-old { font-size: 12px; color: #999; text-decoration: line-through; margin-top: 1px; }
+.cfs-feat-brand { color: #333; font-weight: 700; text-decoration: underline; }
+.cfs-feat-price { font-size: 20px; font-weight: 700; color: #333; margin-top: 4px; }
+.cfs-feat-old { font-size: 13px; color: #999; text-decoration: line-through; margin-top: 2px; }
 
 /* Column 3: Product grid */
-.cfs-col-prods { flex: 1; padding: 14px 12px 14px 16px; min-width: 0; overflow: hidden; }
-.cfs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cfs-col-prods { flex: 1; padding: 16px 14px; min-width: 0; overflow: hidden; }
+.cfs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cfs-prod {
-  display: flex; align-items: center; gap: 8px; padding: 5px;
+  display: flex; align-items: center; gap: 8px; padding: 6px;
   border-radius: 4px; text-decoration: none; color: inherit; cursor: pointer;
 }
 .cfs-prod:hover { background: #f5f5f5; }
 .cfs-prod-img {
-  width: 56px; height: 56px; object-fit: contain; flex-shrink: 0;
-  border: 1px solid #eee; border-radius: 3px; background: #fafafa;
+  width: 60px; height: 60px; object-fit: contain; flex-shrink: 0;
+  background: #fff;
 }
 .cfs-prod-info { min-width: 0; overflow: hidden; }
 .cfs-prod-name {
-  font-size: 11px; color: #333; line-height: 1.3;
+  font-size: 12px; color: #333; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; word-break: break-word;
 }
 .cfs-prod-name mark { background: none; font-weight: 700; }
-.cfs-prod-brand { color: #0077b6; font-weight: 600; }
-.cfs-prod-price { font-size: 13px; font-weight: 700; color: #e53935; margin-top: 2px; }
-.cfs-prod-old { font-size: 10px; color: #999; text-decoration: line-through; }
+.cfs-prod-brand { color: #333; font-weight: 700; text-decoration: underline; }
+.cfs-prod-price { font-size: 13px; font-weight: 700; color: #333; margin-top: 3px; }
+.cfs-prod-old { font-size: 11px; color: #999; text-decoration: line-through; }
 
 /* Footer */
 .cfs-footer {
-  border-top: 1px solid #eee; padding: 10px 14px; text-align: center;
+  border-top: 1px solid #eee; padding: 12px 14px; text-align: center;
 }
 .cfs-show-all {
-  display: inline-block; background: #e53935; color: #fff; padding: 9px 40px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-  border: none; border-radius: 3px; cursor: pointer; text-decoration: none;
+  display: inline-block; background: #444; color: #fff; padding: 10px 60px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  border: none; cursor: pointer; text-decoration: none;
 }
-.cfs-show-all:hover { background: #c62828; }
-
-/* Powered by */
-.cfs-powered {
-  text-align: center; padding: 4px 0 6px; font-size: 9px; color: #bbb;
-}
-.cfs-powered a { color: #999; text-decoration: none; }
-.cfs-powered a:hover { text-decoration: underline; }
+.cfs-show-all:hover { background: #333; }
 
 /* Spinner */
-.cfs-spinner { display: none; padding: 50px; text-align: center; width: 100%; }
+.cfs-spinner { display: none; padding: 60px; text-align: center; width: 100%; }
 .cfs-spinner::after {
   content: ''; display: inline-block; width: 22px; height: 22px;
-  border: 3px solid #ddd; border-top-color: #e53935; border-radius: 50%;
+  border: 3px solid #ddd; border-top-color: #333; border-radius: 50%;
   animation: cfs-spin 0.6s linear infinite;
 }
 @keyframes cfs-spin { to { transform: rotate(360deg); } }
-.cfs-empty { padding: 50px 20px; text-align: center; color: #999; font-size: 13px; width: 100%; }
+.cfs-empty { padding: 60px 20px; text-align: center; color: #999; font-size: 13px; width: 100%; }
 
 /* Mobile */
 @media (max-width: 800px) {
-  .cfs-dropdown { width: 100%; max-width: 100%; left: 0 !important; right: 0; border-radius: 0; }
+  .cfs-dropdown { width: 100%; max-width: 100%; left: 0 !important; right: 0; }
   .cfs-body { flex-direction: column; }
   .cfs-col-left { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; }
   .cfs-col-feat { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; flex-direction: row; gap: 12px; }
@@ -361,8 +354,7 @@
     c3 += '</div>';
 
     let html = '<div class="cfs-body">' + c1 + c2 + c3 + '</div>';
-    html += '<div class="cfs-footer"><a class="cfs-show-all" data-cfs-search="' + ea(query) + '">Pokaż wszystkie produkty</a></div>';
-    html += '<div class="cfs-powered">Powered by <a href="https://github.com/cyfrosearch" target="_blank">CyfroSearch</a></div>';
+    html += '<div class="cfs-footer"><a class="cfs-show-all" data-cfs-search="' + ea(query) + '">POKAŻ WSZYSTKIE PRODUKTY</a></div>';
     content.innerHTML = html;
 
     // Bind click events for search tags
