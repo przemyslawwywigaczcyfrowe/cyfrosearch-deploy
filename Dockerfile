@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
     "uvicorn[standard]>=0.32.0" \
-    "elasticsearch[async]>=8.12.0" \
+    "elasticsearch[async]>=8.12.0,<9.0" \
     "orjson>=3.9.0"
 
 # Copy demo server + frontend assets
