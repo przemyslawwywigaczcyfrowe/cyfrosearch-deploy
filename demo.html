@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyfroSearch — Demo Suggestera | Cyfrowe.pl</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    min-height: 100vh;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    height: 50px;
+  }
+  .logo { font-size: 22px; font-weight: 700; color: #333; text-decoration: none; flex-shrink: 0; }
+  .logo span { color: #e53935; }
+
+  /* ── Search bar ── */
+  .search-wrapper { flex: 1; max-width: 650px; position: relative; }
+  .search-bar {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 2px solid #ccc;
+    border-radius: 4px;
+    transition: border-color 0.2s;
+  }
+  .search-bar:focus-within { border-color: #333; }
+  #search-input {
+    flex: 1; border: none; outline: none;
+    font-size: 14px; padding: 9px 14px;
+    background: transparent; color: #333;
+  }
+  #search-input::placeholder { color: #999; }
+  .search-btn {
+    padding: 9px 14px; background: #f5f5f5; border: none;
+    border-left: 1px solid #ccc; cursor: pointer;
+    display: flex; align-items: center; color: #555;
+  }
+  .search-btn:hover { background: #eee; }
+  .search-btn svg { width: 18px; height: 18px; }
+  .clear-btn {
+    padding: 6px 10px; background: none; border: none;
+    cursor: pointer; color: #999; font-size: 18px;
+    display: none; line-height: 1;
+  }
+  .clear-btn:hover { color: #333; }
+
+  /* ── Overlay behind dropdown ── */
+  .dropdown-overlay {
+    display: none;
+    position: fixed;
+    top: 50px;
+    left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 550;
+  }
+  .dropdown-overlay.active { display: block; }
+
+  /* ── Suggest Dropdown ── */
+  .dropdown {
+    position: fixed;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+    display: none;
+    z-index: 600;
+    width: 720px;
+    max-width: calc(100vw - 10px);
+    overflow: hidden;
+  }
+  .dropdown.active { display: block; }
+
+  .dropdown-close {
+    position: absolute; top: 6px; right: 10px;
+    background: none; border: none; font-size: 22px;
+    cursor: pointer; color: #999; line-height: 1; z-index: 10;
+  }
+  .dropdown-close:hover { color: #333; }
+
+  .dropdown-body {
+    display: flex;
+    min-height: 260px;
+  }
+
+  /* Column 1: Queries + Categories — fixed width */
+  .col-queries {
+    width: 180px; min-width: 180px;
+    border-right: 1px solid #eee;
+    padding: 12px 0;
+  }
+  .col-heading {
+    font-size: 12px; font-weight: 700; color: #333;
+    padding: 0 14px 6px;
+  }
+  .query-tags-wrap {
+    padding: 0 10px 6px;
+    display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .query-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #f0f0f0; border: 1px solid #ddd;
+    border-radius: 3px; font-size: 11px; color: #333;
+    cursor: pointer; transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .query-tag:hover { background: #e0e0e0; }
+
+  .cat-section { margin-top: 10px; }
+  .cat-link {
+    display: block; padding: 3px 14px;
+    font-size: 12px; color: #333;
+    text-decoration: none; cursor: pointer;
+  }
+  .cat-link:hover { background: #f5f5f5; text-decoration: underline; }
+  .cat-link mark { background: none; font-weight: 700; text-decoration: underline; color: #333; }
+
+  /* Column 2: Featured product — fixed width */
+  .col-featured {
+    width: 195px; min-width: 195px;
+    border-right: 1px solid #eee;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .featured-heading {
+    font-size: 12px; font-weight: 700; color: #333;
+    margin-bottom: 8px; align-self: flex-start;
+  }
+  .featured-img { width: 140px; height: 140px; object-fit: contain; margin-bottom: 8px; }
+  .featured-name {
+    font-size: 12px; color: #333; text-align: center;
+    line-height: 1.3; margin-bottom: 6px; text-decoration: none;
+    display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .featured-name:hover { text-decoration: underline; }
+  .featured-name mark { background: none; font-weight: 700; color: #333; }
+  .featured-price { font-size: 18px; font-weight: 700; color: #333; white-space: nowrap; }
+  .featured-old-price { font-size: 13px; color: #999; text-decoration: line-through; white-space: nowrap; }
+
+  /* Column 3: Product grid — fills remaining space */
+  .col-products {
+    flex: 1; padding: 12px 10px 12px 14px;
+    min-width: 0; overflow: hidden;
+  }
+  .products-heading {
+    font-size: 12px; font-weight: 700; color: #333; margin-bottom: 8px;
+  }
+  .product-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .pgrid-item {
+    display: flex; align-items: center;
+    gap: 6px; padding: 4px;
+    border-radius: 3px; text-decoration: none;
+    color: inherit; cursor: pointer;
+    overflow: hidden;
+  }
+  .pgrid-item:hover { background: #f5f5f5; }
+  .pgrid-img {
+    width: 50px; height: 50px;
+    object-fit: contain; flex-shrink: 0;
+    border: 1px solid #eee; border-radius: 2px; background: #fafafa;
+  }
+  .pgrid-info { min-width: 0; overflow: hidden; }
+  .pgrid-name {
+    font-size: 11px; color: #333; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
+    word-break: break-word;
+  }
+  .pgrid-name mark { background: none; font-weight: 700; color: #333; }
+  .pgrid-price { font-size: 12px; font-weight: 700; color: #333; margin-top: 1px; white-space: nowrap; }
+  .pgrid-old-price { font-size: 10px; color: #999; text-decoration: line-through; white-space: nowrap; }
+
+  /* Bottom bar */
+  .dropdown-footer-bar {
+    border-top: 1px solid #eee;
+    padding: 8px 16px; text-align: center;
+  }
+  .show-all-btn {
+    display: inline-block;
+    background: #333; color: #fff;
+    padding: 9px 40px; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border: none; cursor: pointer;
+  }
+  .show-all-btn:hover { background: #555; }
+
+  /* Spinner & empty */
+  .spinner { display: none; padding: 60px; text-align: center; width: 100%; }
+  .spinner::after {
+    content: ''; display: inline-block; width: 24px; height: 24px;
+    border: 3px solid #ddd; border-top-color: #333;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .no-results { padding: 60px 20px; text-align: center; color: #999; font-size: 14px; width: 100%; }
+
+  /* ── Nav bar ── */
+  .nav-categories {
+    background: #333; display: flex; align-items: center;
+    justify-content: center; flex-wrap: wrap;
+  }
+  .nav-cat {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px 14px; color: #fff; font-size: 10px;
+    cursor: default; gap: 3px;
+  }
+  .nav-cat:hover { background: #444; }
+  .nav-cat-icon { font-size: 16px; }
+  .nav-cat-label { white-space: nowrap; }
+
+  /* ── Hero ── */
+  .hero { max-width: 1100px; margin: 20px auto; padding: 0 20px; display: flex; gap: 20px; }
+  .hero-promo {
+    flex: 1; background: #fff; border-radius: 6px;
+    padding: 24px; border: 1px solid #eee;
+  }
+  .hero-promo h2 { font-size: 18px; margin-bottom: 6px; }
+  .hero-promo p { color: #777; font-size: 13px; margin-bottom: 14px; }
+  .brand-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .brand-tag {
+    padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px;
+    font-size: 12px; color: #333; cursor: pointer; background: #fff;
+  }
+  .brand-tag:hover { background: #f0f0f0; border-color: #999; }
+  .hero-banner {
+    flex: 1.2; background: #e8f5e9; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 200px; border: 1px solid #c8e6c9; padding: 20px; text-align: center;
+  }
+  .hero-banner-text { color: #2e7d32; font-size: 15px; font-weight: 600; }
+
+  /* ── Stats ── */
+  .stats-section {
+    max-width: 1100px; margin: 20px auto; padding: 0 20px;
+    display: flex; gap: 16px; justify-content: center;
+  }
+  .stat-card {
+    background: #fff; border-radius: 6px; padding: 16px 28px;
+    border: 1px solid #eee; text-align: center;
+  }
+  .stat-value { font-size: 22px; font-weight: 700; color: #e53935; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
+  .demo-footer { text-align: center; padding: 30px 20px; color: #aaa; font-size: 12px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 800px) {
+    .dropdown { width: 100%; max-width: 100%; left: 0; transform: none; }
+    .dropdown-body { flex-direction: column; }
+    .col-queries { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; }
+    .col-featured { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #eee; flex-direction: row; gap: 14px; }
+    .featured-img { width: 80px; height: 80px; }
+    .col-products { padding: 10px; }
+    .product-grid { grid-template-columns: 1fr; }
+    .hero { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a class="logo" href="#">cyfr<span>o</span>we.pl</a>
+  <div class="search-wrapper">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Szukaj produktow... np. Sony A7IV, obiektyw 50mm, statyw" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="clear-btn" id="clear-btn">&times;</button>
+      <button class="search-btn" id="search-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16" y2="16"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="dropdown-overlay" id="overlay"></div>
+
+<!-- Dropdown (outside search-wrapper, fixed position) -->
+<div class="dropdown" id="dropdown">
+  <button class="dropdown-close" id="dropdown-close">&times;</button>
+  <div class="spinner" id="spinner"></div>
+  <div id="dropdown-content"></div>
+</div>
+
+<!-- Category nav bar -->
+<div class="nav-categories">
+  <div class="nav-cat"><span class="nav-cat-icon">&#128247;</span><span class="nav-cat-label">Fotografia</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#127909;</span><span class="nav-cat-label">Filmowanie</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#127908;</span><span class="nav-cat-label">Studio</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128424;</span><span class="nav-cat-label">Druk i edycja</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128681;</span><span class="nav-cat-label">Drony</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128301;</span><span class="nav-cat-label">Obserwacja</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128241;</span><span class="nav-cat-label">Fot. mobile</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128248;</span><span class="nav-cat-label">Fot. analogowa</span></div>
+  <div class="nav-cat"><span class="nav-cat-icon">&#128230;</span><span class="nav-cat-label">Uzywane</span></div>
+</div>
+
+<!-- Hero section -->
+<div class="hero">
+  <div class="hero-promo">
+    <h2>Szukasz promocji?</h2>
+    <p>Sprawdz najnowsze oferty najwiekszych marek</p>
+    <div class="brand-tags">
+      <div class="brand-tag" onclick="searchFor('Canon')">Canon</div>
+      <div class="brand-tag" onclick="searchFor('Sony')">Sony</div>
+      <div class="brand-tag" onclick="searchFor('Nikon')">Nikon</div>
+      <div class="brand-tag" onclick="searchFor('Sigma')">Sigma</div>
+      <div class="brand-tag" onclick="searchFor('Tamron')">Tamron</div>
+      <div class="brand-tag" onclick="searchFor('Panasonic')">Panasonic</div>
+      <div class="brand-tag" onclick="searchFor('Samyang')">Samyang</div>
+      <div class="brand-tag" onclick="searchFor('Profoto')">Profoto</div>
+    </div>
+  </div>
+  <div class="hero-banner">
+    <div class="hero-banner-text">
+      CyfroSearch Demo<br>
+      <span style="font-size:12px; font-weight:400; color:#555;">Autosuggest oparty na Elasticsearch + GA4 scoring</span>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-section">
+  <div class="stat-card"><div class="stat-value" id="stat-products">-</div><div class="stat-label">produktow w indeksie</div></div>
+  <div class="stat-card"><div class="stat-value" id="stat-time">-</div><div class="stat-label">czas odpowiedzi</div></div>
+  <div class="stat-card"><div class="stat-value" id="stat-results">-</div><div class="stat-label">wynikow</div></div>
+</div>
+
+<div class="demo-footer">CyfroSearch Demo &mdash; Elasticsearch 8 + FastAPI + Polish NLP</div>
+
+<script>
+const API_BASE = '__API_BASE__';
+const input = document.getElementById('search-input');
+const dropdown = document.getElementById('dropdown');
+const dropdownContent = document.getElementById('dropdown-content');
+const clearBtn = document.getElementById('clear-btn');
+const closeBtn = document.getElementById('dropdown-close');
+const overlay = document.getElementById('overlay');
+const spinner = document.getElementById('spinner');
+
+let debounceTimer = null;
+let currentRequest = null;
+let lastQuery = '';
+
+// Client-side response cache (avoids network for repeated queries)
+const _clientCache = new Map();
+const CACHE_TTL = 60000; // 60 seconds
+
+function cacheGet(key) {
+  const entry = _clientCache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+  _clientCache.delete(key);
+  return null;
+}
+function cachePut(key, data) {
+  _clientCache.set(key, { ts: Date.now(), data });
+  // Evict oldest if cache too large
+  if (_clientCache.size > 200) {
+    const oldest = _clientCache.keys().next().value;
+    _clientCache.delete(oldest);
+  }
+}
+
+// Warm up the connection (DNS + TLS handshake) immediately
+fetch(`${API_BASE}/api/health`)
+  .then(r => r.json())
+  .then(d => { if (d.product_count) document.getElementById('stat-products').textContent = d.product_count.toLocaleString('pl-PL'); })
+  .catch(() => {});
+
+input.addEventListener('input', () => {
+  const q = input.value.trim();
+  clearBtn.style.display = q ? 'block' : 'none';
+  if (q.length < 2) { hideDropdown(); return; }
+
+  // If same as last query, skip
+  if (q === lastQuery) return;
+
+  clearTimeout(debounceTimer);
+
+  // If cached, show immediately (0 debounce)
+  const cached = cacheGet(q.toLowerCase());
+  if (cached) {
+    lastQuery = q;
+    renderDropdown(cached, q);
+    showDropdown();
+    return;
+  }
+
+  // Short debounce: 120ms (was 200ms)
+  debounceTimer = setTimeout(() => doSearch(q), 120);
+});
+
+input.addEventListener('focus', () => {
+  if (input.value.trim().length >= 2 && dropdownContent.innerHTML) showDropdown();
+});
+
+overlay.addEventListener('click', hideDropdown);
+closeBtn.addEventListener('click', hideDropdown);
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hideDropdown(); input.blur(); }
+});
+
+clearBtn.addEventListener('click', () => {
+  input.value = '';
+  clearBtn.style.display = 'none';
+  hideDropdown();
+  input.focus();
+  lastQuery = '';
+});
+
+function showDropdown() {
+  dropdown.classList.add('active');
+  overlay.classList.add('active');
+}
+function hideDropdown() {
+  dropdown.classList.remove('active');
+  overlay.classList.remove('active');
+}
+
+async function doSearch(q) {
+  if (currentRequest) currentRequest.abort();
+  const controller = new AbortController();
+  currentRequest = controller;
+  lastQuery = q;
+
+  // Check client cache first
+  const cached = cacheGet(q.toLowerCase());
+  if (cached) {
+    renderDropdown(cached, q);
+    showDropdown();
+    return;
+  }
+
+  spinner.style.display = 'block';
+  dropdownContent.innerHTML = '';
+  showDropdown();
+
+  const t0 = performance.now();
+  try {
+    const resp = await fetch(`${API_BASE}/api/suggest?q=${encodeURIComponent(q)}&limit=7`, {
+      signal: controller.signal,
+      // Keep-alive is default in modern browsers; just ensure we're not disabling it
+    });
+    const data = await resp.json();
+    const clientMs = Math.round(performance.now() - t0);
+    spinner.style.display = 'none';
+
+    document.getElementById('stat-time').textContent = `${clientMs}ms`;
+    document.getElementById('stat-results').textContent = data.meta.total_products;
+
+    // Cache the response
+    cachePut(q.toLowerCase(), data);
+
+    renderDropdown(data, q);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      spinner.style.display = 'none';
+      dropdownContent.innerHTML = '<div class="no-results">Blad polaczenia z API</div>';
+    }
+  }
+}
+
+function renderDropdown(data, query) {
+  if (!data.products?.length && !data.popular_queries?.length && !data.categories?.length) {
+    dropdownContent.innerHTML = '<div class="no-results">Brak wynikow dla "' + esc(query) + '"</div>';
+    return;
+  }
+
+  const featured = data.products?.[0] || null;
+  const gridProducts = (data.products || []).slice(1, 7);
+
+  // Column 1
+  let c1 = '<div class="col-queries">';
+  if (data.popular_queries?.length > 0) {
+    c1 += '<div class="col-heading">Zapytania</div><div class="query-tags-wrap">';
+    data.popular_queries.forEach(pq => {
+      c1 += `<span class="query-tag" onclick="searchFor('${ea(pq.text)}')">${esc(pq.text)}</span>`;
+    });
+    c1 += '</div>';
+  }
+  if (data.categories?.length > 0) {
+    c1 += '<div class="cat-section"><div class="col-heading">Kategorie</div>';
+    data.categories.forEach(cat => {
+      const nm = cat.short_name || cat.name;
+      c1 += `<a class="cat-link" onclick="searchFor('${ea(nm)}')">${hl(nm, query)}</a>`;
+    });
+    c1 += '</div>';
+  }
+  c1 += '</div>';
+
+  // Column 2
+  let c2 = '<div class="col-featured"><div class="featured-heading">Popularny produkt</div>';
+  if (featured) {
+    const img = featured.image_url || phImg();
+    c2 += `<img class="featured-img" src="${ea(img)}" alt="" loading="lazy" onerror="this.src='${phImg()}'">`;
+    c2 += `<a class="featured-name" href="${ea(featured.product_url||'#')}" target="_blank">${featured.highlight || esc(featured.name)}</a>`;
+    c2 += `<div class="featured-price">${fp(featured.price)} zl</div>`;
+    if (featured.original_price && featured.original_price > featured.price)
+      c2 += `<div class="featured-old-price">${fp(featured.original_price)} zl</div>`;
+  }
+  c2 += '</div>';
+
+  // Column 3
+  let c3 = '<div class="col-products"><div class="products-heading">Produkty</div>';
+  if (gridProducts.length > 0) {
+    c3 += '<div class="product-grid">';
+    gridProducts.forEach(p => {
+      const img = p.image_url || phImg();
+      let ph = `<div class="pgrid-price">${fp(p.price)} zl</div>`;
+      if (p.original_price && p.original_price > p.price)
+        ph = `<div class="pgrid-old-price">${fp(p.original_price)} zl</div>` + ph;
+      c3 += `<a class="pgrid-item" href="${ea(p.product_url||'#')}" target="_blank">
+        <img class="pgrid-img" src="${ea(img)}" alt="" loading="lazy" onerror="this.src='${phImg()}'">
+        <div class="pgrid-info"><div class="pgrid-name">${p.highlight || esc(p.name)}</div>${ph}</div></a>`;
+    });
+    c3 += '</div>';
+  }
+  c3 += '</div>';
+
+  let html = '<div class="dropdown-body">' + c1 + c2 + c3 + '</div>';
+  html += `<div class="dropdown-footer-bar"><span class="show-all-btn" onclick="alert('Szukaj: ${ea(query)}')">POKAZ WSZYSTKIE PRODUKTY</span></div>`;
+  dropdownContent.innerHTML = html;
+}
+
+function searchFor(t) { input.value = t; clearBtn.style.display = 'block'; doSearch(t); input.focus(); }
+function hl(t, q) { let r = esc(t); q.trim().split(/\s+/).filter(w=>w.length>1).forEach(w => { r = r.replace(new RegExp(`(${er(w)})`,'gi'),'<mark>$1</mark>'); }); return r; }
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function ea(s) { return s ? s.replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function er(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function fp(p) { return (p||p===0) ? p.toLocaleString('pl-PL',{minimumFractionDigits:0,maximumFractionDigits:0}) : '-'; }
+function phImg() { return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3C/svg%3E"; }
+</script>
+</body>
+</html>
