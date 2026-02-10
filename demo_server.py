@@ -92,6 +92,10 @@ def _fold_polish(text: str) -> str:
     return text.translate(_map)
 
 
+# ── Focal-length pattern ──
+# Detects zoom ranges like "24-70", "70-200", "100-400" in queries
+_RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
+
 # ── Model number normalization ──
 # Splits tokens on digit→letter boundaries so "a7iv" → "a7 iv", "r6iii" → "r6 iii"
 # This is critical for camera model searches like "sony a7iv", "canon r6ii", "fuji xt5ii"
@@ -165,6 +169,11 @@ MAIN_SUBCATS = frozenset({
     "kamery cyfrowe", "kamery sportowe",
 })
 
+LENS_SUBCATS = [
+    "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+    "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+]
+
 SKIP_CATS = frozenset({
     "do ", "zbroje", "klatki", "pokrywki", "kable", "akcesoria", "torby", "filtry",
 })
@@ -177,6 +186,54 @@ USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 BRAND_ALIASES: dict[str, str] = {
     "fuji": "fujifilm",
     "pana": "panasonic",
+}
+
+# ── Category-intent aliases ──
+# Maps common search terms (singular forms, abbreviations) to lists of ES subcategory values.
+# Checked BEFORE the standard exact/folded/prefix category-intent matching.
+CATEGORY_ALIASES: dict[str, list[str]] = {
+    # lampa (singular) → lamp subcategories
+    "lampa": ["lampy LED", "lampy błyskowe", "lampy studyjne",
+              "lampy plenerowe (akumulatorowe)", "lampy studyjne LED",
+              "lampy panelowe LED", "lampy pierścieniowe LED"],
+    "lampy": ["lampy LED", "lampy błyskowe", "lampy studyjne",
+              "lampy plenerowe (akumulatorowe)", "lampy studyjne LED",
+              "lampy panelowe LED", "lampy pierścieniowe LED"],
+    # torba (singular) → bag subcategories
+    "torba": ["torby fotograficzne", "torby kufry i walizki"],
+    # karta → memory cards (NOT gift cards!)
+    "karta": ["SD / SDHC / SDXC", "CFexpress", "microSD",
+              "SD / SDHC", "CompactFlash"],
+    "karty": ["SD / SDHC / SDXC", "CFexpress", "microSD",
+              "SD / SDHC", "CompactFlash"],
+    # obiektyw → ALL lens subcategories (not just "obiektywy" with 21 products)
+    "obiektyw": ["obiektywy stałoogniskowe",
+                 "obiektywy zmiennoogniskowe (zoom)",
+                 "obiektywy do lustrzanek",
+                 "obiektywy do bezlusterkowców"],
+    "obiektywy": ["obiektywy stałoogniskowe",
+                  "obiektywy zmiennoogniskowe (zoom)",
+                  "obiektywy do lustrzanek",
+                  "obiektywy do bezlusterkowców"],
+    # tło/tlo → backdrop subcategories
+    "tlo": ["tła kartonowe", "tła składane", "tła plastikowe",
+            "tła materiałowe", "tła winylowe", "tła podświetlane",
+            "systemy zawieszania teł"],
+    "tło": ["tła kartonowe", "tła składane", "tła plastikowe",
+            "tła materiałowe", "tła winylowe", "tła podświetlane",
+            "systemy zawieszania teł"],
+    "tła": ["tła kartonowe", "tła składane", "tła plastikowe",
+            "tła materiałowe", "tła winylowe", "tła podświetlane",
+            "systemy zawieszania teł"],
+    "tla": ["tła kartonowe", "tła składane", "tła plastikowe",
+            "tła materiałowe", "tła winylowe", "tła podświetlane",
+            "systemy zawieszania teł"],
+    # Additional useful aliases
+    "klatka": ["klatki"],
+    "plecak": ["plecaki fotograficzne"],
+    "statyw": ["statywy (trójnogi)", "statywy do filmowania"],
+    "filtr": ["filtry", "połówkowe i szare"],
+    "akumulator": ["akumulatory i baterie"],
 }
 
 # Brand cache — populated once from ES on first request
@@ -258,6 +315,12 @@ async def lifespan(app: FastAPI):
                 folded = _fold_polish(key_lower)
                 _subcategory_folded[folded] = key_lower
         print(f"[OK] Loaded {len(_subcategory_set)} subcategories for category-intent detection")
+        # Validate CATEGORY_ALIASES targets against actual ES subcategories
+        _all_es_subcats = {k for k in _subcategory_lower_to_original.values()}
+        for alias_key, alias_targets in CATEGORY_ALIASES.items():
+            for target in alias_targets:
+                if target not in _all_es_subcats:
+                    print(f"Warning: CATEGORY_ALIASES['{alias_key}'] target '{target}' not found in ES subcategories")
     except Exception as e:
         print(f"Warning: Could not load subcategories: {e}")
 
@@ -355,38 +418,56 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         q_for_es = q
 
     # ── Category-intent detection ──
-    # If the query exactly matches (or closely matches) a subcategory name,
-    # treat it as a category search — filter to that subcategory so accessories
-    # like "adapter do obiektywów" don't pollute results for "obiektywy do lustrzanek"
+    # If the query matches a subcategory name (or a CATEGORY_ALIAS), treat it as a
+    # category search — filter to those subcategories so accessories and bundles
+    # don't pollute results. Supports MULTIPLE subcategories via CATEGORY_ALIASES.
     # IMPORTANT: Skip category-intent when brand-intent is detected — brand takes priority
-    # (e.g. "nikon" is both a brand and a subcategory "do Nikon"/etc., but user means the brand)
-    matched_subcategory: str | None = None
-    if _subcategory_set and not _brand_intent:
-        # 1) Exact match (with original Polish characters)
-        if q_lower in _subcategory_set:
-            matched_subcategory = q_lower
-        else:
-            # 2) Folded match (user types without Polish diacritics)
-            q_folded = _fold_polish(q_lower)
-            if q_folded in _subcategory_folded:
-                matched_subcategory = _subcategory_folded[q_folded]
+    matched_subcategories: list[str] | None = None
+    if not _brand_intent:
+        q_folded = _fold_polish(q_lower)
+        # 0) Alias match — CATEGORY_ALIASES handles singular forms, short words
+        if q_lower in CATEGORY_ALIASES:
+            matched_subcategories = CATEGORY_ALIASES[q_lower]
+        elif q_folded in CATEGORY_ALIASES:
+            matched_subcategories = CATEGORY_ALIASES[q_folded]
+        elif _subcategory_set:
+            # 1) Exact match (with original Polish characters)
+            if q_lower in _subcategory_set:
+                es_key = _subcategory_lower_to_original.get(q_lower, q_lower)
+                matched_subcategories = [es_key]
             else:
-                # 3) Prefix match — both folded and unfolded
-                best_match: str | None = None
-                best_len = 0
-                for folded_cat, original_cat in _subcategory_folded.items():
-                    # Query is prefix of category: "obiektywy stalo" → "obiektywy stałoogniskowe"
-                    if len(q_folded) >= 6 and folded_cat.startswith(q_folded):
-                        if len(original_cat) > best_len:
-                            best_match = original_cat
-                            best_len = len(original_cat)
-                    # Category is prefix of query: "bezlusterkowce" → "bezlusterkowce sony"
-                    elif len(q_folded) >= 6 and q_folded.startswith(folded_cat) and len(folded_cat) >= 6:
-                        if len(original_cat) > best_len:
-                            best_match = original_cat
-                            best_len = len(original_cat)
-                if best_match:
-                    matched_subcategory = best_match
+                # 2) Folded match (user types without Polish diacritics)
+                if q_folded in _subcategory_folded:
+                    original = _subcategory_folded[q_folded]
+                    es_key = _subcategory_lower_to_original.get(original, original)
+                    matched_subcategories = [es_key]
+                else:
+                    # 3) Prefix match — both folded and unfolded
+                    best_match: str | None = None
+                    best_len = 0
+                    for folded_cat, original_cat in _subcategory_folded.items():
+                        # Query is prefix of category: "obiektywy stalo" → "obiektywy stałoogniskowe"
+                        if len(q_folded) >= 6 and folded_cat.startswith(q_folded):
+                            if len(original_cat) > best_len:
+                                best_match = original_cat
+                                best_len = len(original_cat)
+                        # Category is prefix of query: "bezlusterkowce" → "bezlusterkowce sony"
+                        elif len(q_folded) >= 6 and q_folded.startswith(folded_cat) and len(folded_cat) >= 6:
+                            if len(original_cat) > best_len:
+                                best_match = original_cat
+                                best_len = len(original_cat)
+                    if best_match:
+                        es_key = _subcategory_lower_to_original.get(best_match, best_match)
+                        matched_subcategories = [es_key]
+
+    # ── Focal-length intent detection ──
+    # Queries like "24-70", "sigma 24-70", "70-200 f2.8" → filter to lens subcategories
+    # and require the focal length to appear as a phrase (not tokenized "24" OR "70")
+    _focal_intent: str | None = None
+    if not matched_subcategories:
+        focal_match = _RE_FOCAL_LENGTH.search(q_lower)
+        if focal_match:
+            _focal_intent = f"{focal_match.group(1)}-{focal_match.group(2)}"
 
     # ── Build all queries, execute as single msearch ──
     # Query 1: Products — hybrid scoring: relevance × (popularity + business signals)
@@ -394,16 +475,19 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # This prevents small accessories with repeated brand name from dominating flagships
 
     # Build the core bool query — if category intent detected, add a strong category filter
-    if matched_subcategory:
-        # Resolve to original ES key (preserves casing like "lampy LED")
-        es_subcategory = _subcategory_lower_to_original.get(matched_subcategory, matched_subcategory)
-
+    if matched_subcategories:
         # Category-intent query: use constant_score filter so BM25 text relevance
         # does NOT affect ranking — all products in the category are equally relevant.
         # Ranking comes entirely from function_score (popularity, pageviews, etc.)
+        # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
+        subcat_filter = (
+            {"term": {"subcategory": matched_subcategories[0]}}
+            if len(matched_subcategories) == 1
+            else {"terms": {"subcategory": matched_subcategories}}
+        )
         product_bool_query = {
             "constant_score": {
-                "filter": {"term": {"subcategory": es_subcategory}},
+                "filter": subcat_filter,
                 "boost": 1,
             }
         }
@@ -416,6 +500,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
         _phrase_boost = 10 if _brand_intent else 50
         _phrase_prefix_boost = 2 if _brand_intent else 5
+
+        # Focal-length intent: filter to lens subcategories and require phrase match
+        _focal_filter = (
+            [{"terms": {"subcategory": LENS_SUBCATS}}]
+            if _focal_intent else []
+        )
+
         product_bool_query = {
             "bool": {
                 "should": [
@@ -436,7 +527,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     },
                     {
                         "match_phrase": {
-                            "name": {"query": q_for_es, "boost": _phrase_boost}
+                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 2}
                         }
                     },
                     {
@@ -454,11 +545,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
                 ],
                 "minimum_should_match": 1,
+                # Focal-length intent: restrict to lens subcategories
+                **({"filter": _focal_filter} if _focal_filter else {}),
             }
         }
 
     # ── Build function_score functions based on query type ──
-    if matched_subcategory:
+    if matched_subcategories:
         # Category-intent: user browses a category → rank by POPULARITY, not price
         # Use sqrt modifier (not log1p) so differences in pageviews actually matter:
         # sqrt(400)=20 vs sqrt(20)=4.5 → 4.4x difference (log1p would only give 2x)
@@ -497,6 +590,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             },
             # Availability — crucial for category browsing
             {"filter": {"term": {"availability": "in_stock"}}, "weight": 30},
+            # na_zamowienie — available for order, less than in_stock but above out_of_stock
+            {"filter": {"term": {"availability": "na_zamowienie"}}, "weight": 15},
             # Bestseller
             {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
             # Image available
@@ -525,7 +620,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Brand-intent: when detected, boost products of that brand (+300)
         # and strongly boost main categories (+300) so cameras/lenses beat
         # accessories, scopes, and other non-core products of the same brand.
-        _main_cat_weight = 300 if _brand_intent else 80
+        _main_cat_weight = 300 if _brand_intent else 120
         _price_weight = 30 if _brand_intent else 15
         scoring_functions = [
             # Brand-intent boost — if user searches a brand, prefer that brand's products
@@ -560,6 +655,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             },
             # Availability
             {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
+            # na_zamowienie — available for order, less than in_stock but above out_of_stock
+            {"filter": {"term": {"availability": "na_zamowienie"}}, "weight": 30},
             # Bestseller — strong signal
             {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
             # Main product categories get boosted over accessories
@@ -582,6 +679,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
                 if _used_intent else
                 [{"filter": {"term": {"condition": "new"}}, "weight": 50 if _brand_intent else 25}]
+            ),
+            # Focal-length intent: boost lens subcategories when query contains focal range
+            *(
+                [{"filter": {"terms": {"subcategory": LENS_SUBCATS}}, "weight": 150}]
+                if _focal_intent else []
             ),
         ]
 
