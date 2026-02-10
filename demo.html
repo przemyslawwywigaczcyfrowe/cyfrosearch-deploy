@@ -155,6 +155,7 @@
   .featured-name:hover { text-decoration: underline; }
   .featured-name mark { background: none; font-weight: 700; color: #333; }
   .featured-brand { color: #333; font-weight: 700; text-decoration: underline; }
+  .featured-info { text-align: center; }
   .featured-price { font-size: 20px; font-weight: 700; color: #333; white-space: nowrap; }
   .featured-old-price { font-size: 13px; color: #999; text-decoration: line-through; white-space: nowrap; }
 
@@ -211,9 +212,13 @@
   .show-all-btn:hover { background: #333; }
 
   /* Spinner & empty */
-  .spinner { display: none; padding: 60px; text-align: center; width: 100%; }
+  .spinner {
+    display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 5; background: rgba(255,255,255,0.85);
+    justify-content: center; align-items: center;
+  }
   .spinner::after {
-    content: ''; display: inline-block; width: 24px; height: 24px;
+    content: ''; display: block; width: 24px; height: 24px;
     border: 3px solid #ddd; border-top-color: #333;
     border-radius: 50%; animation: spin 0.6s linear infinite;
   }
@@ -336,6 +341,7 @@
     }
     .featured-heading { display: none; }
     .featured-img { width: 56px; height: 56px; flex-shrink: 0; margin-bottom: 0; }
+    .featured-info { flex: 1; min-width: 0; text-align: left; }
     .featured-name {
       font-size: 13px; text-align: left;
       -webkit-line-clamp: 2; margin-bottom: 2px;
@@ -361,7 +367,7 @@
     .pgrid-item:last-child { border-bottom: none; }
     .pgrid-img { width: 56px; height: 56px; }
     .pgrid-name { font-size: 13px; -webkit-line-clamp: 2; }
-    .pgrid-price { font-size: 14px; color: #e53935; }
+    .pgrid-price { font-size: 14px; }
     .pgrid-old-price { font-size: 11px; color: #999; }
 
     /* Footer */
@@ -582,7 +588,7 @@ async function doSearch(q) {
   }
 
   // Delayed spinner: show only if fetch takes >150ms (avoids flash on fast responses)
-  const spinnerTimeout = setTimeout(() => { spinner.style.display = 'block'; }, 150);
+  const spinnerTimeout = setTimeout(() => { spinner.style.display = 'flex'; }, 150);
   showDropdown();
 
   const t0 = performance.now();
@@ -644,10 +650,12 @@ function renderDropdown(data, query) {
   if (featured) {
     const img = featured.image_url || phImg();
     c2 += `<a href="${ea(featured.product_url||'#')}" target="_blank"><img class="featured-img" src="${ea(img)}" alt="" loading="lazy" onerror="this.src='${phImg()}'"></a>`;
+    c2 += `<div class="featured-info">`;
     c2 += `<a class="featured-name" href="${ea(featured.product_url||'#')}" target="_blank">${hlBrand(featured.name, featured.brand, query, 'featured-brand')}</a>`;
     if (featured.original_price && featured.original_price > featured.price)
       c2 += `<div class="featured-old-price">${fp(featured.original_price)} zl</div>`;
     c2 += `<div class="featured-price">${fp(featured.price)} zl</div>`;
+    c2 += `</div>`;
   }
   c2 += '</div>';
 

@@ -88,6 +88,7 @@
 .cfs-feat-name:hover { text-decoration: underline; }
 .cfs-feat-name mark { background: none; font-weight: 700; }
 .cfs-feat-brand { color: #333; font-weight: 700; text-decoration: underline; }
+.cfs-feat-info { text-align: center; }
 .cfs-feat-price { font-size: 20px; font-weight: 700; color: #333; margin-top: 4px; }
 .cfs-feat-old { font-size: 13px; color: #999; text-decoration: line-through; margin-top: 2px; }
 
@@ -126,9 +127,13 @@
 .cfs-show-all:hover { background: #333; }
 
 /* Spinner */
-.cfs-spinner { display: none; padding: 60px; text-align: center; width: 100%; }
+.cfs-spinner {
+  display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 5; background: rgba(255,255,255,0.85);
+  justify-content: center; align-items: center;
+}
 .cfs-spinner::after {
-  content: ''; display: inline-block; width: 22px; height: 22px;
+  content: ''; display: block; width: 22px; height: 22px;
   border: 3px solid #ddd; border-top-color: #333; border-radius: 50%;
   animation: cfs-spin 0.6s linear infinite;
 }
@@ -178,6 +183,7 @@
   }
   .cfs-col-feat .cfs-heading { display: none; }
   .cfs-feat-img { width: 56px; height: 56px; flex-shrink: 0; margin-bottom: 0; }
+  .cfs-feat-info { flex: 1; min-width: 0; text-align: left; }
   .cfs-feat-name { font-size: 13px; text-align: left; -webkit-line-clamp: 2; margin-bottom: 2px; }
   .cfs-feat-price { font-size: 15px; }
   .cfs-feat-old { font-size: 11px; }
@@ -191,7 +197,7 @@
   .cfs-grid a:last-child { border-bottom: none; }
   .cfs-prod-img { width: 56px; height: 56px; }
   .cfs-prod-name { font-size: 13px; -webkit-line-clamp: 2; }
-  .cfs-prod-price { font-size: 14px; color: #e53935; }
+  .cfs-prod-price { font-size: 14px; }
   .cfs-prod-old { font-size: 11px; }
   .cfs-footer { padding: 14px; }
   .cfs-footer span { display: block; width: 100%; padding: 12px; font-size: 13px; border-radius: 6px; }
@@ -352,7 +358,7 @@
     }
 
     // Delayed spinner: show only if fetch takes >150ms (avoids flash on fast responses)
-    var spinnerTimeout = setTimeout(function() { spinner.style.display = "block"; }, 150);
+    var spinnerTimeout = setTimeout(function() { spinner.style.display = "flex"; }, 150);
     positionDropdown();
     showDropdown();
 
@@ -407,10 +413,12 @@
     if (featured) {
       const img = featured.image_url || PH_IMG;
       c2 += '<a href="' + ea(featured.product_url || '#') + '" target="_blank"><img class="cfs-feat-img" src="' + ea(img) + '" alt="" loading="lazy" onerror="this.src=\'' + PH_IMG + '\'"></a>';
+      c2 += '<div class="cfs-feat-info">';
       c2 += '<a class="cfs-feat-name" href="' + ea(featured.product_url || '#') + '" target="_blank">' + hlFeatBrand(featured.name, featured.brand, query) + '</a>';
       if (featured.original_price && featured.original_price > featured.price)
         c2 += '<div class="cfs-feat-old">' + fp(featured.original_price) + ' zł</div>';
       c2 += '<div class="cfs-feat-price">' + fp(featured.price) + ' zł</div>';
+      c2 += '</div>';
     }
     c2 += '</div>';
 
