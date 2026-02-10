@@ -230,6 +230,26 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
 
+    # ── Condition-intent detection ──
+    # If query contains "używany"/"uzywany" (or prefix like "uży"/"uzy"),
+    # heavily boost condition:"used" and suppress condition:"new" boost.
+    # Also strip the condition keyword from the ES query so it doesn't penalize
+    # products that don't have "używany" in their name field.
+    _USED_KEYWORDS = ("używan", "uzywany", "używany", "uży", "uzy")
+    _used_intent = any(
+        any(w.startswith(kw) for kw in _USED_KEYWORDS)
+        for w in q_lower.split()
+    )
+    # Build a "clean" query without the condition keyword for ES text matching
+    if _used_intent:
+        q_clean_words = [
+            w for w in q.split()
+            if not any(w.lower().startswith(kw) for kw in _USED_KEYWORDS)
+        ]
+        q_for_es = " ".join(q_clean_words).strip() or q
+    else:
+        q_for_es = q
+
     # ── Category-intent detection ──
     # If the query exactly matches (or closely matches) a subcategory name,
     # treat it as a category search — filter to that subcategory so accessories
@@ -290,7 +310,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "should": [
                     {
                         "multi_match": {
-                            "query": q,
+                            "query": q_for_es,
                             "type": "best_fields",
                             "fields": [
                                 "name^3", "name.prefix^2",
@@ -305,7 +325,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     },
                     {
                         "match_phrase_prefix": {
-                            "name": {"query": q, "boost": 3}
+                            "name": {"query": q_for_es, "boost": 3}
                         }
                     },
                     # Exact-match on keyword fields (case-sensitive) for product codes
@@ -375,8 +395,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 },
                 "weight": 2,
             },
-            # Prefer NEW condition products over USED — same model, new ranks higher
-            {"filter": {"term": {"condition": "new"}}, "weight": 25},
+            # Condition-based boost — dynamically switch based on user intent
+            *(
+                [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
+                if _used_intent else
+                [{"filter": {"term": {"condition": "new"}}, "weight": 25}]
+            ),
         ]
     else:
         # Standard text-matching: brand queries like "canon", "sony a7" etc.
@@ -423,8 +447,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"is_promo": True}}, "weight": 20},
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
-            # Prefer NEW condition products over USED — same model, new ranks higher
-            {"filter": {"term": {"condition": "new"}}, "weight": 25},
+            # Condition-based boost — dynamically switch based on user intent
+            *(
+                [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
+                if _used_intent else
+                [{"filter": {"term": {"condition": "new"}}, "weight": 25}]
+            ),
         ]
 
     product_body = {
@@ -889,6 +917,23 @@ async def search(
     if price_max is not None:
         filters.append({"range": {"price": {"lte": price_max}}})
 
+    # ── Condition-intent detection (same logic as suggest) ──
+    _USED_KW = ("używan", "uzywany", "używany", "uży", "uzy")
+    q_lower_s = q.lower().strip()
+    _used_intent_s = any(
+        any(w.startswith(kw) for kw in _USED_KW)
+        for w in q_lower_s.split()
+    )
+    if _used_intent_s:
+        q_for_es_s = " ".join(
+            w for w in q.split()
+            if not any(w.lower().startswith(kw) for kw in _USED_KW)
+        ).strip() or q
+        # Force filter to used products
+        filters.append({"term": {"condition": "used"}})
+    else:
+        q_for_es_s = q
+
     q_trimmed = q.strip()
     q_upper = q_trimmed.upper()
     must = {
@@ -896,7 +941,7 @@ async def search(
             "should": [
                 {
                     "multi_match": {
-                        "query": q,
+                        "query": q_for_es_s,
                         "fields": [
                             "name^5", "name.prefix^3", "name.morfologik^2",
                             "name.folded^2", "brand^3", "description", "tags^2",
