@@ -45,7 +45,7 @@
   display: none; position: absolute; z-index: 99999;
   background: #fff; border: 1px solid #e0e0e0; box-shadow: 0 6px 24px rgba(0,0,0,0.15);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px; color: #333; width: 780px; max-width: 95vw;
+  font-size: 13px; color: #333; width: 900px; max-width: 95vw;
   overflow: hidden;
 }
 .cfs-dropdown.cfs-active { display: block; }
@@ -265,7 +265,7 @@
   function positionDropdown() {
     if (!inputEl) return;
     const rect = inputEl.getBoundingClientRect();
-    const ddWidth = Math.min(780, window.innerWidth - 10);
+    const ddWidth = Math.min(900, window.innerWidth - 10);
     // Center under the search bar
     let left = rect.left + (rect.width / 2) - (ddWidth / 2);
     left = Math.max(5, Math.min(left, window.innerWidth - ddWidth - 5));
