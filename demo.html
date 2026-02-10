@@ -268,6 +268,9 @@
   .stat-label { font-size: 12px; color: #888; margin-top: 2px; }
   .demo-footer { text-align: center; padding: 30px 20px; color: #aaa; font-size: 12px; }
 
+  /* ── Mobile header (hidden on desktop) ── */
+  .mobile-header { display: none; }
+
   /* ── Responsive — mobile: single-column list like cyfrowe.pl production ── */
   @media (max-width: 800px) {
     .dropdown {
@@ -277,7 +280,24 @@
       display: flex; flex-direction: column;
       overflow-y: auto;
     }
-    .dropdown-close { top: 12px; right: 14px; font-size: 26px; z-index: 20; }
+    .dropdown-close { display: none; }
+    .mobile-header {
+      display: flex; align-items: center; gap: 8px;
+      position: sticky; top: 0; z-index: 10;
+      background: #fff; padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      flex-shrink: 0;
+    }
+    .mobile-back {
+      background: none; border: none; font-size: 22px;
+      cursor: pointer; padding: 4px 8px; color: #333; line-height: 1;
+    }
+    .mobile-input {
+      flex: 1; border: 1px solid #ddd; border-radius: 4px;
+      padding: 8px 12px; font-size: 14px; outline: none;
+      font-family: inherit;
+    }
+    .mobile-input:focus { border-color: #999; }
     .dropdown-body { flex-direction: column; min-height: unset; }
 
     /* Tags row: horizontal scroll */
@@ -488,8 +508,8 @@ input.addEventListener('input', () => {
     return;
   }
 
-  // Short debounce: 120ms (was 200ms)
-  debounceTimer = setTimeout(() => doSearch(q), 120);
+  // Short debounce: 80ms
+  debounceTimer = setTimeout(() => doSearch(q), 80);
 });
 
 input.addEventListener('focus', () => {
@@ -561,18 +581,18 @@ async function doSearch(q) {
     return;
   }
 
-  spinner.style.display = 'block';
-  dropdownContent.innerHTML = '';
+  // Delayed spinner: show only if fetch takes >150ms (avoids flash on fast responses)
+  const spinnerTimeout = setTimeout(() => { spinner.style.display = 'block'; }, 150);
   showDropdown();
 
   const t0 = performance.now();
   try {
     const resp = await fetch(`${API_BASE}/api/suggest?q=${encodeURIComponent(q)}&limit=7`, {
       signal: controller.signal,
-      // Keep-alive is default in modern browsers; just ensure we're not disabling it
     });
     const data = await resp.json();
     const clientMs = Math.round(performance.now() - t0);
+    clearTimeout(spinnerTimeout);
     spinner.style.display = 'none';
 
     document.getElementById('stat-time').textContent = `${clientMs}ms`;
@@ -583,6 +603,7 @@ async function doSearch(q) {
 
     renderDropdown(data, q);
   } catch (e) {
+    clearTimeout(spinnerTimeout);
     if (e.name !== 'AbortError') {
       spinner.style.display = 'none';
       dropdownContent.innerHTML = '<div class="no-results">Blad polaczenia z API</div>';
@@ -647,9 +668,42 @@ function renderDropdown(data, query) {
   }
   c3 += '</div>';
 
-  let html = '<div class="dropdown-body">' + c1 + c2 + c3 + '</div>';
+  // Mobile header with search input (visible only on <=800px via CSS)
+  const isMobile = window.innerWidth <= 800;
+  let mobileHeader = `<div class="mobile-header">
+    <button class="mobile-back" id="mobile-back-btn">&#8592;</button>
+    <input class="mobile-input" type="text" value="${ea(query)}" placeholder="Szukaj produktów..." id="mobile-search-input">
+    <button class="mobile-back" id="mobile-close-btn">&times;</button>
+  </div>`;
+
+  let html = mobileHeader + '<div class="dropdown-body">' + c1 + c2 + c3 + '</div>';
   html += `<div class="dropdown-footer-bar"><span class="show-all-btn" onclick="alert('Szukaj: ${ea(query)}')">POKAZ WSZYSTKIE PRODUKTY</span></div>`;
   dropdownContent.innerHTML = html;
+
+  // Mobile header event binding
+  const mobileBackBtn = document.getElementById('mobile-back-btn');
+  const mobileCloseBtn = document.getElementById('mobile-close-btn');
+  if (mobileBackBtn) mobileBackBtn.addEventListener('click', hideDropdown);
+  if (mobileCloseBtn) mobileCloseBtn.addEventListener('click', hideDropdown);
+
+  if (isMobile) {
+    const mobileInput = document.getElementById('mobile-search-input');
+    if (mobileInput) {
+      mobileInput.focus();
+      mobileInput.setSelectionRange(mobileInput.value.length, mobileInput.value.length);
+      mobileInput.addEventListener('input', (e) => {
+        const mq = e.target.value.trim();
+        input.value = mq;
+        clearBtn.style.display = mq ? 'block' : 'none';
+        clearTimeout(debounceTimer);
+        if (mq.length >= 2) {
+          debounceTimer = setTimeout(() => doSearch(mq), 80);
+        } else if (mq.length === 0) {
+          showZeroState();
+        }
+      });
+    }
+  }
 }
 
 function renderZeroState(data) {
@@ -681,7 +735,34 @@ function renderZeroState(data) {
     c2 += '</div>';
   }
   c2 += '</div>';
-  dropdownContent.innerHTML = '<div class="dropdown-body">' + c1 + c2 + '</div>';
+
+  // Mobile header for zero-state
+  const isMobileZero = window.innerWidth <= 800;
+  let mobileHeaderZero = `<div class="mobile-header">
+    <button class="mobile-back" onclick="hideDropdown()">&#8592;</button>
+    <input class="mobile-input" type="text" value="" placeholder="Szukaj produktów..." id="mobile-search-input-zero">
+    <button class="mobile-back" onclick="hideDropdown()">&times;</button>
+  </div>`;
+
+  dropdownContent.innerHTML = mobileHeaderZero + '<div class="dropdown-body">' + c1 + c2 + '</div>';
+
+  if (isMobileZero) {
+    const mobileInputZero = document.getElementById('mobile-search-input-zero');
+    if (mobileInputZero) {
+      mobileInputZero.focus();
+      mobileInputZero.addEventListener('input', (e) => {
+        const mq = e.target.value.trim();
+        input.value = mq;
+        clearBtn.style.display = mq ? 'block' : 'none';
+        clearTimeout(debounceTimer);
+        if (mq.length >= 2) {
+          debounceTimer = setTimeout(() => doSearch(mq), 80);
+        } else if (mq.length === 0) {
+          showZeroState();
+        }
+      });
+    }
+  }
 }
 async function showZeroState() {
   if (_trendingData) { renderZeroState(_trendingData); showDropdown(); return; }

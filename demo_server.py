@@ -169,6 +169,9 @@ SKIP_CATS = frozenset({
     "do ", "zbroje", "klatki", "pokrywki", "kable", "akcesoria", "torby", "filtry",
 })
 
+# Condition-intent keywords (module-level, not per-request)
+USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
+
 TOKEN_RE = re.compile(r'[A-Za-z0-9\u0080-\u024F]+')
 
 
@@ -262,16 +265,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # heavily boost condition:"used" and suppress condition:"new" boost.
     # Also strip the condition keyword from the ES query so it doesn't penalize
     # products that don't have "używany" in their name field.
-    _USED_KEYWORDS = ("używan", "uzywany", "używany", "uży", "uzy")
     _used_intent = any(
-        any(w.startswith(kw) for kw in _USED_KEYWORDS)
+        any(w.startswith(kw) for kw in USED_INTENT_PREFIXES)
         for w in q_lower.split()
     )
     # Build a "clean" query without the condition keyword for ES text matching
     if _used_intent:
         q_clean_words = [
             w for w in q.split()
-            if not any(w.lower().startswith(kw) for kw in _USED_KEYWORDS)
+            if not any(w.lower().startswith(kw) for kw in USED_INTENT_PREFIXES)
         ]
         q_for_es = " ".join(q_clean_words).strip() or q
     else:
@@ -530,9 +532,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         },
     }
 
-    # Query 3: Suggestion source (top 30 popular products for name extraction)
+    # Query 3: Suggestion source (top 20 popular products for name extraction)
     suggest_source_body = {
-        "size": 30,
+        "size": 20,
         "query": {
             "function_score": {
                 "query": {
@@ -725,7 +727,9 @@ def _build_suggestions(
 
     hits = suggest_resp.get("hits", {}).get("hits", [])
 
-    # --- Pass 1: Extract model/series phrases from product names ---
+    # --- Pass 1: Extract model/series phrases + cache tokenized data for Pass 3 ---
+    tokenized_hits: list[tuple[str, str, float, bool, list[str]]] = []  # (name_lower, brand_l, pop, is_main, after_tokens not needed here)
+
     for hit in hits:
         src = hit["_source"]
         name = src.get("name", "")
@@ -751,6 +755,9 @@ def _build_suggestions(
             else:
                 tokens.append(t)
         tokens_lower = [t.lower() for t in tokens]
+
+        # Cache for Pass 3 (avoids re-tokenizing)
+        tokenized_hits.append((name.lower(), brand, pop, is_main, tokens_lower))
 
         # Build 2-3 token windows
         for wlen in (2, 3):
@@ -859,22 +866,16 @@ def _build_suggestions(
         existing.add(phrase)
 
     # --- Pass 3: Query variant suggestions if fewer than 5 ---
+    # Uses tokenized_hits cached from Pass 1 (no re-tokenization needed)
     if len(popular_queries) < 5:
         variant_phrases: dict[str, float] = {}
-        for hit in hits:
-            src = hit["_source"]
-            name = src.get("name", "").lower()
-            pop = (src.get("ga4", {}).get("popularity_score", 0) or 0)
-            subcat = (src.get("subcategory", "") or "").lower()
-            is_main = subcat in MAIN_SUBCATS
-            brand_l = (src.get("brand", "") or "").lower()
-
+        for name_lower, brand_l, pop, is_main, _tokens_lower in tokenized_hits:
             if brand_l in ACCESSORY_BRANDS:
                 continue
-            pos = name.find(q_lower)
+            pos = name_lower.find(q_lower)
             if pos < 0:
                 continue
-            after = name[pos + len(q_lower):].strip()
+            after = name_lower[pos + len(q_lower):].strip()
             if not after:
                 continue
 
@@ -952,16 +953,15 @@ async def search(
         filters.append({"range": {"price": {"lte": price_max}}})
 
     # ── Condition-intent detection (same logic as suggest) ──
-    _USED_KW = ("używan", "uzywany", "używany", "uży", "uzy")
     q_lower_s = q.lower().strip()
     _used_intent_s = any(
-        any(w.startswith(kw) for kw in _USED_KW)
+        any(w.startswith(kw) for kw in USED_INTENT_PREFIXES)
         for w in q_lower_s.split()
     )
     if _used_intent_s:
         q_for_es_s = " ".join(
             w for w in q.split()
-            if not any(w.lower().startswith(kw) for kw in _USED_KW)
+            if not any(w.lower().startswith(kw) for kw in USED_INTENT_PREFIXES)
         ).strip() or q
         # Force filter to used products
         filters.append({"term": {"condition": "used"}})

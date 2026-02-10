@@ -23,7 +23,7 @@
     api: SCRIPT.getAttribute("data-api") || "",
     inputSelector: SCRIPT.getAttribute("data-input") || '[name="q"], [name="search"], #search-input, .search-input, input[type="search"]',
     limit: parseInt(SCRIPT.getAttribute("data-limit") || "7", 10),
-    debounce: parseInt(SCRIPT.getAttribute("data-debounce") || "120", 10),
+    debounce: parseInt(SCRIPT.getAttribute("data-debounce") || "80", 10),
     minChars: parseInt(SCRIPT.getAttribute("data-min-chars") || "2", 10),
     lang: SCRIPT.getAttribute("data-lang") || "pl",
   };
@@ -135,6 +135,9 @@
 @keyframes cfs-spin { to { transform: rotate(360deg); } }
 .cfs-empty { padding: 60px 20px; text-align: center; color: #999; font-size: 13px; width: 100%; }
 
+/* Mobile header (hidden on desktop) */
+.cfs-mobile-header { display: none; }
+
 /* Mobile */
 @media (max-width: 800px) {
   .cfs-dropdown {
@@ -142,7 +145,22 @@
     width: 100% !important; max-width: 100% !important; transform: none !important;
     border: none; box-shadow: none; display: flex; flex-direction: column; overflow-y: auto;
   }
-  .cfs-close { top: 12px; right: 14px; font-size: 26px; z-index: 20; }
+  .cfs-close { display: none; }
+  .cfs-mobile-header {
+    display: flex; align-items: center; gap: 8px;
+    position: sticky; top: 0; z-index: 10;
+    background: #fff; padding: 8px 12px;
+    border-bottom: 1px solid #eee; flex-shrink: 0;
+  }
+  .cfs-mobile-back {
+    background: none; border: none; font-size: 22px;
+    cursor: pointer; padding: 4px 8px; color: #333; line-height: 1;
+  }
+  .cfs-mobile-input {
+    flex: 1; border: 1px solid #ddd; border-radius: 4px;
+    padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit;
+  }
+  .cfs-mobile-input:focus { border-color: #999; }
   .cfs-body { flex-direction: column; min-height: unset; }
   .cfs-col-left {
     width: 100%; min-width: unset; max-width: unset;
@@ -333,8 +351,8 @@
       return;
     }
 
-    spinner.style.display = "block";
-    content.innerHTML = "";
+    // Delayed spinner: show only if fetch takes >150ms (avoids flash on fast responses)
+    var spinnerTimeout = setTimeout(function() { spinner.style.display = "block"; }, 150);
     positionDropdown();
     showDropdown();
 
@@ -343,10 +361,12 @@
         signal: controller.signal,
       });
       const data = await resp.json();
+      clearTimeout(spinnerTimeout);
       spinner.style.display = "none";
       cachePut(q.toLowerCase(), data);
       renderDropdown(data, q);
     } catch (e) {
+      clearTimeout(spinnerTimeout);
       if (e.name !== "AbortError") {
         spinner.style.display = "none";
         content.innerHTML = '<div class="cfs-empty">Brak połączenia z API</div>';
@@ -411,17 +431,39 @@
     }
     c3 += '</div>';
 
-    let html = '<div class="cfs-body">' + c1 + c2 + c3 + '</div>';
+    // Mobile header with search input (visible only on <=800px via CSS)
+    var isMobile = window.innerWidth <= 800;
+    var mobileHeader = '<div class="cfs-mobile-header">' +
+      '<button class="cfs-mobile-back" data-cfs-hide>&#8592;</button>' +
+      '<input class="cfs-mobile-input" type="text" value="' + ea(query) + '" placeholder="Szukaj produktów...">' +
+      '<button class="cfs-mobile-back" data-cfs-hide>&times;</button>' +
+      '</div>';
+
+    let html = mobileHeader + '<div class="cfs-body">' + c1 + c2 + c3 + '</div>';
     html += '<div class="cfs-footer"><a class="cfs-show-all" data-cfs-search="' + ea(query) + '">POKAŻ WSZYSTKIE PRODUKTY</a></div>';
     content.innerHTML = html;
 
-    // Bind click events for search tags
-    content.querySelectorAll("[data-cfs-search]").forEach(el => {
-      el.addEventListener("click", (e) => {
-        e.preventDefault();
-        searchFor(el.getAttribute("data-cfs-search"));
-      });
+    // Mobile header event binding
+    content.querySelectorAll("[data-cfs-hide]").forEach(function(btn) {
+      btn.addEventListener("click", hideDropdown);
     });
+    if (isMobile) {
+      var mobileInput = content.querySelector(".cfs-mobile-input");
+      if (mobileInput) {
+        mobileInput.focus();
+        mobileInput.setSelectionRange(mobileInput.value.length, mobileInput.value.length);
+        mobileInput.addEventListener("input", function(e) {
+          var mq = e.target.value.trim();
+          if (inputEl) inputEl.value = mq;
+          clearTimeout(debounceTimer);
+          if (mq.length >= CFG.minChars) {
+            debounceTimer = setTimeout(function() { doSearch(mq); }, CFG.debounce);
+          } else if (mq.length === 0) {
+            showZeroState();
+          }
+        });
+      }
+    }
   }
 
   // ── Zero-state (trending) rendering ──
@@ -457,15 +499,35 @@
     }
     c2 += '</div>';
 
-    content.innerHTML = '<div class="cfs-body">' + c1 + c2 + '</div>';
+    // Mobile header for zero-state
+    var isMobileZero = window.innerWidth <= 800;
+    var mobileHeaderZero = '<div class="cfs-mobile-header">' +
+      '<button class="cfs-mobile-back" data-cfs-hide>&#8592;</button>' +
+      '<input class="cfs-mobile-input" type="text" value="" placeholder="Szukaj produktów...">' +
+      '<button class="cfs-mobile-back" data-cfs-hide>&times;</button>' +
+      '</div>';
 
-    // Bind click events for category links
-    content.querySelectorAll("[data-cfs-search]").forEach(el => {
-      el.addEventListener("click", (e) => {
-        e.preventDefault();
-        searchFor(el.getAttribute("data-cfs-search"));
-      });
+    content.innerHTML = mobileHeaderZero + '<div class="cfs-body">' + c1 + c2 + '</div>';
+
+    content.querySelectorAll("[data-cfs-hide]").forEach(function(btn) {
+      btn.addEventListener("click", hideDropdown);
     });
+    if (isMobileZero) {
+      var mobileInputZero = content.querySelector(".cfs-mobile-input");
+      if (mobileInputZero) {
+        mobileInputZero.focus();
+        mobileInputZero.addEventListener("input", function(e) {
+          var mq = e.target.value.trim();
+          if (inputEl) inputEl.value = mq;
+          clearTimeout(debounceTimer);
+          if (mq.length >= CFG.minChars) {
+            debounceTimer = setTimeout(function() { doSearch(mq); }, CFG.debounce);
+          } else if (mq.length === 0) {
+            showZeroState();
+          }
+        });
+      }
+    }
   }
 
   async function showZeroState() {
@@ -575,9 +637,21 @@
     overlay.addEventListener("click", hideDropdown);
     closeBtn.addEventListener("click", hideDropdown);
 
-    // Reposition on scroll/resize
-    window.addEventListener("scroll", () => { if (dropdown.classList.contains("cfs-active")) positionDropdown(); }, { passive: true });
-    window.addEventListener("resize", () => { if (dropdown.classList.contains("cfs-active")) positionDropdown(); }, { passive: true });
+    // Event delegation: single handler for all [data-cfs-search] clicks (added once, not per-render)
+    content.addEventListener("click", function(e) {
+      var el = e.target.closest("[data-cfs-search]");
+      if (el) { e.preventDefault(); searchFor(el.getAttribute("data-cfs-search")); }
+    });
+
+    // Reposition on scroll (throttled with rAF) and resize
+    var _rafPending = false;
+    window.addEventListener("scroll", function() {
+      if (!_rafPending && dropdown.classList.contains("cfs-active")) {
+        _rafPending = true;
+        requestAnimationFrame(function() { positionDropdown(); _rafPending = false; });
+      }
+    }, { passive: true });
+    window.addEventListener("resize", function() { if (dropdown.classList.contains("cfs-active")) positionDropdown(); }, { passive: true });
 
     console.log("[CyfroSearch] Widget initialized, attached to:", inputEl);
   }
