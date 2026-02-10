@@ -578,6 +578,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
         ]
 
+    # Temporary debug: log the brand intent
+    if _brand_intent:
+        print(f"[BRAND-INTENT] q='{q}', brand='{_brand_intent}', main_cat_weight={_main_cat_weight}, funcs={len(scoring_functions)}")
+
     product_body = {
         "size": limit,
         "query": {
@@ -1189,18 +1193,70 @@ async def search(
 # ──────────────────────────────────────────────────
 
 @app.get("/api/debug-brand")
-async def debug_brand(q: str = Query("nikon")):
-    """Debug endpoint to verify brand-intent detection."""
+async def debug_brand(q: str = Query("nikon"), limit: int = 5):
+    """Debug endpoint to verify brand-intent detection and raw ES scores."""
     es = await get_es()
     await _ensure_brands(es)
     q_lower = q.lower().strip()
     brand = _detect_brand_intent(q_lower)
+
+    # Build the EXACT same query as _suggest_internal
+    q_norm = _merge_mark_roman(_normalize_model_query(q))
+    q_for_es = q_norm
+    scoring_functions = []
+    _main_cat_weight = 300 if brand else 80
+    _price_weight = 30 if brand else 15
+    if brand:
+        scoring_functions.append({"filter": {"term": {"brand": brand}}, "weight": 300})
+    scoring_functions.extend([
+        {"field_value_factor": {"field": "ga4.popularity_score", "factor": 1.5, "modifier": "log1p", "missing": 0}, "weight": 80},
+        {"field_value_factor": {"field": "sales_30d", "factor": 1.0, "modifier": "log1p", "missing": 0}, "weight": 30},
+        {"field_value_factor": {"field": "price", "factor": 0.001, "modifier": "log1p", "missing": 0}, "weight": _price_weight},
+        {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
+        {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
+        {"filter": {"terms": {"subcategory": [
+            "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
+            "obiektywy sta\u0142oogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+            "obiektywy do lustrzanek", "obiektywy do bezlusterkowc\u00f3w",
+            "kamery cyfrowe", "kamery sportowe", "drony",
+        ]}}, "weight": _main_cat_weight},
+        {"filter": {"term": {"has_image": True}}, "weight": 10},
+        {"filter": {"term": {"is_promo": True}}, "weight": 20},
+        {"filter": {"term": {"is_new": True}}, "weight": 30},
+        {"filter": {"term": {"condition": "new"}}, "weight": 50 if brand else 25},
+    ])
+    body = {
+        "size": limit,
+        "query": {
+            "function_score": {
+                "query": {
+                    "bool": {
+                        "should": [
+                            {"multi_match": {"query": q_for_es, "type": "best_fields", "fields": ["name^3", "name.prefix^2", "name.morfologik^2", "name.folded^2", "brand^3", "sku^6", "ean^6", "manufacturer_code^8", "id_erp^8"], "fuzziness": "AUTO", "prefix_length": 2, "minimum_should_match": "70%"}},
+                            {"match_phrase": {"name": {"query": q_for_es, "boost": 50}}},
+                            {"match_phrase_prefix": {"name": {"query": q_for_es, "boost": 5}}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                },
+                "functions": scoring_functions,
+                "score_mode": "sum",
+                "boost_mode": "sum",
+                "max_boost": 2000,
+            }
+        },
+        "_source": ["name", "brand", "subcategory", "availability", "condition", "ga4.popularity_score", "price"],
+    }
+    resp = await es.search(index=ES_INDEX, body=body)
+    hits = []
+    for h in resp["hits"]["hits"]:
+        hits.append({"id": h["_id"], "score": round(h["_score"], 2), "src": h["_source"]})
     return {
-        "query": q,
-        "q_lower": q_lower,
         "brand_intent": brand,
-        "brand_set_size": len(_brand_set),
-        "sample_brands": sorted(list(_brand_set))[:20],
+        "main_cat_weight": _main_cat_weight,
+        "num_functions": len(scoring_functions),
+        "total_hits": resp["hits"]["total"]["value"],
+        "hits": hits,
     }
 
 
