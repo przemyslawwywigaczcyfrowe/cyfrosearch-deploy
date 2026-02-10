@@ -341,12 +341,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     },
                     {
                         "match_phrase": {
-                            "name": {"query": q_for_es, "boost": 10, "slop": 1}
+                            "name": {"query": q_for_es, "boost": 50}
                         }
                     },
                     {
                         "match_phrase_prefix": {
-                            "name": {"query": q_for_es, "boost": 3}
+                            "name": {"query": q_for_es, "boost": 5}
                         }
                     },
                     # Exact-match on keyword fields (case-sensitive) for product codes
