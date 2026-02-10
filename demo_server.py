@@ -516,8 +516,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Price matters more here (Canon → EOS R5, not RC-6 remote)
         #
         # Brand-intent: when detected, boost products of that brand (+300)
-        # and increase main_cat weight (80→150) so cameras/lenses beat accessories
-        _main_cat_weight = 150 if _brand_intent else 80
+        # and strongly boost main categories (+300) so cameras/lenses beat
+        # accessories, scopes, and other non-core products of the same brand.
+        _main_cat_weight = 300 if _brand_intent else 80
+        _price_weight = 30 if _brand_intent else 15
         scoring_functions = [
             # Brand-intent boost — if user searches a brand, prefer that brand's products
             *(
@@ -540,20 +542,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 },
                 "weight": 30,
             },
-            # Price tier boost — flagship products are more relevant for brand queries
+            # Price tier boost — flagship products more relevant for brand queries
+            # Higher weight when brand-intent (prefer cameras over lens caps)
             {
                 "field_value_factor": {
                     "field": "price",
                     "factor": 0.001, "modifier": "log1p", "missing": 0,
                 },
-                "weight": 15,
+                "weight": _price_weight,
             },
             # Availability
             {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
             # Bestseller — strong signal
             {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
             # Main product categories get boosted over accessories
-            # Higher weight when brand-intent detected (cameras > lens caps)
+            # Much higher weight when brand-intent detected (cameras > scopes/lens caps)
             {"filter": {"terms": {"subcategory": [
                 "bezlusterkowce", "aparaty cyfrowe", "lustrzanki", "kompakty",
                 "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
@@ -1104,7 +1107,6 @@ async def search(
 
     # Wrap in function_score when brand-intent detected (same pattern as suggest)
     if _brand_intent_s:
-        _main_cat_w_s = 150
         query = {
             "function_score": {
                 "query": base_query,
@@ -1115,7 +1117,7 @@ async def search(
                         "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
                         "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
                         "kamery cyfrowe", "kamery sportowe", "drony",
-                    ]}}, "weight": _main_cat_w_s},
+                    ]}}, "weight": 300},
                     {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
                     {"filter": {"term": {"condition": "new"}}, "weight": 50},
                 ],
