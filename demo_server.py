@@ -735,10 +735,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             _brand_lower2 = _brand_intent.lower()
             _model_remainder2 = q_for_es.lower().replace(_brand_lower2, "").strip()
             if _model_remainder2:
-                # Exact model match on name — very high boost
+                # Exact model match on name — very high boost.
+                # Only use match_phrase (not match) because word_delimiter_custom
+                # splits "220B" into ["220b","220","b"] and a match query would
+                # boost ALL products with "b" in name (e.g. "Typ B", "wersja B").
                 _model_remainder_clauses = [
-                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 200, "slop": 1}}},
-                    {"match": {"name": {"query": _model_remainder2, "boost": 120}}},
+                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 300, "slop": 1}}},
+                    # Also try on sub-fields that may tokenize differently
+                    {"match_phrase": {"name.folded": {"query": _model_remainder2, "boost": 200, "slop": 1}}},
                 ]
 
         product_bool_query = {
