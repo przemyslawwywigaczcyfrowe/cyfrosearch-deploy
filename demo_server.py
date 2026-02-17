@@ -650,11 +650,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     _r2 = q_lower.replace(_al, "").strip()
                     if len(_r2) < len(_remainder):
                         _remainder = _r2
-            # Model-number: 1-3 tokens, at least one contains a digit
+            # Model-number intent: remainder must be a specific model code.
+            # Requires at least 2 digits total in the remainder to avoid false positives
+            # on short brand+model queries like "canon r8" (1 digit) where popularity
+            # should still influence ranking. "smallrig 220B" (3 digits) → model intent.
+            # "sony a7 iv" (2 digits) → model intent. "canon r8" (1 digit) → NOT model intent.
             _rem_tokens = _remainder.split()
-            if 1 <= len(_rem_tokens) <= 3 and any(
-                any(c.isdigit() for c in t) for t in _rem_tokens
-            ):
+            _total_digits = sum(c.isdigit() for c in _remainder)
+            if (1 <= len(_rem_tokens) <= 3
+                and _total_digits >= 2
+                and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
                 _model_number_intent = True
 
         if _model_number_intent:
