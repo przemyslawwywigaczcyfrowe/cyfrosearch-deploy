@@ -652,6 +652,18 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _brand_intent else []
         )
 
+        # ── Model code variant generation ──
+        # Many photo/video products use letter+number codes: B300, G200, X100, R5, A7
+        # Users often drop the letter prefix: "molus 300" instead of "molus b300"
+        # Generate match_phrase variants with common letter prefixes prepended to numbers
+        _model_variant_phrases = []
+        _q_tokens = q_for_es.lower().split()
+        for _i, _tok in enumerate(_q_tokens):
+            if _tok.isdigit() and len(_tok) >= 2:
+                for _pre in "abcdefghijklmnoprstuvwxyz":
+                    _vtokens = _q_tokens[:_i] + [_pre + _tok] + _q_tokens[_i+1:]
+                    _model_variant_phrases.append(" ".join(_vtokens))
+
         product_bool_query = {
             "bool": {
                 "should": [
@@ -680,6 +692,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
                         }
                     },
+                    # Model code variants: "molus 300" → try "molus b300", "molus g300" etc.
+                    *[
+                        {"match_phrase": {"name": {"query": v, "boost": _phrase_boost * 2, "slop": 2}}}
+                        for v in _model_variant_phrases[:26]
+                    ],
                     # Exact-match on keyword fields (case-sensitive) for product codes
                     {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
                     {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
