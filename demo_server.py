@@ -840,21 +840,42 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Brand-intent: when detected, boost products of that brand (+300)
         # and strongly boost main categories (+1000) so cameras/lenses beat
         # accessories, scopes, and other non-core products of the same brand.
-        _main_cat_weight = 1000 if _brand_intent else 120
-        _price_weight = 30 if _brand_intent else 15
+        #
+        # Model-number intent: when user searches for a specific model (brand + digits),
+        # REDUCE popularity/price influence so that text relevance (match_phrase)
+        # can dominate. This ensures "smallrig 220B" → RC 220B, not random popular items.
+        if _model_number_intent:
+            _main_cat_weight = 100  # low — model specificity matters more
+            _price_weight = 5       # minimal — price doesn't determine model match
+            _pop_weight = 15        # reduced — popularity shouldn't override exact model match
+            _sales_weight = 5       # reduced
+            _brand_weight = 200     # still useful but lower than standard brand-intent
+        elif _brand_intent:
+            _main_cat_weight = 1000
+            _price_weight = 30
+            _pop_weight = 80
+            _sales_weight = 30
+            _brand_weight = 300
+        else:
+            _main_cat_weight = 120
+            _price_weight = 15
+            _pop_weight = 80
+            _sales_weight = 30
+            _brand_weight = 0  # no brand detected
+
         scoring_functions = [
             # Brand-intent boost — if user searches a brand, prefer that brand's products
             *(
-                [{"filter": {"term": {"brand": _brand_intent}}, "weight": 300}]
+                [{"filter": {"term": {"brand": _brand_intent}}, "weight": _brand_weight}]
                 if _brand_intent else []
             ),
-            # Popularity — strongest signal
+            # Popularity — strongest signal for generic queries, reduced for model-number queries
             {
                 "field_value_factor": {
                     "field": "ga4.popularity_score",
                     "factor": 1.5, "modifier": "log1p", "missing": 0,
                 },
-                "weight": 80,
+                "weight": _pop_weight,
             },
             # Sales volume boost
             {
@@ -862,7 +883,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     "field": "sales_30d",
                     "factor": 1.0, "modifier": "log1p", "missing": 0,
                 },
-                "weight": 30,
+                "weight": _sales_weight,
             },
             # Price tier boost — flagship products more relevant for brand queries
             # Higher weight when brand-intent (prefer cameras over lens caps)
@@ -877,8 +898,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
             # na_zamowienie — available for order, less than in_stock but above out_of_stock
             {"filter": {"term": {"availability": "na_zamowienie"}}, "weight": 30},
-            # Bestseller — strong signal
-            {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
+            # Bestseller — strong signal (reduced for model-number intent)
+            {"filter": {"term": {"is_bestseller": True}}, "weight": 20 if _model_number_intent else 60},
             # Main product categories get boosted over accessories
             # Much higher weight when brand-intent detected (cameras > scopes/lens caps)
             {"filter": {"terms": {"subcategory": [
