@@ -634,8 +634,39 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # function_score signals (brand +300, main_cat +1000, price) can outweigh
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
         # BUT keep boost high enough so "sigma 15 1.4" beats "sigma 85 1.4" via phrase proximity
-        _phrase_boost = 30 if _brand_intent else 50
-        _phrase_prefix_boost = 5 if _brand_intent else 5
+        #
+        # Model-number intent: when brand-intent is active and the remainder
+        # looks like a specific model code (short, contains digits), the user is
+        # searching for an EXACT product model. In that case, phrase matching
+        # should strongly dominate over popularity-based ranking.
+        # Examples: "smallrig 220B", "canon r8", "sony a7iv", "godox v1"
+        _model_number_intent = False
+        if _brand_intent:
+            _brand_lower = _brand_intent.lower()
+            _remainder = q_lower.replace(_brand_lower, "").strip()
+            # Also check alias form
+            for _al, _cn in BRAND_ALIASES.items():
+                if _cn == _brand_lower and _al in q_lower:
+                    _r2 = q_lower.replace(_al, "").strip()
+                    if len(_r2) < len(_remainder):
+                        _remainder = _r2
+            # Model-number: 1-3 tokens, at least one contains a digit
+            _rem_tokens = _remainder.split()
+            if 1 <= len(_rem_tokens) <= 3 and any(
+                any(c.isdigit() for c in t) for t in _rem_tokens
+            ):
+                _model_number_intent = True
+
+        if _model_number_intent:
+            # Specific model search: phrase must dominate
+            _phrase_boost = 80
+            _phrase_prefix_boost = 15
+        elif _brand_intent:
+            _phrase_boost = 30
+            _phrase_prefix_boost = 5
+        else:
+            _phrase_boost = 50
+            _phrase_prefix_boost = 5
 
         # Focal-length intent: filter to lens subcategories and require phrase match
         _focal_filter = (
@@ -655,14 +686,41 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # ── Model code variant generation ──
         # Many photo/video products use letter+number codes: B300, G200, X100, R5, A7
         # Users often drop the letter prefix: "molus 300" instead of "molus b300"
-        # Generate match_phrase variants with common letter prefixes prepended to numbers
+        # Generate match_phrase variants with common letter prefixes prepended to numbers.
+        #
+        # Also handles alphanumeric codes where user INCLUDES the letter:
+        # "220B" → also try without the letter ("220") with all prefixes → "a220", "b220" etc.
+        # This helps when ES tokenizes "RC 220B" differently from user's "220B".
         _model_variant_phrases = []
         _q_tokens = q_for_es.lower().split()
         for _i, _tok in enumerate(_q_tokens):
+            # Case 1: Pure digits (e.g. "300") → generate "a300", "b300", ...
             if _tok.isdigit() and len(_tok) >= 2:
                 for _pre in "abcdefghijklmnoprstuvwxyz":
                     _vtokens = _q_tokens[:_i] + [_pre + _tok] + _q_tokens[_i+1:]
                     _model_variant_phrases.append(" ".join(_vtokens))
+            # Case 2: Digits + trailing letter(s) (e.g. "220b", "100d", "r5c")
+            # Strip trailing letters and generate variants with different prefixes
+            elif len(_tok) >= 2 and not _tok.isalpha():
+                _m = re.match(r'^(\d{2,})([a-z]{1,2})$', _tok)
+                if _m:
+                    # "220b" → digits="220", suffix="b"
+                    _digits = _m.group(1)
+                    _suffix = _m.group(2)
+                    # Generate variants swapping the suffix letter
+                    for _pre in "abcdefghijklmnoprstuvwxyz":
+                        if _pre != _suffix:
+                            _vtokens = _q_tokens[:_i] + [_digits + _pre] + _q_tokens[_i+1:]
+                            _model_variant_phrases.append(" ".join(_vtokens))
+                # Also check leading letter + digits: "r5" → "a5", "b5", ...
+                _m2 = re.match(r'^([a-z])(\d{1,})$', _tok)
+                if _m2 and len(_tok) >= 2:
+                    _letter = _m2.group(1)
+                    _digits2 = _m2.group(2)
+                    for _pre in "abcdefghijklmnoprstuvwxyz":
+                        if _pre != _letter:
+                            _vtokens = _q_tokens[:_i] + [_pre + _digits2] + _q_tokens[_i+1:]
+                            _model_variant_phrases.append(" ".join(_vtokens))
 
         product_bool_query = {
             "bool": {
