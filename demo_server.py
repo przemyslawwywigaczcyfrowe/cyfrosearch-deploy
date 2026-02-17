@@ -727,6 +727,20 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             _vtokens = _q_tokens[:_i] + [_pre + _digits2] + _q_tokens[_i+1:]
                             _model_variant_phrases.append(" ".join(_vtokens))
 
+        # When model-number intent detected, add a focused match on the remainder
+        # (model code only, without brand). This avoids IDF dilution from the brand
+        # token that appears in ALL products when brand filter is active.
+        _model_remainder_clauses = []
+        if _model_number_intent and _brand_intent:
+            _brand_lower2 = _brand_intent.lower()
+            _model_remainder2 = q_for_es.lower().replace(_brand_lower2, "").strip()
+            if _model_remainder2:
+                # Exact model match on name — very high boost
+                _model_remainder_clauses = [
+                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 200, "slop": 1}}},
+                    {"match": {"name": {"query": _model_remainder2, "boost": 120}}},
+                ]
+
         product_bool_query = {
             "bool": {
                 "should": [
@@ -750,6 +764,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 3}
                         }
                     },
+                    # Model-number remainder match — high boost, no IDF dilution from brand
+                    *_model_remainder_clauses,
                     {
                         "match_phrase_prefix": {
                             "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
