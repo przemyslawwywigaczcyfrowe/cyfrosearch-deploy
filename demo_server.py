@@ -633,8 +633,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # When brand-intent detected, reduce phrase match boosts so that
         # function_score signals (brand +300, main_cat +1000, price) can outweigh
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
-        _phrase_boost = 10 if _brand_intent else 50
-        _phrase_prefix_boost = 2 if _brand_intent else 5
+        # BUT keep boost high enough so "sigma 15 1.4" beats "sigma 85 1.4" via phrase proximity
+        _phrase_boost = 30 if _brand_intent else 50
+        _phrase_prefix_boost = 5 if _brand_intent else 5
 
         # Focal-length intent: filter to lens subcategories and require phrase match
         _focal_filter = (
@@ -671,7 +672,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     },
                     {
                         "match_phrase": {
-                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 2}
+                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 3}
                         }
                     },
                     {
