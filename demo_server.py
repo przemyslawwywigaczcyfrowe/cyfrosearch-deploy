@@ -1076,6 +1076,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
+                "_score": hit.get("_score"),  # DEBUG: ES score for analysis
             })
     except Exception as e:
         print(f"Product parse error: {e}")
