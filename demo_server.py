@@ -696,6 +696,19 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                   and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
                 _model_number_intent = True
 
+        # Accessory-intent: when brand + remainder contains an accessory keyword,
+        # the user is looking for a specific accessory, not a camera/lens.
+        # Reduce main_cat_weight so cameras don't dominate over adapters, batteries etc.
+        _ACCESSORY_KEYWORDS = {"adapter", "adaptor", "ładowarka", "ladowarka", "bateria",
+                               "akumulator", "grip", "pasek", "torba", "plecak", "filtr",
+                               "kabel", "osłona", "oslona", "pokrywka", "zasilacz", "pilot",
+                               "konwerter", "lampa", "statyw", "cage", "klatka"}
+        _accessory_intent = False
+        if _brand_intent and _remainder:
+            _rem_words = set(_remainder.split())
+            if _rem_words & _ACCESSORY_KEYWORDS:
+                _accessory_intent = True
+
         if _model_number_intent:
             # Specific model search: phrase must dominate
             _phrase_boost = 80
@@ -948,6 +961,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             _pop_weight = 15        # reduced — popularity shouldn't override exact model match
             _sales_weight = 5       # reduced
             _brand_weight = 200     # still useful but lower than standard brand-intent
+        elif _accessory_intent:
+            # User searching for brand + accessory (e.g. "canon adapter", "sony ładowarka")
+            # Don't boost main categories (cameras/lenses) — let text matching decide
+            _main_cat_weight = 0    # no camera/lens bias
+            _price_weight = 10      # moderate — adapters cheaper than cameras is fine
+            _pop_weight = 40        # moderate popularity influence
+            _sales_weight = 15      # moderate
+            _brand_weight = 300     # still filter to brand
         elif _brand_intent:
             _main_cat_weight = 1000
             _price_weight = 30
@@ -1026,8 +1047,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
         ]
 
+    # Fetch more products than requested for category extraction.
+    # The extra products are used to count subcategories, then trimmed to `limit`.
+    _fetch_size = max(limit, 20)
     product_body = {
-        "size": limit,
+        "size": _fetch_size,
         "query": {
             "function_score": {
                 "query": product_bool_query,
@@ -1049,20 +1073,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
             "sku", "ean", "manufacturer_code",
+            "subcategory", "category_path",
         ],
     }
 
-    # Query 2: Categories + Brands (combined into ONE query with multiple aggs)
-    # Use the SAME query as product search (with brand/category filters) so that
-    # category suggestions reflect the actual matched products, not the entire index.
-    # Previously used a simple multi_match on the whole index which caused
-    # "obiektywy stałoogniskowe" to dominate for every query (largest category).
+    # Query 2: Brands aggregation only.
+    # Categories are now extracted from actual product results (more accurate).
+    # Brand aggregation still uses broad query since we need all brands, not just top N.
     agg_body = {
         "size": 0,
         "query": product_bool_query,
         "aggs": {
-            "subcategories": {"terms": {"field": "subcategory", "size": 6}},
-            "categories": {"terms": {"field": "category_path", "size": 5}},
             "brands": {"terms": {"field": "brand", "size": 4}},
         },
     }
@@ -1169,23 +1190,36 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     except Exception as e:
         print(f"Product parse error: {e}")
 
-    # ── Parse categories — prefer subcategories ──
+    # ── Extract categories from actual product results (top N) ──
+    # This is more accurate than aggregating over ALL matched docs, because
+    # the aggregation includes fuzzy matches and low-relevance products that
+    # the user never sees. Counting subcategories of the TOP ranked products
+    # gives category suggestions that match what the user actually finds useful.
     try:
-        aggs = agg_resp.get("aggregations", {})
-        for bucket in aggs.get("subcategories", {}).get("buckets", []):
-            name = bucket["key"]
-            if name and len(name) > 2:
+        from collections import Counter
+        _subcat_counts: Counter[str] = Counter()
+        _catpath_counts: Counter[str] = Counter()
+        for hit in product_resp.get("hits", {}).get("hits", []):
+            src = hit["_source"]
+            sc = src.get("subcategory", "")
+            cp = src.get("category_path", "")
+            if sc and len(sc) > 2:
+                _subcat_counts[sc] += 1
+            if cp and len(cp) > 2:
+                _catpath_counts[cp] += 1
+        # Prefer subcategories; fall back to category_path
+        if _subcat_counts:
+            for name, count in _subcat_counts.most_common(6):
                 category_results.append({
-                    "name": name, "short_name": name, "count": bucket["doc_count"],
+                    "name": name, "short_name": name, "count": count,
                 })
-        if not category_results:
-            for bucket in aggs.get("categories", {}).get("buckets", []):
-                path = bucket["key"]
+        elif _catpath_counts:
+            for path, count in _catpath_counts.most_common(5):
                 parts = path.split(" > ")
                 category_results.append({
                     "name": path,
                     "short_name": parts[-1] if parts else path,
-                    "count": bucket["doc_count"],
+                    "count": count,
                 })
     except Exception as e:
         print(f"Category parse error: {e}")
@@ -1203,6 +1237,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                            brand_results, category_results, popular_queries)
     except Exception as e:
         print(f"Query suggestion error: {e}")
+
+    # Trim product results to requested limit (we fetched extra for category extraction)
+    product_results = product_results[:limit]
 
     return {
         "meta": {
