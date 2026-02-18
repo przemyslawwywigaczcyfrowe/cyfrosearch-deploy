@@ -671,14 +671,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     if len(_r2) < len(_remainder):
                         _remainder = _r2
             # Model-number intent: remainder must be a specific model code.
-            # Requires at least 2 digits total in the remainder to avoid false positives
-            # on short brand+model queries like "canon r8" (1 digit) where popularity
-            # should still influence ranking. "smallrig 220B" (3 digits) → model intent.
-            # "sony a7 iv" (2 digits) → model intent. "canon r8" (1 digit) → NOT model intent.
+            # Requires at least 2 "specificity points" to avoid false positives
+            # on short brand+model queries like "canon r8" (1 point) where popularity
+            # should still influence ranking.
+            # Scoring: each digit = 1 point, roman numeral token = 1 point.
+            # "smallrig 220B" (3 digits) → 3 pts → model intent.
+            # "sony a7 iv" (1 digit + roman) → 2 pts → model intent.
+            # "nikon z5 ii" (1 digit + roman) → 2 pts → model intent.
+            # "canon r8" (1 digit, no roman) → 1 pt → NOT model intent.
+            _ROMAN_SET = {"ii", "iii", "iv", "v"}
             _rem_tokens = _remainder.split()
             _total_digits = sum(c.isdigit() for c in _remainder)
+            _roman_bonus = sum(1 for t in _rem_tokens if t in _ROMAN_SET)
+            _specificity = _total_digits + _roman_bonus
             if (1 <= len(_rem_tokens) <= 3
-                and _total_digits >= 2
+                and _specificity >= 2
                 and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
                 _model_number_intent = True
 
@@ -716,6 +723,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Also handles alphanumeric codes where user INCLUDES the letter:
         # "220B" → also try without the letter ("220") with all prefixes → "a220", "b220" etc.
         # This helps when ES tokenizes "RC 220B" differently from user's "220B".
+        _ROMAN_NUMS = {"ii", "iii", "iv", "v"}
         _model_variant_phrases = []
         _q_tokens = q_for_es.lower().split()
         for _i, _tok in enumerate(_q_tokens):
@@ -746,6 +754,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         if _pre != _letter:
                             _vtokens = _q_tokens[:_i] + [_pre + _digits2] + _q_tokens[_i+1:]
                             _model_variant_phrases.append(" ".join(_vtokens))
+
+            # Case 3: Model + Roman numeral concatenation
+            # Products like "Nikon Z5II" are indexed as single token "z5ii" but users
+            # type "z5 II" (two tokens). Generate concatenated variant: "z5" + "ii" → "z5ii"
+            # Pattern: alphanumeric token (e.g. "z5", "z6", "z50") followed by roman numeral
+            if (_i + 1 < len(_q_tokens)
+                and _q_tokens[_i + 1] in _ROMAN_NUMS
+                and re.match(r'^[a-z]\d+$', _tok)):
+                _concat = _tok + _q_tokens[_i + 1]  # "z5" + "ii" → "z5ii"
+                _vtokens = _q_tokens[:_i] + [_concat] + _q_tokens[_i+2:]
+                _model_variant_phrases.append(" ".join(_vtokens))
 
         # When model-number intent detected, add a focused match on the remainder
         # (model code only, without brand). This avoids IDF dilution from the brand
