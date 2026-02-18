@@ -1142,107 +1142,123 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         else:
             _mm_pct = "70%"
 
-        product_bool_query = {
-            "bool": {
-                "should": [
-                    {
-                        "multi_match": {
-                            "query": q_for_es,
-                            "type": "best_fields",
-                            "fields": [
-                                "name^3", "name.prefix^2",
-                                "name.morfologik^2", "name.folded^2",
-                                "brand^3", "sku^6", "ean^6",
-                                "manufacturer_code^8", "id_erp^8",
-                            ],
-                            "fuzziness": "AUTO",
-                            "prefix_length": 2,
-                            "minimum_should_match": _mm_pct,
-                        }
-                    },
-                    {
-                        "match_phrase": {
-                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 3}
-                        }
-                    },
-                    # Model-number remainder match — high boost, no IDF dilution from brand
-                    *_model_remainder_clauses,
-                    {
-                        "match_phrase_prefix": {
-                            "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
-                        }
-                    },
-                    # Model code variants: "molus 300" → try "molus b300", "molus g300" etc.
-                    *[
-                        {"match_phrase": {"name": {"query": v, "boost": _phrase_boost * 2, "slop": 2}}}
-                        for v in _model_variant_phrases[:26]
+        # For accessory+brand queries, use a simpler, more constrained query structure.
+        # The standard should-based query has too many clauses that let wrong products
+        # through (flash batteries matching "Canon", cages matching "R6").
+        # Instead: put the main multi_match in "must" so products MUST match the tokens.
+        if _accessory_keyword_from_cat:
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": q_for_es,
+                                "type": "best_fields",
+                                "fields": [
+                                    "name^3", "name.prefix^2",
+                                    "name.morfologik^2", "name.folded^2",
+                                    "brand^3", "description^1",
+                                ],
+                                "fuzziness": "AUTO",
+                                "prefix_length": 2,
+                                "minimum_should_match": _mm_pct,
+                            }
+                        },
                     ],
-                    # Original unsplit query fallback — when normalization splits tokens
-                    # (e.g. "SL60IIBi" → "SL60 IIBi"), the original form may match ES tokens
-                    # that were indexed as one concatenated token (preserve_original=true).
-                    # Also matches manufacturer_code, SKU etc. with the original form.
-                    # SKIP when accessory-keyword rewrite changed the query (bateria→akumulator)
-                    # because the original "bateria" would let wrong products (flash/printer) match.
-                    *(
-                        [
-                            {"match_phrase": {"name": {"query": q_original, "boost": _phrase_boost * 3, "slop": 1}}},
-                            {"match_phrase": {"name.folded": {"query": q_original, "boost": _phrase_boost * 2, "slop": 1}}},
-                            {"match": {"name": {"query": q_original, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
-                        ]
-                        if q_original.lower() != q_for_es.lower() and not _accessory_keyword_from_cat else []
+                    "should": [
+                        {"match_phrase": {"name": {"query": q_for_es, "boost": 30, "slop": 3}}},
+                    ],
+                    "filter": _brand_filter + _focal_filter + (
+                        [{"multi_match": {
+                            "query": _accessory_brand_from_cat,
+                            "fields": ["name", "name.folded", "description", "brand"],
+                            "type": "best_fields",
+                        }}]
+                        if _accessory_brand_from_cat else []
                     ),
-                    # Exact-match on keyword fields (case-sensitive) for product codes
-                    {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
-                    {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
-                    {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
-                    {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
-                    # Case-insensitive fallback (uppercase variant)
-                    {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
-                    {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
-                    # Original query on keyword fields (when normalization changed the query)
-                    *(
-                        [
-                            {"term": {"manufacturer_code": {"value": q_original, "boost": 100}}},
-                            {"term": {"sku": {"value": q_original, "boost": 100}}},
-                        ]
-                        if q_original != q_trimmed else []
-                    ),
-                    # Alpha→digit split variants: "Pro1000" → "Pro-1000" / "Pro 1000"
-                    # Users omit hyphens but products are indexed with them.
-                    *(
-                        [
-                            {"match_phrase": {"name": {"query": _q_hyphen_variant, "boost": _phrase_boost * 3, "slop": 1}}},
-                            {"match_phrase": {"name.folded": {"query": _q_hyphen_variant, "boost": _phrase_boost * 2, "slop": 1}}},
-                        ]
-                        if _q_hyphen_variant else []
-                    ),
-                    *(
-                        [
-                            {"match_phrase": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost * 2, "slop": 1}}},
-                            {"match": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
-                        ]
-                        if _q_spaced_variant else []
-                    ),
-                    # (accessory-keyword name boosting is in function_score, not in should
-                    #  — adding it here would let non-matching products sneak in via
-                    #  minimum_should_match: 1)
-                ],
-                "minimum_should_match": 1,
-                # Filters: brand-intent + focal-length intent (both optional)
-                # When accessory-keyword-from-cat detected a brand in remainder
-                # (e.g. "akumulator do canon r6" → brand="Canon"), add a HARD filter
-                # requiring that brand appears in the product's name, description or brand field.
-                # This prevents DJI/GoPro/Smallrig batteries from matching "akumulator canon r6".
-                "filter": _brand_filter + _focal_filter + (
-                    [{"multi_match": {
-                        "query": _accessory_brand_from_cat,
-                        "fields": ["name", "name.folded", "description", "brand"],
-                        "type": "best_fields",
-                    }}]
-                    if _accessory_brand_from_cat else []
-                ),
+                }
             }
-        }
+        else:
+            product_bool_query = {
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": q_for_es,
+                                "type": "best_fields",
+                                "fields": [
+                                    "name^3", "name.prefix^2",
+                                    "name.morfologik^2", "name.folded^2",
+                                    "brand^3", "sku^6", "ean^6",
+                                    "manufacturer_code^8", "id_erp^8",
+                                ],
+                                "fuzziness": "AUTO",
+                                "prefix_length": 2,
+                                "minimum_should_match": _mm_pct,
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 3}
+                            }
+                        },
+                        # Model-number remainder match — high boost, no IDF dilution from brand
+                        *_model_remainder_clauses,
+                        {
+                            "match_phrase_prefix": {
+                                "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
+                            }
+                        },
+                        # Model code variants: "molus 300" → try "molus b300", "molus g300" etc.
+                        *[
+                            {"match_phrase": {"name": {"query": v, "boost": _phrase_boost * 2, "slop": 2}}}
+                            for v in _model_variant_phrases[:26]
+                        ],
+                        # Original unsplit query fallback
+                        *(
+                            [
+                                {"match_phrase": {"name": {"query": q_original, "boost": _phrase_boost * 3, "slop": 1}}},
+                                {"match_phrase": {"name.folded": {"query": q_original, "boost": _phrase_boost * 2, "slop": 1}}},
+                                {"match": {"name": {"query": q_original, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
+                            ]
+                            if q_original.lower() != q_for_es.lower() else []
+                        ),
+                        # Exact-match on keyword fields (case-sensitive) for product codes
+                        {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
+                        {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
+                        {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
+                        {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
+                        # Case-insensitive fallback (uppercase variant)
+                        {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
+                        {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
+                        # Original query on keyword fields (when normalization changed the query)
+                        *(
+                            [
+                                {"term": {"manufacturer_code": {"value": q_original, "boost": 100}}},
+                                {"term": {"sku": {"value": q_original, "boost": 100}}},
+                            ]
+                            if q_original != q_trimmed else []
+                        ),
+                        # Alpha→digit split variants
+                        *(
+                            [
+                                {"match_phrase": {"name": {"query": _q_hyphen_variant, "boost": _phrase_boost * 3, "slop": 1}}},
+                                {"match_phrase": {"name.folded": {"query": _q_hyphen_variant, "boost": _phrase_boost * 2, "slop": 1}}},
+                            ]
+                            if _q_hyphen_variant else []
+                        ),
+                        *(
+                            [
+                                {"match_phrase": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost * 2, "slop": 1}}},
+                                {"match": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
+                            ]
+                            if _q_spaced_variant else []
+                        ),
+                    ],
+                    "minimum_should_match": 1,
+                    "filter": _brand_filter + _focal_filter,
+                }
+            }
 
     # ── Build function_score functions based on query type ──
     if matched_subcategories:
