@@ -1067,7 +1067,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
-                "filter": _brand_filter + _focal_filter,
+                # When accessory-keyword-from-cat is active, add a must-match filter
+                # requiring 70% of query tokens. Without this, products matching only
+                # "akumulator" (but not "canon" or "r6") sneak in via min_should_match=1.
+                "filter": _brand_filter + _focal_filter + (
+                    [{"multi_match": {
+                        "query": q_for_es,
+                        "fields": ["name", "name.morfologik", "name.folded", "brand"],
+                        "minimum_should_match": "60%",
+                    }}]
+                    if _accessory_keyword_from_cat else []
+                ),
             }
         }
 
