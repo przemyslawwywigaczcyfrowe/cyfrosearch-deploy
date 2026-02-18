@@ -1061,7 +1061,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         ]
                         if _q_spaced_variant else []
                     ),
-                    # (accessory-keyword boosting handled in function_score, not here)
+                    # ── Accessory keyword name boost ──
+                    # When query starts with "akumulator"/"bateria" etc., boost products
+                    # that have the EXACT keyword in their product name. This ensures
+                    # "Patona Akumulator LP-E6N" ranks above "Canon CG-A10 do akumulatorów"
+                    # (charger that only tangentially mentions batteries in genitive form).
+                    *(
+                        [
+                            {"match_phrase": {"name": {"query": _accessory_keyword_from_cat, "boost": 200}}},
+                        ]
+                        if _accessory_keyword_from_cat else []
+                    ),
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
