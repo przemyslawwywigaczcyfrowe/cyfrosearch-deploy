@@ -1485,13 +1485,23 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                              "akumulatory i ładowarki", "V-lock", "do V-Mount"]
                         }},
                     ]}}, "weight": 1000},
-                    # Tier 2: model match alone (lower boost, helps but doesn't dominate)
+                    # Tier 2: model token match WITHIN accessory subcategories
+                    # Lower boost, but still requires subcategory membership to prevent
+                    # non-accessory products (cages, screen protectors) from leaking in.
                     *[
-                        {"filter": {"multi_match": {
-                            "query": _mt,
-                            "fields": ["name", "description"],
-                            "type": "best_fields",
-                        }}, "weight": 300}
+                        {"filter": {"bool": {"must": [
+                            {"multi_match": {
+                                "query": _mt,
+                                "fields": ["name", "description"],
+                                "type": "best_fields",
+                            }},
+                            {"terms": {"subcategory":
+                                CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
+                                [f"do {_accessory_brand_from_cat}"] +
+                                ["ładowarki", "zasilanie", "akcesoria do zasilania",
+                                 "akumulatory i ładowarki", "V-lock", "do V-Mount"]
+                            }},
+                        ]}}, "weight": 500}
                         for _mt in _accessory_model_from_cat.split()
                         if len(_mt) >= 2
                     ],
