@@ -892,6 +892,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # Sub-field with different analyzer
                     {"match_phrase": {"name.folded": {"query": _rem_concat, "boost": 200, "slop": 0}}},
                 ]
+                # Alpha→digit split for remainder: "pro1000" → "pro-1000" / "pro 1000"
+                # Users type "Pro1000" but product has "Pro-1000" (tokens "pro" + "1000")
+                _re_ad = re.compile(r'([a-zA-Z])(\d)')
+                if _re_ad.search(_rem_concat):
+                    _rem_hyphen = _re_ad.sub(r'\1-\2', _rem_concat)
+                    _rem_spaced = _re_ad.sub(r'\1 \2', _rem_concat)
+                    if _rem_hyphen != _rem_concat:
+                        _model_remainder_clauses.extend([
+                            {"match_phrase": {"name": {"query": _rem_hyphen, "boost": 300, "slop": 1}}},
+                            {"match_phrase": {"name.folded": {"query": _rem_hyphen, "boost": 250, "slop": 1}}},
+                        ])
+                    if _rem_spaced != _rem_concat and _rem_spaced != _model_remainder2:
+                        _model_remainder_clauses.extend([
+                            {"match_phrase": {"name": {"query": _rem_spaced, "boost": 250, "slop": 1}}},
+                        ])
                 # If remainder ends with a roman numeral, also try "mark" + roman variant.
                 # E.g. remainder "r6 iii" → also try "r6 markiii" (ES indexes "mark III" as "markiii")
                 _rem_tokens2 = _model_remainder2.split()
