@@ -1450,33 +1450,53 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
             # ── Model matching for accessory queries ──
             # When searching "akumulator do canon R6" or "bateria do canon r6",
-            # boost products that mention the specific model in name/description.
-            # "Patona PROTECT zamiennik do LP-E6NH Canon EOS R5 EOS R6" → has "R6" → +2000
-            # "Mathorn bateria MB-103 do Canon LP-E10" → no "R6" → no boost
-            # Also boost full phrase "canon r6" for even stronger signal.
+            # boost products that mention the specific model AND are in relevant
+            # accessory subcategories. Without subcategory filter, cages/brackets
+            # with "Canon R6" in name would dominate over actual batteries.
+            #
+            # Strategy: two tiers of model boost:
+            # 1) STRONG (+2000): model match + in accessory subcategory → exact intent match
+            # 2) MODERATE (+300): model match alone → relevant Canon R6 product but wrong type
             *(
                 [
-                    # +2000 for full brand+model phrase match (e.g. "Canon...R6" with slop)
-                    {"filter": {"match_phrase": {"name": {
-                        "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
-                        "slop": 5,
-                    }}}, "weight": 2000},
-                    {"filter": {"match_phrase": {"description": {
-                        "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
-                        "slop": 5,
-                    }}}, "weight": 800},
-                    # +500 per model token (e.g. "R6", "mark", "ii")
+                    # Tier 1: model + accessory subcategory = perfect match
+                    {"filter": {"bool": {"must": [
+                        {"match_phrase": {"name": {
+                            "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
+                            "slop": 5,
+                        }}},
+                        {"terms": {"subcategory":
+                            CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
+                            [f"do {_accessory_brand_from_cat}"] +
+                            ["ładowarki", "zasilanie", "akcesoria do zasilania",
+                             "akumulatory i ładowarki", "V-lock", "do V-Mount"]
+                        }},
+                    ]}}, "weight": 2000},
+                    # Tier 1b: model in description + subcategory
+                    {"filter": {"bool": {"must": [
+                        {"match_phrase": {"description": {
+                            "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
+                            "slop": 5,
+                        }}},
+                        {"terms": {"subcategory":
+                            CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
+                            [f"do {_accessory_brand_from_cat}"] +
+                            ["ładowarki", "zasilanie", "akcesoria do zasilania",
+                             "akumulatory i ładowarki", "V-lock", "do V-Mount"]
+                        }},
+                    ]}}, "weight": 1000},
+                    # Tier 2: model match alone (lower boost, helps but doesn't dominate)
                     *[
                         {"filter": {"multi_match": {
                             "query": _mt,
                             "fields": ["name", "description"],
                             "type": "best_fields",
-                        }}, "weight": 500}
+                        }}, "weight": 300}
                         for _mt in _accessory_model_from_cat.split()
                         if len(_mt) >= 2
                     ],
                 ]
-                if _accessory_model_from_cat and _accessory_brand_from_cat else []
+                if _accessory_model_from_cat and _accessory_brand_from_cat and _accessory_keyword_from_cat else []
             ),
             # Condition-based boost — dynamically switch based on user intent
             # Higher "new" weight when brand-intent (prefer new over used products)
