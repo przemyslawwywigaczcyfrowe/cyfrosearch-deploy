@@ -216,6 +216,54 @@ SKIP_CATS = frozenset({
     "do ", "zbroje", "klatki", "pokrywki", "kable", "akcesoria", "torby", "filtry",
 })
 
+# ── "Product-for-product" intent ──
+# When a CATEGORY_ALIASES keyword is followed by "do [brand] [model]":
+#
+# MAIN_PRODUCT_ALIASES: categories that ARE the main product the user wants.
+#   "obiektyw do canon R6" = user wants LENSES compatible with Canon R6 (mount RF).
+#   → KEEP the category filter (lens subcategories), use "canon R6" as text query
+#     within that category. Brand filter on "Canon" is NOT applied (lenses can be
+#     Sigma/Tamron for Canon mount).
+#
+# Everything else (akumulator, bateria, klatka, pasek...): ACCESSORY categories.
+#   "akumulator do canon R6" = user wants batteries FOR Canon R6.
+#   → CANCEL category filter (batteries for Canon are in "do Canon" subcategory,
+#     not "akumulatory"), apply hard brand filter, use accessory-keyword scoring.
+#
+MAIN_PRODUCT_ALIASES = frozenset({
+    "obiektyw", "obiektywy",
+    "lampa", "lampy", "lampa led", "lampy led",
+    "statyw", "statyw oswietleniowy", "statyw oświetleniowy",
+    "softbox", "softboxy",
+    "gimbal", "gimbale",
+    "mikrofon", "mikrofony", "mic",
+    "drukarka", "drukarki", "drukarka fotograficzna",
+    "lornetka", "lornetki",
+    "parasol", "parasole",
+    "blenda", "blendy",
+    "monopod", "monopody",
+    "torba", "torba fotograficzna", "torby fotograficzne",
+    "plecak", "plecaki", "plecak fotograficzny",
+    "filtr",
+    "boom", "beauty dish",
+    "strumienica", "strumienice",
+    "monitor podgladowy", "monitor podglądowy", "monitory podgladowe", "monitory podglądowe",
+    "instax",
+    # Accessories that have their OWN subcategory (not in "do Canon" etc.)
+    "klatka", "klatki",
+    "karta", "karty", "karta sd", "karty sd", "karta pamięci",
+    "karta cfexpress", "karta cf express", "karta microsd",
+    "tlo", "tło", "tła", "tla",
+    "stół", "stol", "stoły", "stoly", "stół bezcieniowy", "stol bezcieniowy",
+    "pasek", "paski",
+    "parasol transparentny", "parasol paraboliczny",
+    "parasole transparentne", "parasole paraboliczne",
+})
+# ACCESSORY_ONLY: categories that NEED cancel-category behavior.
+# These have brand-specific subcategories like "do Canon", "do Sony" in ES.
+# Only: akumulator, bateria + their variants.
+# Everything else either has its own subcategory or is in MAIN_PRODUCT_ALIASES.
+
 # Condition-intent keywords (module-level, not per-request)
 USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 
@@ -619,6 +667,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # 0b) First-word alias match — "klatka sony a7 iv" → check "klatka"
         #     Also try first two words: "lampa led godox" → check "lampa led"
         #     Saves the REMAINDER text for use in text-matching within the category.
+        _matched_cat_alias_key: str | None = None  # which alias key matched
         if not matched_subcategories:
             cat_tokens = _cat_check_text.split()
             for nw in (2, 1):
@@ -629,19 +678,31 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 if prefix_cat in CATEGORY_ALIASES:
                     matched_subcategories = CATEGORY_ALIASES[prefix_cat]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
+                    _matched_cat_alias_key = prefix_cat
                     break
                 elif prefix_folded in CATEGORY_ALIASES:
                     matched_subcategories = CATEGORY_ALIASES[prefix_folded]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
+                    _matched_cat_alias_key = prefix_folded
                     break
-    # ── Strip Polish stopwords from category remainder ──
-    # Handles queries like "akumulator do canon 6d" where category comes first,
-    # then a preposition ("do"), then brand/model text.
-    # _accessory_keyword_from_cat: the category keyword (e.g. "akumulator") that triggered
-    # the alias match. Used later to boost products with this word in their name,
-    # so actual batteries rank above chargers/cages that merely mention "akumulatorów".
+    # ── Handle "category + brand/model" queries ──
+    # Two distinct patterns:
+    #
+    # A) MAIN PRODUCT + brand/model: "obiektyw do canon R6", "lampa do sony"
+    #    User wants products FROM that category compatible WITH the brand/model.
+    #    → KEEP category filter, strip stopwords, use brand+model as text remainder.
+    #    → Do NOT apply brand filter (Sigma/Tamron lenses are "for Canon" too).
+    #    → Do NOT set _accessory_keyword_from_cat (no accessory scoring needed).
+    #
+    # B) ACCESSORY + brand/model: "akumulator do canon R6", "klatka do canon r6"
+    #    User wants accessories FOR a specific device.
+    #    → CANCEL category filter ("do Canon" is a separate subcategory).
+    #    → Apply hard brand filter on product name/description.
+    #    → Set _accessory_keyword_from_cat for accessory-specific scoring.
+    #
     _accessory_keyword_from_cat: str | None = None
     _accessory_brand_from_cat: str | None = None   # brand detected in category remainder
+    _product_for_brand_intent: bool = False         # "obiektyw do canon R6" pattern
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
         _rem_tokens_clean = [
             t for t in _cat_remainder_text.split()
@@ -649,26 +710,37 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         ]
         _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
         if _cleaned_remainder:
-            # Check if remainder contains a brand name (e.g. "canon 6d").
-            # If so, DISABLE category filter — accessories "for Canon" are in
-            # subcategories like "do Canon", not "akumulatory". A category filter
-            # would return 0 results. Instead, let the full-text search handle it
-            # naturally: "akumulator canon 6d" will find products with both words.
             _rem_brand = _detect_brand_intent(_cleaned_remainder.lower())
             if _rem_brand:
-                # Remember the category keyword for product-name boosting
-                _cat_tokens_orig = _cat_check_text.split()
-                if _cat_tokens_orig:
-                    _accessory_keyword_from_cat = _cat_tokens_orig[0]
-                _accessory_brand_from_cat = _rem_brand   # e.g. "Canon"
-                # Cancel category filter, fall through to standard text search
-                matched_subcategories = None
-                _cat_remainder_text = ""
-                # Rewrite query to strip stopwords: "akumulator do canon 6d" → "akumulator canon 6d"
-                q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
-                q_lower = q.lower().strip()
-                q_words = set(q_lower.split())
-                q_for_es = q
+                _cat_alias_key = _matched_cat_alias_key or ""
+                if _cat_alias_key.lower() in MAIN_PRODUCT_ALIASES:
+                    # ── PATH A: Main product + brand/model ──
+                    # "obiektyw do canon R6" → keep lens filter, search "canon R6" within lenses
+                    # "lampa do sony" → keep lamp filter, search "sony" within lamps
+                    _product_for_brand_intent = True
+                    # Strip stopwords from remainder to get clean text
+                    _cat_remainder_text = _cleaned_remainder
+                    # Rewrite query for ES: strip stopwords but KEEP category keyword
+                    # "obiektyw do canon R6" → "obiektyw canon R6"
+                    q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
+                    q_lower = q.lower().strip()
+                    q_words = set(q_lower.split())
+                    q_for_es = q
+                else:
+                    # ── PATH B: Accessory + brand/model ──
+                    # "akumulator do canon R6" → cancel category, accessory scoring
+                    _cat_tokens_orig = _cat_check_text.split()
+                    if _cat_tokens_orig:
+                        _accessory_keyword_from_cat = _cat_tokens_orig[0]
+                    _accessory_brand_from_cat = _rem_brand   # e.g. "Canon"
+                    # Cancel category filter, fall through to standard text search
+                    matched_subcategories = None
+                    _cat_remainder_text = ""
+                    # Rewrite query to strip stopwords
+                    q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
+                    q_lower = q.lower().strip()
+                    q_words = set(q_lower.split())
+                    q_for_es = q
             else:
                 _cat_remainder_text = _cleaned_remainder
         # If after stripping stopwords nothing remains, keep it empty (pure category browse)
@@ -739,24 +811,52 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
         if _cat_remainder_text:
             # Category + additional text (e.g. "klatka sony a7 iv" → cat=klatki, text="sony a7 iv")
-            # Use text matching within the category filter so results are relevant to remainder
-            product_bool_query = {
-                "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": _cat_remainder_text,
-                                "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
-                                           "name.folded^2", "brand^3"],
-                                "fuzziness": "AUTO",
-                                "prefix_length": 2,
-                                "minimum_should_match": "70%",
-                            }
-                        }
-                    ],
-                    "filter": [_all_cat_filters],
+            # Use text matching within the category filter so results are relevant to remainder.
+            #
+            # For "product-for-brand" queries (obiektyw do canon R6, klatka do canon r6):
+            # Use should (boost) instead of must, because the model name (R6) may not
+            # appear in the product name (Canon RF lenses don't say "R6" in title).
+            # Also add match_phrase for precise model matching ("canon r6" phrase).
+            _cat_text_clauses = [
+                {
+                    "multi_match": {
+                        "query": _cat_remainder_text,
+                        "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
+                                   "name.folded^2", "brand^3", "description^1"],
+                        "fuzziness": "AUTO",
+                        "prefix_length": 2,
+                        "minimum_should_match": "1" if _product_for_brand_intent else "70%",
+                    }
+                },
+            ]
+            if _product_for_brand_intent:
+                # Add phrase match for model specificity: "canon r6" as phrase
+                # boosts products with exact model in name
+                _cat_text_clauses.append({
+                    "match_phrase": {
+                        "name": {"query": _cat_remainder_text, "boost": 10, "slop": 2}
+                    }
+                })
+                _cat_text_clauses.append({
+                    "match_phrase": {
+                        "description": {"query": _cat_remainder_text, "boost": 3, "slop": 3}
+                    }
+                })
+            if _product_for_brand_intent:
+                product_bool_query = {
+                    "bool": {
+                        "should": _cat_text_clauses,
+                        "minimum_should_match": 1,
+                        "filter": [_all_cat_filters],
+                    }
                 }
-            }
+            else:
+                product_bool_query = {
+                    "bool": {
+                        "must": _cat_text_clauses,
+                        "filter": [_all_cat_filters],
+                    }
+                }
         else:
             # Pure category browse (e.g. "lampa", "karta sd") — constant_score
             # so BM25 text relevance does NOT affect ranking
