@@ -731,18 +731,24 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # (model code only, without brand). This avoids IDF dilution from the brand
         # token that appears in ALL products when brand filter is active.
         _model_remainder_clauses = []
+        _model_remainder2 = None
         if _model_number_intent and _brand_intent:
             _brand_lower2 = _brand_intent.lower()
             _model_remainder2 = q_for_es.lower().replace(_brand_lower2, "").strip()
             if _model_remainder2:
-                # Exact model match on name — very high boost.
-                # Only use match_phrase (not match) because word_delimiter_custom
-                # splits "220B" into ["220b","220","b"] and a match query would
-                # boost ALL products with "b" in name (e.g. "Typ B", "wersja B").
+                # _normalize_model_query inserts spaces at digit→letter boundaries:
+                # "220B" → "220 B". But ES indexes "220B" as single token "220b"
+                # (split_on_numerics=false). We need BOTH forms for matching:
+                # - "220 b" for search-time analyzer (standard tokenizer splits it)
+                # - "220b" (concatenated) for direct token match in index
+                _rem_concat = re.sub(r'\s+', '', _model_remainder2)  # "220 b" → "220b"
                 _model_remainder_clauses = [
-                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 300, "slop": 1}}},
-                    # Also try on sub-fields that may tokenize differently
-                    {"match_phrase": {"name.folded": {"query": _model_remainder2, "boost": 200, "slop": 1}}},
+                    # Concatenated form — matches ES index token directly
+                    {"match_phrase": {"name": {"query": _rem_concat, "boost": 300, "slop": 0}}},
+                    # Spaced form — matches via search analyzer tokenization
+                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 200, "slop": 2}}},
+                    # Sub-field with different analyzer
+                    {"match_phrase": {"name.folded": {"query": _rem_concat, "boost": 200, "slop": 0}}},
                 ]
 
         product_bool_query = {
