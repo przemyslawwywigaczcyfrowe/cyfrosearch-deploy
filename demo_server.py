@@ -1247,7 +1247,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                          "ładowarki", "zasilanie", "akcesoria do zasilania",
                          "akumulatory i ładowarki", "V-lock", "do V-Mount"]
                     }}, "weight": 300},
-                    {"filter": {"match": {"name": _accessory_keyword_from_cat}}, "weight": 200},
+                    {"filter": {"match_phrase": {"name": _accessory_keyword_from_cat}}, "weight": 200},
                 ]
                 if _accessory_keyword_from_cat else []
             ),
