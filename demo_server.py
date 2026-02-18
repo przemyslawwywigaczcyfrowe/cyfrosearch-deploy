@@ -710,7 +710,18 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         ]
         _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
         if _cleaned_remainder:
+            # Check if remainder contains a brand name ANYWHERE (not just at start).
+            # "operatorska canon r6" → brand "Canon" found at position 1.
+            # _detect_brand_intent only checks the start, so also try
+            # each token position as a potential brand start.
             _rem_brand = _detect_brand_intent(_cleaned_remainder.lower())
+            if not _rem_brand:
+                _rem_words = _cleaned_remainder.lower().split()
+                for _wi in range(1, len(_rem_words)):
+                    _sub = " ".join(_rem_words[_wi:])
+                    _rem_brand = _detect_brand_intent(_sub)
+                    if _rem_brand:
+                        break
             if _rem_brand:
                 _cat_alias_key = _matched_cat_alias_key or ""
                 if _cat_alias_key.lower() in MAIN_PRODUCT_ALIASES:
