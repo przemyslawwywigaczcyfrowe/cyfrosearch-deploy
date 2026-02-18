@@ -471,6 +471,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     brand_results = []
     popular_queries: list[dict] = []
 
+    # Save original query before normalization (for fallback matching on unsplit codes)
+    q_original = q.strip()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
     q = _merge_mark_roman(_normalize_model_query(q))
 
@@ -816,6 +818,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 _vtokens = _q_tokens[:_i] + [_mark_concat] + _q_tokens[_i+1:]
                 _model_variant_phrases.append(" ".join(_vtokens))
 
+            # Case 5: Letters + trailing digit(s) → append letters to find suffixed variants.
+            # Users type "sony fx3" but product is "Sony ILME-FX3A" — "fx3a" is the full code.
+            # Pattern: 2+ letters followed by 1+ digits (e.g. "fx3", "fx30", "sl60").
+            # Generate: "fx3a", "fx3b", ... (only common suffixes, not full alphabet)
+            _m5 = re.match(r'^([a-z]{2,})(\d+)$', _tok)
+            if _m5 and len(_tok) >= 3:
+                _base = _tok  # "fx3"
+                for _suf in "abcdefghijklmnoprstuvwxyz":
+                    _vtokens = _q_tokens[:_i] + [_base + _suf] + _q_tokens[_i+1:]
+                    _model_variant_phrases.append(" ".join(_vtokens))
+
         # When model-number intent detected, add a focused match on the remainder
         # (model code only, without brand). This avoids IDF dilution from the brand
         # token that appears in ALL products when brand filter is active.
@@ -885,6 +898,18 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         {"match_phrase": {"name": {"query": v, "boost": _phrase_boost * 2, "slop": 2}}}
                         for v in _model_variant_phrases[:26]
                     ],
+                    # Original unsplit query fallback — when normalization splits tokens
+                    # (e.g. "SL60IIBi" → "SL60 IIBi"), the original form may match ES tokens
+                    # that were indexed as one concatenated token (preserve_original=true).
+                    # Also matches manufacturer_code, SKU etc. with the original form.
+                    *(
+                        [
+                            {"match_phrase": {"name": {"query": q_original, "boost": _phrase_boost * 3, "slop": 1}}},
+                            {"match_phrase": {"name.folded": {"query": q_original, "boost": _phrase_boost * 2, "slop": 1}}},
+                            {"match": {"name": {"query": q_original, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
+                        ]
+                        if q_original.lower() != q_for_es.lower() else []
+                    ),
                     # Exact-match on keyword fields (case-sensitive) for product codes
                     {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
                     {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
@@ -893,6 +918,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # Case-insensitive fallback (uppercase variant)
                     {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
+                    # Original query on keyword fields (when normalization changed the query)
+                    *(
+                        [
+                            {"term": {"manufacturer_code": {"value": q_original, "boost": 100}}},
+                            {"term": {"sku": {"value": q_original, "boost": 100}}},
+                        ]
+                        if q_original != q_trimmed else []
+                    ),
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
