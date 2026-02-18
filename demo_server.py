@@ -1432,20 +1432,32 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             *(
                 [
                     # +400 for products WITHOUT charger/printer/flash/adapter words in name
-                    # = pure camera batteries. Excludes:
-                    #   - Chargers: "ładowarka", "dwukanałowa", "DC-USB", "CG-", "Charger"
-                    #   - Printer batteries: "drukar" (covers drukarki, drukarek)
-                    #   - Flash batteries: "lamp błyskow" (covers lamp błyskowych)
-                    #   - Dummy adapters: "Dummy", "adapter baterii"
-                    #   - Cables: "Kabel D-TAP", "zasilający"
-                    #   - Battery grips/cases: "koszyk na baterie", "grip"
+                    # = pure camera batteries. Uses multiple match clauses for precision:
                     {"filter": {"bool": {"must_not": [
+                        # Chargers
                         {"multi_match": {
-                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG- Charger drukar Dummy koszyk zasilający D-TAP",
+                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG- Charger",
+                            "fields": ["name", "name.morfologik"],
+                            "type": "best_fields",
+                            "minimum_should_match": "1",
+                        }},
+                        # Printer batteries
+                        {"multi_match": {
+                            "query": "drukarka drukarki drukarek",
+                            "fields": ["name", "name.morfologik"],
+                            "type": "best_fields",
+                            "minimum_should_match": "1",
+                        }},
+                        # Flash batteries (Speedlite LP-EL is Canon flash battery)
+                        {"match_phrase": {"name": "lamp błyskowych"}},
+                        {"match": {"name": "Speedlite"}},
+                        # Dummy adapters, cables, battery grips
+                        {"multi_match": {
+                            "query": "Dummy koszyk zasilający D-TAP adapter baterii",
                             "fields": ["name"],
                             "type": "best_fields",
                             "minimum_should_match": "1",
-                        }}
+                        }},
                     ]}}, "weight": 400},
                     # +200 for products in the brand-specific subcategory (e.g. "do Canon")
                     *(
