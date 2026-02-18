@@ -92,6 +92,9 @@ def _fold_polish(text: str) -> str:
     return text.translate(_map)
 
 
+# ── Polish stopwords (prepositions that add no search value) ──
+_PL_STOPWORDS = {"do", "dla", "na", "z", "ze", "w", "we", "i", "lub", "od", "po"}
+
 # ── Focal-length pattern ──
 # Detects zoom ranges like "24-70", "70-200", "100-400" in queries
 _RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
@@ -222,6 +225,7 @@ BRAND_ALIASES: dict[str, str] = {
     "fuji": "fujifilm",
     "pana": "panasonic",
     "think tank": "thinktank",
+    "manfrott": "manfrotto",
 }
 
 # ── Category-intent aliases ──
@@ -271,7 +275,10 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     "plecak fotograficzny": ["plecaki fotograficzne"],
     "statyw": ["statywy (trójnogi)", "statywy do filmowania"],
     "filtr": ["filtry", "połówkowe i szare"],
-    "akumulator": ["akumulatory i baterie"],
+    "akumulator": ["akumulatory", "baterie specjalistyczne"],
+    "akumulatory": ["akumulatory", "baterie specjalistyczne"],
+    "bateria": ["akumulatory", "baterie specjalistyczne"],
+    "baterie": ["akumulatory", "baterie specjalistyczne"],
     # pasek / paski → strap subcategory
     "pasek": ["paski", "pasy biodrowe, szelki i kamizelki"],
     "paski": ["paski", "pasy biodrowe, szelki i kamizelki"],
@@ -623,6 +630,35 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     matched_subcategories = CATEGORY_ALIASES[prefix_folded]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
                     break
+    # ── Reverse brand detection in category remainder ──
+    # Handles queries like "akumulator do canon 6d" where category comes first,
+    # then a preposition ("do"), then a brand name. Strip Polish stopwords from
+    # the remainder and check for brand intent.
+    if matched_subcategories and _cat_remainder_text and not _brand_intent:
+        # Strip leading stopwords: "do canon 6d" → "canon 6d"
+        _rem_tokens_clean = [
+            t for t in _cat_remainder_text.split()
+            if t.lower() not in _PL_STOPWORDS
+        ]
+        _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
+        if _cleaned_remainder:
+            _reverse_brand = _detect_brand_intent(_cleaned_remainder.lower())
+            if _reverse_brand:
+                _brand_intent = _reverse_brand
+                # Remove brand from remainder to get model/text part
+                _rb_lower = _reverse_brand.lower()
+                _after_brand = _cleaned_remainder.lower().replace(_rb_lower, "").strip()
+                # Also check alias form
+                for _al, _cn in BRAND_ALIASES.items():
+                    if _cn == _rb_lower and _al in _cleaned_remainder.lower():
+                        _ab2 = _cleaned_remainder.lower().replace(_al, "").strip()
+                        if len(_ab2) < len(_after_brand):
+                            _after_brand = _ab2
+                _cat_remainder_text = _after_brand if _after_brand else ""
+            else:
+                # No brand found, but still strip stopwords from remainder
+                _cat_remainder_text = _cleaned_remainder
+
     if not matched_subcategories and not _brand_intent and _cat_check_text:
         q_folded = _fold_polish(_cat_check_text)
         if _subcategory_set:
