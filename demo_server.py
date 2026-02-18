@@ -289,6 +289,13 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     "stoly": ["stoły bezcieniowe"],
     "stół bezcieniowy": ["stoły bezcieniowe"],
     "stol bezcieniowy": ["stoły bezcieniowe"],
+    # drukarka → printer subcategories
+    "drukarka": ["fotograficzne profesjonalne (A3)", "fotograficzne kompaktowe",
+                  "drukarka", "drukarki"],
+    "drukarki": ["fotograficzne profesjonalne (A3)", "fotograficzne kompaktowe",
+                  "drukarka", "drukarki"],
+    "drukarka fotograficzna": ["fotograficzne profesjonalne (A3)",
+                                "fotograficzne kompaktowe"],
     # parasol → parasol subcategories
     "parasol": ["parasole transparentne", "parasole paraboliczne"],
     "parasole": ["parasole transparentne", "parasole paraboliczne"],
@@ -492,6 +499,22 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     q_original = q.strip()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
     q = _merge_mark_roman(_normalize_model_query(q))
+
+    # ── Alpha→digit split variants ──
+    # Users type "Pro1000" but product is "Pro-1000" (indexed as "pro" + "1000").
+    # We cannot do this in the normalizer (breaks brand detection for "Insta360" etc.)
+    # Instead, generate alternative query forms for matching in should clauses.
+    _RE_ALPHA_DIGIT_BOUNDARY = re.compile(r'([a-zA-Z])(\d)')
+    _q_hyphen_variant: str | None = None
+    _q_spaced_variant: str | None = None
+    _q_norm_lower = q.lower().strip()
+    if _RE_ALPHA_DIGIT_BOUNDARY.search(_q_norm_lower):
+        _hv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1-\2', q.strip())
+        _sv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1 \2', q.strip())
+        if _hv.lower() != _q_norm_lower:
+            _q_hyphen_variant = _hv
+        if _sv.lower() != _q_norm_lower:
+            _q_spaced_variant = _sv
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
@@ -942,6 +965,22 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             {"term": {"sku": {"value": q_original, "boost": 100}}},
                         ]
                         if q_original != q_trimmed else []
+                    ),
+                    # Alpha→digit split variants: "Pro1000" → "Pro-1000" / "Pro 1000"
+                    # Users omit hyphens but products are indexed with them.
+                    *(
+                        [
+                            {"match_phrase": {"name": {"query": _q_hyphen_variant, "boost": _phrase_boost * 3, "slop": 1}}},
+                            {"match_phrase": {"name.folded": {"query": _q_hyphen_variant, "boost": _phrase_boost * 2, "slop": 1}}},
+                        ]
+                        if _q_hyphen_variant else []
+                    ),
+                    *(
+                        [
+                            {"match_phrase": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost * 2, "slop": 1}}},
+                            {"match": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
+                        ]
+                        if _q_spaced_variant else []
                     ),
                 ],
                 "minimum_should_match": 1,
