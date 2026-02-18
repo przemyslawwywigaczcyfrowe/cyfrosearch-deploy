@@ -671,19 +671,26 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     if len(_r2) < len(_remainder):
                         _remainder = _r2
             # Model-number intent: remainder must be a specific model code.
-            # Requires at least 2 "specificity points" to avoid false positives
-            # on short brand+model queries like "canon r8" (1 point) where popularity
-            # should still influence ranking.
-            # Scoring: each digit = 1 point, roman numeral token = 1 point.
-            # "smallrig 220B" (3 digits) → 3 pts → model intent.
-            # "sony a7 iv" (1 digit + roman) → 2 pts → model intent.
-            # "nikon z5 ii" (1 digit + roman) → 2 pts → model intent.
-            # "canon r8" (1 digit, no roman) → 1 pt → NOT model intent.
+            # Requires at least 2 "specificity points" to avoid false positives.
+            # Scoring: each digit = 1 point, roman numeral token = 1 point,
+            # short alphanumeric token (≤4 chars with both letters+digits) = 1 point.
+            # "smallrig 220B" (3 digits + alphanum) → 4 pts → model intent.
+            # "sony a7 iv" (1 digit + roman + alphanum) → 3 pts → model intent.
+            # "insta360 go 3s" (1 digit + alphanum "3s") → 2 pts → model intent.
+            # "canon r8" (1 digit + alphanum "r8") → 2 pts → model intent.
             _ROMAN_SET = {"ii", "iii", "iv", "v"}
             _rem_tokens = _remainder.split()
             _total_digits = sum(c.isdigit() for c in _remainder)
             _roman_bonus = sum(1 for t in _rem_tokens if t in _ROMAN_SET)
-            _specificity = _total_digits + _roman_bonus
+            # Alphanumeric token bonus: tokens mixing letters+digits (e.g. "3s", "a7", "r8")
+            # are strong model identifiers. Count each as 2 points (even if only 1 digit).
+            # This ensures "insta360 go 3s" (1 digit + alphanumeric bonus) → 2 pts → intent.
+            _alphanum_bonus = sum(
+                1 for t in _rem_tokens
+                if (any(c.isdigit() for c in t) and any(c.isalpha() for c in t)
+                    and len(t) <= 4 and t not in _ROMAN_SET)
+            )
+            _specificity = _total_digits + _roman_bonus + _alphanum_bonus
             if (1 <= len(_rem_tokens) <= 3
                 and _specificity >= 2
                 and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
