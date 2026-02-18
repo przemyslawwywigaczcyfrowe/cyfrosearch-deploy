@@ -630,34 +630,23 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     matched_subcategories = CATEGORY_ALIASES[prefix_folded]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
                     break
-    # ── Reverse brand detection in category remainder ──
+    # ── Strip Polish stopwords from category remainder ──
     # Handles queries like "akumulator do canon 6d" where category comes first,
-    # then a preposition ("do"), then a brand name. Strip Polish stopwords from
-    # the remainder and check for brand intent.
+    # then a preposition ("do"), then brand/model text.
+    # We do NOT set _brand_intent here because accessories "for Canon" are made
+    # by 3rd-party brands (Patona, Newell) — a hard brand filter would return 0.
+    # Instead, keep "canon 6d" as remainder text for multi_match within the category.
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
-        # Strip leading stopwords: "do canon 6d" → "canon 6d"
         _rem_tokens_clean = [
             t for t in _cat_remainder_text.split()
             if t.lower() not in _PL_STOPWORDS
         ]
         _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
         if _cleaned_remainder:
-            _reverse_brand = _detect_brand_intent(_cleaned_remainder.lower())
-            if _reverse_brand:
-                _brand_intent = _reverse_brand
-                # Remove brand from remainder to get model/text part
-                _rb_lower = _reverse_brand.lower()
-                _after_brand = _cleaned_remainder.lower().replace(_rb_lower, "").strip()
-                # Also check alias form
-                for _al, _cn in BRAND_ALIASES.items():
-                    if _cn == _rb_lower and _al in _cleaned_remainder.lower():
-                        _ab2 = _cleaned_remainder.lower().replace(_al, "").strip()
-                        if len(_ab2) < len(_after_brand):
-                            _after_brand = _ab2
-                _cat_remainder_text = _after_brand if _after_brand else ""
-            else:
-                # No brand found, but still strip stopwords from remainder
-                _cat_remainder_text = _cleaned_remainder
+            _cat_remainder_text = _cleaned_remainder
+        # If after stripping stopwords nothing remains, keep it empty (pure category browse)
+        else:
+            _cat_remainder_text = ""
 
     if not matched_subcategories and not _brand_intent and _cat_check_text:
         q_folded = _fold_polish(_cat_check_text)
