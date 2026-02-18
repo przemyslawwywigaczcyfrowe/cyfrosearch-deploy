@@ -114,6 +114,8 @@ def _normalize_model_query(q: str) -> str:
     'sony a7iv' → 'sony a7 iv', 'canon r6ii' → 'canon r6 ii'
     Also applies MODEL_REWRITES for known concatenated camera models.
     Preserves original spacing and case.
+    Only splits tokens with 4+ chars — short tokens like "3S", "r8" are
+    preserved as-is since splitting would destroy the model identifier.
     """
     # Apply model rewrites first (case-insensitive, whole-word)
     q_lower_words = q.lower().split()
@@ -126,7 +128,17 @@ def _normalize_model_query(q: str) -> str:
             q = " ".join(q_words)
             break
 
-    return _RE_DIGIT_TO_ALPHA.sub(r'\1 \2', q)
+    # Apply digit→letter splitting per word, only for 4+ char tokens.
+    # Short tokens like "3S" (2 chars), "r8" (2 chars) stay intact.
+    # Long tokens like "a7iv" (4 chars), "r6iii" (5 chars) get split.
+    words = q.split()
+    result = []
+    for w in words:
+        if len(w) >= 4:
+            result.append(_RE_DIGIT_TO_ALPHA.sub(r'\1 \2', w))
+        else:
+            result.append(w)
+    return " ".join(result)
 
 
 # ── Roman numeral merging (matches ES analyzer behavior) ──
