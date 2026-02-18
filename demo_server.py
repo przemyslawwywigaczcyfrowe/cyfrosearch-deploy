@@ -289,6 +289,13 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     "stoly": ["stoły bezcieniowe"],
     "stół bezcieniowy": ["stoły bezcieniowe"],
     "stol bezcieniowy": ["stoły bezcieniowe"],
+    # parasol → parasol subcategories
+    "parasol": ["parasole transparentne", "parasole paraboliczne"],
+    "parasole": ["parasole transparentne", "parasole paraboliczne"],
+    "parasol transparentny": ["parasole transparentne"],
+    "parasol paraboliczny": ["parasole paraboliczne"],
+    "parasole transparentne": ["parasole transparentne"],
+    "parasole paraboliczne": ["parasole paraboliczne"],
     # softbox → all softbox subcategories
     "softbox": ["softboxy", "softboxy oktagonalne", "softboxy prostokątne",
                 "softboxy heksagonalne", "softboxy paraboliczne", "softboxy wideo",
