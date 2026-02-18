@@ -100,6 +100,8 @@ _RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
 # Splits tokens on digit→letter boundaries so "a7iv" → "a7 iv", "r6iii" → "r6 iii"
 # This is critical for camera model searches like "sony a7iv", "canon r6ii", "fuji xt5ii"
 _RE_DIGIT_TO_ALPHA = re.compile(r'(\d)([a-zA-Z])')
+# Dimension patterns like "100x200", "60x130" — should NOT be split
+_RE_DIMENSION = re.compile(r'^\d+x\d+$', re.IGNORECASE)
 
 # Model rewrites: users often concatenate model names that have spaces in the product name.
 # These are applied as whole-word replacements (case-insensitive).
@@ -131,10 +133,11 @@ def _normalize_model_query(q: str) -> str:
     # Apply digit→letter splitting per word, only for 4+ char tokens.
     # Short tokens like "3S" (2 chars), "r8" (2 chars) stay intact.
     # Long tokens like "a7iv" (4 chars), "r6iii" (5 chars) get split.
+    # Dimension patterns like "100x200", "60x130" are preserved (digits + x + digits).
     words = q.split()
     result = []
     for w in words:
-        if len(w) >= 4:
+        if len(w) >= 4 and not _RE_DIMENSION.match(w):
             result.append(_RE_DIGIT_TO_ALPHA.sub(r'\1 \2', w))
         else:
             result.append(w)
@@ -279,6 +282,13 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
                        "SD / SDHC", "CompactFlash"],
     "karta cfexpress": ["CFexpress", "CFexpress Typ A", "CFexpress Type B"],
     "karta microsd": ["microSD"],
+    # stół / stoły → shadowless tables
+    "stół": ["stoły bezcieniowe"],
+    "stol": ["stoły bezcieniowe"],
+    "stoły": ["stoły bezcieniowe"],
+    "stoly": ["stoły bezcieniowe"],
+    "stół bezcieniowy": ["stoły bezcieniowe"],
+    "stol bezcieniowy": ["stoły bezcieniowe"],
     # softbox → all softbox subcategories
     "softbox": ["softboxy", "softboxy oktagonalne", "softboxy prostokątne",
                 "softboxy heksagonalne", "softboxy paraboliczne", "softboxy wideo",
