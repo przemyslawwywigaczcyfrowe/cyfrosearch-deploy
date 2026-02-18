@@ -296,6 +296,11 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
                   "drukarka", "drukarki"],
     "drukarka fotograficzna": ["fotograficzne profesjonalne (A3)",
                                 "fotograficzne kompaktowe"],
+    # lornetka → all binocular subcategories
+    "lornetka": ["uniwersalne", "ornitologia i myślistwo dzienne",
+                  "turystyka", "żeglarstwo", "lornetki"],
+    "lornetki": ["uniwersalne", "ornitologia i myślistwo dzienne",
+                  "turystyka", "żeglarstwo", "lornetki"],
     # parasol → parasol subcategories
     "parasol": ["parasole transparentne", "parasole paraboliczne"],
     "parasole": ["parasole transparentne", "parasole paraboliczne"],
@@ -358,6 +363,15 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     # torba fotograficzna
     "torba fotograficzna": ["torby fotograficzne", "torby kufry i walizki"],
     "torby fotograficzne": ["torby fotograficzne", "torby kufry i walizki"],
+}
+
+# ── Parent-category injection ──
+# Some subcategories are too specific for users. When they appear in results,
+# inject the parent label so users see a broader navigation option.
+# Key → parent label to inject, Value → set of child subcategories that trigger it.
+PARENT_CATEGORY_INJECT: dict[str, set[str]] = {
+    "lornetki": {"uniwersalne", "ornitologia i myślistwo dzienne", "turystyka",
+                  "żeglarstwo", "astronomia", "kompaktowe", "lornetki"},
 }
 
 # Brand cache — populated once from ES on first request
@@ -1336,6 +1350,22 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 category_results.append({
                     "name": name, "short_name": name, "count": count,
                 })
+            # ── Parent category injection ──
+            # When specific subcategories appear, inject a broader parent label
+            # so users see a navigable general category (e.g. "lornetki").
+            _found_subcats = set(_subcat_counts.keys())
+            for parent_label, child_set in PARENT_CATEGORY_INJECT.items():
+                _overlap = _found_subcats & child_set
+                if _overlap:
+                    # Sum counts of all matching child subcategories
+                    _parent_count = sum(_subcat_counts[c] for c in _overlap)
+                    # Only inject if parent label not already present
+                    if not any(cr["name"] == parent_label for cr in category_results):
+                        # Insert at position 0 (most useful for user navigation)
+                        category_results.insert(0, {
+                            "name": parent_label, "short_name": parent_label,
+                            "count": _parent_count,
+                        })
         elif _catpath_counts:
             for path, count in _catpath_counts.most_common(5):
                 parts = path.split(" > ")
