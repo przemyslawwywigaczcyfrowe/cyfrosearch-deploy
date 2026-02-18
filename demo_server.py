@@ -637,6 +637,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # ── Strip Polish stopwords from category remainder ──
     # Handles queries like "akumulator do canon 6d" where category comes first,
     # then a preposition ("do"), then brand/model text.
+    # _accessory_keyword_from_cat: the category keyword (e.g. "akumulator") that triggered
+    # the alias match. Used later to boost products with this word in their name,
+    # so actual batteries rank above chargers/cages that merely mention "akumulatorów".
+    _accessory_keyword_from_cat: str | None = None
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
         _rem_tokens_clean = [
             t for t in _cat_remainder_text.split()
@@ -651,6 +655,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             # naturally: "akumulator canon 6d" will find products with both words.
             _rem_brand = _detect_brand_intent(_cleaned_remainder.lower())
             if _rem_brand:
+                # Remember the category keyword for product-name boosting
+                _cat_tokens_orig = _cat_check_text.split()
+                if _cat_tokens_orig:
+                    _accessory_keyword_from_cat = _cat_tokens_orig[0]
                 # Cancel category filter, fall through to standard text search
                 matched_subcategories = None
                 _cat_remainder_text = ""
@@ -1053,6 +1061,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         ]
                         if _q_spaced_variant else []
                     ),
+                    # (accessory-keyword boosting handled in function_score, not here)
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
@@ -1154,6 +1163,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             _pop_weight = 80
             _sales_weight = 30
             _brand_weight = 300
+        elif _accessory_keyword_from_cat:
+            # Query like "akumulator do canon r6" — user wants accessories, not cameras.
+            # Suppress main category boost (cameras/lenses), reduce price/popularity
+            # so that text relevance + accessory-keyword category boost can dominate.
+            _main_cat_weight = 0     # no camera/lens bias
+            _price_weight = 5        # cheap accessories are fine
+            _pop_weight = 30         # reduced — niche products have low popularity
+            _sales_weight = 10
+            _brand_weight = 0        # no brand detected
         else:
             _main_cat_weight = 120
             _price_weight = 15
@@ -1212,6 +1230,20 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"is_promo": True}}, "weight": 20},
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
+            # ── Accessory-keyword category boost ──
+            # When query starts with "akumulator"/"bateria" + brand, boost products
+            # in battery/charger subcategories so actual batteries rank above cameras/cages.
+            # Uses the CATEGORY_ALIASES target subcategories + common "do [Brand]" patterns.
+            *(
+                [{"filter": {"terms": {"subcategory":
+                    CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
+                    ["do Canon", "do Sony", "do Nikon", "do Fujifilm", "do Panasonic",
+                     "do Olympus", "do Leica", "do Pentax", "do Sigma",
+                     "ładowarki", "zasilanie", "akcesoria do zasilania",
+                     "akumulatory i ładowarki", "V-lock", "do V-Mount"]
+                }}, "weight": 500}]
+                if _accessory_keyword_from_cat else []
+            ),
             # Condition-based boost — dynamically switch based on user intent
             # Higher "new" weight when brand-intent (prefer new over used products)
             *(
