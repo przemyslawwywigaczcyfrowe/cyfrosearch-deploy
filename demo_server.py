@@ -1174,6 +1174,7 @@ async def suggest(
 
     elapsed_ms = round((time.monotonic() - start) * 1000, 1)
     result["meta"]["time_ms"] = elapsed_ms
+    result["meta"]["version"] = "v7-model-remainder"
 
     # ── Store in cache ──
     _suggest_cache.put(cache_key, result)
