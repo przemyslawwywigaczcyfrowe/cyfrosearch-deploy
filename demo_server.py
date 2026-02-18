@@ -688,6 +688,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 and _specificity >= 2
                 and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
                 _model_number_intent = True
+            # Also trigger for very specific long queries (e.g. "35 mm f/1.4 sony fe")
+            # These are full product name searches where phrase match should dominate.
+            # Heuristic: >3 tokens with ≥2 digits = user knows exactly what they want.
+            elif (len(_rem_tokens) > 3
+                  and _total_digits >= 2
+                  and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
+                _model_number_intent = True
 
         if _model_number_intent:
             # Specific model search: phrase must dominate
@@ -766,6 +773,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 _vtokens = _q_tokens[:_i] + [_concat] + _q_tokens[_i+2:]
                 _model_variant_phrases.append(" ".join(_vtokens))
 
+            # Case 4: Standalone Roman numeral → prepend "mark" to match ES tokenization
+            # ES mark_normalizer char filter concatenates "mark III" → "markiii" in the index.
+            # Users type "canon r6III" → normalized to "canon r6 iii" → tokens ["canon","r6","iii"]
+            # but the index has "markiii" as a single token. Generate variant with "mark" prepended:
+            # "canon r6 iii" → "canon r6 markiii"
+            if (_tok in _ROMAN_NUMS
+                and _i > 0):
+                _mark_concat = "mark" + _tok  # "iii" → "markiii"
+                _vtokens = _q_tokens[:_i] + [_mark_concat] + _q_tokens[_i+1:]
+                _model_variant_phrases.append(" ".join(_vtokens))
+
         # When model-number intent detected, add a focused match on the remainder
         # (model code only, without brand). This avoids IDF dilution from the brand
         # token that appears in ALL products when brand filter is active.
@@ -789,6 +807,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # Sub-field with different analyzer
                     {"match_phrase": {"name.folded": {"query": _rem_concat, "boost": 200, "slop": 0}}},
                 ]
+                # If remainder ends with a roman numeral, also try "mark" + roman variant.
+                # E.g. remainder "r6 iii" → also try "r6 markiii" (ES indexes "mark III" as "markiii")
+                _rem_tokens2 = _model_remainder2.split()
+                if _rem_tokens2 and _rem_tokens2[-1] in {"ii", "iii", "iv", "v"}:
+                    _mark_rem = " ".join(_rem_tokens2[:-1]) + " mark" + _rem_tokens2[-1]
+                    _mark_rem_concat = re.sub(r'\s+', '', _mark_rem)
+                    _model_remainder_clauses.extend([
+                        {"match_phrase": {"name": {"query": _mark_rem, "boost": 250, "slop": 2}}},
+                        {"match_phrase": {"name": {"query": _mark_rem_concat, "boost": 250, "slop": 0}}},
+                    ])
 
         product_bool_query = {
             "bool": {
@@ -1025,15 +1053,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     }
 
     # Query 2: Categories + Brands (combined into ONE query with multiple aggs)
+    # Use the SAME query as product search (with brand/category filters) so that
+    # category suggestions reflect the actual matched products, not the entire index.
+    # Previously used a simple multi_match on the whole index which caused
+    # "obiektywy stałoogniskowe" to dominate for every query (largest category).
     agg_body = {
         "size": 0,
-        "query": {
-            "multi_match": {
-                "query": q,
-                "fields": ["name^3", "name.prefix^2", "brand^2", "subcategory"],
-                "fuzziness": "AUTO",
-            }
-        },
+        "query": product_bool_query,
         "aggs": {
             "subcategories": {"terms": {"field": "subcategory", "size": 6}},
             "categories": {"terms": {"field": "category_path", "size": 5}},
@@ -1042,17 +1068,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     }
 
     # Query 3: Suggestion source (top 20 popular products for name extraction)
+    # Use the same product_bool_query (with brand/category filters) so that
+    # "popular product" suggestions are filtered to the correct brand/category.
+    # Previously used a simple multi_match without brand filter, causing e.g.
+    # "Canon r6III" to suggest R6 II (more popular) as the popular product.
     suggest_source_body = {
         "size": 20,
         "query": {
             "function_score": {
-                "query": {
-                    "multi_match": {
-                        "query": q,
-                        "fields": ["name^3", "name.prefix^2", "brand^3"],
-                        "fuzziness": "AUTO",
-                    }
-                },
+                "query": product_bool_query,
                 "functions": [
                     {
                         "field_value_factor": {
