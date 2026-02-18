@@ -633,9 +633,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # ── Strip Polish stopwords from category remainder ──
     # Handles queries like "akumulator do canon 6d" where category comes first,
     # then a preposition ("do"), then brand/model text.
-    # We do NOT set _brand_intent here because accessories "for Canon" are made
-    # by 3rd-party brands (Patona, Newell) — a hard brand filter would return 0.
-    # Instead, keep "canon 6d" as remainder text for multi_match within the category.
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
         _rem_tokens_clean = [
             t for t in _cat_remainder_text.split()
@@ -643,7 +640,23 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         ]
         _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
         if _cleaned_remainder:
-            _cat_remainder_text = _cleaned_remainder
+            # Check if remainder contains a brand name (e.g. "canon 6d").
+            # If so, DISABLE category filter — accessories "for Canon" are in
+            # subcategories like "do Canon", not "akumulatory". A category filter
+            # would return 0 results. Instead, let the full-text search handle it
+            # naturally: "akumulator canon 6d" will find products with both words.
+            _rem_brand = _detect_brand_intent(_cleaned_remainder.lower())
+            if _rem_brand:
+                # Cancel category filter, fall through to standard text search
+                matched_subcategories = None
+                _cat_remainder_text = ""
+                # Rewrite query to strip stopwords: "akumulator do canon 6d" → "akumulator canon 6d"
+                q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
+                q_lower = q.lower().strip()
+                q_words = set(q_lower.split())
+                q_for_es = q
+            else:
+                _cat_remainder_text = _cleaned_remainder
         # If after stripping stopwords nothing remains, keep it empty (pure category browse)
         else:
             _cat_remainder_text = ""
