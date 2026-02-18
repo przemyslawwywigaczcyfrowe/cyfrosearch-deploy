@@ -1431,10 +1431,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             # "ładowark" or "dwukanałow" in name → those get the extra weight.
             *(
                 [
-                    # +400 for products WITHOUT charger words in name = pure batteries
+                    # +400 for products WITHOUT charger/printer/flash/adapter words in name
+                    # = pure camera batteries. Excludes:
+                    #   - Chargers: "ładowarka", "dwukanałowa", "DC-USB", "CG-", "Charger"
+                    #   - Printer batteries: "drukar" (covers drukarki, drukarek)
+                    #   - Flash batteries: "lamp błyskow" (covers lamp błyskowych)
+                    #   - Dummy adapters: "Dummy", "adapter baterii"
+                    #   - Cables: "Kabel D-TAP", "zasilający"
+                    #   - Battery grips/cases: "koszyk na baterie", "grip"
                     {"filter": {"bool": {"must_not": [
                         {"multi_match": {
-                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG-",
+                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG- Charger drukar Dummy koszyk zasilający D-TAP",
                             "fields": ["name"],
                             "type": "best_fields",
                             "minimum_should_match": "1",
@@ -1445,6 +1452,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         [{"filter": {"term": {"subcategory": f"do {_accessory_brand_from_cat}"}}, "weight": 200}]
                         if _accessory_brand_from_cat else []
                     ),
+                    # Synonym boost: when user searches "bateria do canon",
+                    # also boost products with "akumulator" in name (and vice versa).
+                    # Camera batteries use "akumulator" or "zamiennik", not "bateria".
+                    {"filter": {"multi_match": {
+                        "query": "akumulator zamiennik LP-E LP-EL NP-F NP-W NP-BX EN-EL BLX",
+                        "fields": ["name"],
+                        "type": "best_fields",
+                        "minimum_should_match": "1",
+                    }}, "weight": 300},
                 ]
                 if _accessory_keyword_from_cat and _accessory_keyword_from_cat in ("akumulator", "akumulatory", "bateria", "baterie") else []
             ),
