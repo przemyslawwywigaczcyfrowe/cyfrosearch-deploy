@@ -1061,17 +1061,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         ]
                         if _q_spaced_variant else []
                     ),
-                    # ── Accessory keyword name boost ──
-                    # When query starts with "akumulator"/"bateria" etc., boost products
-                    # that have the EXACT keyword in their product name. This ensures
-                    # "Patona Akumulator LP-E6N" ranks above "Canon CG-A10 do akumulatorów"
-                    # (charger that only tangentially mentions batteries in genitive form).
-                    *(
-                        [
-                            {"match_phrase": {"name": {"query": _accessory_keyword_from_cat, "boost": 200}}},
-                        ]
-                        if _accessory_keyword_from_cat else []
-                    ),
+                    # (accessory-keyword name boosting is in function_score, not in should
+                    #  — adding it here would let non-matching products sneak in via
+                    #  minimum_should_match: 1)
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
@@ -1240,18 +1232,23 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"is_promo": True}}, "weight": 20},
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
-            # ── Accessory-keyword category boost ──
-            # When query starts with "akumulator"/"bateria" + brand, boost products
-            # in battery/charger subcategories so actual batteries rank above cameras/cages.
-            # Uses the CATEGORY_ALIASES target subcategories + common "do [Brand]" patterns.
+            # ── Accessory-keyword boosts ──
+            # When query starts with "akumulator"/"bateria" + brand, two boosts:
+            # 1) Subcategory boost: products in battery/charger subcategories (+300)
+            # 2) Name match boost: products with the exact keyword in name (+200)
+            #    "Patona Akumulator LP-E6N" has "akumulator" in name → +200
+            #    "Canon CG-A10 do akumulatorów" has "akumulatorów" (genitive) → lower match
             *(
-                [{"filter": {"terms": {"subcategory":
-                    CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
-                    ["do Canon", "do Sony", "do Nikon", "do Fujifilm", "do Panasonic",
-                     "do Olympus", "do Leica", "do Pentax", "do Sigma",
-                     "ładowarki", "zasilanie", "akcesoria do zasilania",
-                     "akumulatory i ładowarki", "V-lock", "do V-Mount"]
-                }}, "weight": 500}]
+                [
+                    {"filter": {"terms": {"subcategory":
+                        CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
+                        ["do Canon", "do Sony", "do Nikon", "do Fujifilm", "do Panasonic",
+                         "do Olympus", "do Leica", "do Pentax", "do Sigma",
+                         "ładowarki", "zasilanie", "akcesoria do zasilania",
+                         "akumulatory i ładowarki", "V-lock", "do V-Mount"]
+                    }}, "weight": 300},
+                    {"filter": {"match": {"name": _accessory_keyword_from_cat}}, "weight": 200},
+                ]
                 if _accessory_keyword_from_cat else []
             ),
             # Condition-based boost — dynamically switch based on user intent
