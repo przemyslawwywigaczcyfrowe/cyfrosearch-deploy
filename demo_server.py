@@ -1255,6 +1255,25 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 if _used_intent else
                 [{"filter": {"term": {"condition": "new"}}, "weight": 25}]
             ),
+            # ── Product-for-brand model matching ──
+            # "klatka do canon r6" → massive boost for products with "R6" in name.
+            # This must be in function_score (not just BM25 should) because category
+            # scoring uses sqrt(pageviews)*50 which can give 1000+ points, easily
+            # drowning out BM25 text-match differences.
+            *(
+                [
+                    # Full phrase match: "Canon...R6" (slop=3) → +2000
+                    {"filter": {"match_phrase": {"name": {"query": _cat_remainder_text, "slop": 3}}}, "weight": 2000},
+                    # Individual model tokens: each non-brand word gets a boost
+                    # For "canon r6": "r6" → +500 per matching product
+                    *[
+                        {"filter": {"match": {"name": _rt}}, "weight": 500}
+                        for _rt in _cat_remainder_text.split()
+                        if len(_rt) >= 2 and _rt.lower() not in _brand_set
+                    ],
+                ]
+                if _product_for_brand_intent and _cat_remainder_text else []
+            ),
         ]
     else:
         # Standard text-matching: brand queries like "canon", "sony a7" etc.
@@ -1375,17 +1394,26 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
             # ── Pure-product preference for accessory queries ──
             # When searching "akumulator do canon", prefer pure batteries over
-            # charger+battery SETS. Sets have "ładowarka" or "dwukanałowa" in name.
-            # Pure batteries: "Newell zamiennik LP-E6NH" (URL starts with /akumulator-)
-            # Sets: "Newell dwukanałowa DL-USB-C i akumulator LP-E17" (URL starts with /ladowarka-)
-            # Boost products whose name starts with the accessory keyword (pure products)
-            # and slightly penalize products containing charger indicators.
+            # charger+battery SETS and standalone chargers.
+            # Pure batteries: "Newell zamiennik LP-E6NH", "Patona Akumulator LP-E6N"
+            # Charger sets: "Newell dwukanałowa DL-USB-C i akumulator LP-E17"
+            # Chargers: "Canon CG-A10 do akumulatorów Canon", "Newell DC-USB do akumulatorów"
+            #
+            # Strategy: boost products that do NOT contain charger-indicating words.
+            # A bool.must_not filter inside function_score matches products WITHOUT
+            # "ładowark" or "dwukanałow" in name → those get the extra weight.
             *(
                 [
-                    # Boost products with "Akumulator" as first significant word in name
-                    # These are pure batteries, not sets
-                    {"filter": {"match_phrase_prefix": {"name": _accessory_keyword_from_cat}}, "weight": 150},
-                    # Also boost products in the core subcategory "do [Brand]" over generic "akumulatory"
+                    # +400 for products WITHOUT charger words in name = pure batteries
+                    {"filter": {"bool": {"must_not": [
+                        {"multi_match": {
+                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG-",
+                            "fields": ["name"],
+                            "type": "best_fields",
+                            "minimum_should_match": "1",
+                        }}
+                    ]}}, "weight": 400},
+                    # +200 for products in the brand-specific subcategory (e.g. "do Canon")
                     *(
                         [{"filter": {"term": {"subcategory": f"do {_accessory_brand_from_cat}"}}, "weight": 200}]
                         if _accessory_brand_from_cat else []
