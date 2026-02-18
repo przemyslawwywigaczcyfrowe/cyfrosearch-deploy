@@ -543,6 +543,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 q = _brand_intent + q[len(prefix):]
                 q_lower = q.lower().strip()
                 q_words = set(q_lower.split())
+                # Also update q_original so original-query fallback clauses
+                # don't use the typo form (e.g. "manfrott" → "Manfrotto")
+                q_original = q.strip()
                 break
 
     # ── Alpha→digit split variants ──
