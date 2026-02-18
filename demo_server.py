@@ -1181,13 +1181,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # (e.g. "SL60IIBi" → "SL60 IIBi"), the original form may match ES tokens
                     # that were indexed as one concatenated token (preserve_original=true).
                     # Also matches manufacturer_code, SKU etc. with the original form.
+                    # SKIP when accessory-keyword rewrite changed the query (bateria→akumulator)
+                    # because the original "bateria" would let wrong products (flash/printer) match.
                     *(
                         [
                             {"match_phrase": {"name": {"query": q_original, "boost": _phrase_boost * 3, "slop": 1}}},
                             {"match_phrase": {"name.folded": {"query": q_original, "boost": _phrase_boost * 2, "slop": 1}}},
                             {"match": {"name": {"query": q_original, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
                         ]
-                        if q_original.lower() != q_for_es.lower() else []
+                        if q_original.lower() != q_for_es.lower() and not _accessory_keyword_from_cat else []
                     ),
                     # Exact-match on keyword fields (case-sensitive) for product codes
                     {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
