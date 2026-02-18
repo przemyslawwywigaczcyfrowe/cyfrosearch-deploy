@@ -765,6 +765,18 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     _cat_remainder_text = ""
                     # Rewrite query to strip stopwords
                     q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
+                    # Synonym rewrite: "bateria"/"baterie" → also include "akumulator"
+                    # Camera batteries use "akumulator" or "zamiennik" in product names,
+                    # not "bateria". Without this rewrite, products with "bateria" in name
+                    # (flash batteries, printer batteries) get unfairly high BM25 scores.
+                    _BATTERY_SYNONYMS = {"bateria": "akumulator", "baterie": "akumulator"}
+                    if _accessory_keyword_from_cat and _accessory_keyword_from_cat in _BATTERY_SYNONYMS:
+                        _syn = _BATTERY_SYNONYMS[_accessory_keyword_from_cat]
+                        # Replace "bateria" → "akumulator" in query for ES text matching
+                        q = " ".join(
+                            _syn if t.lower() == _accessory_keyword_from_cat else t
+                            for t in q.split()
+                        )
                     q_lower = q.lower().strip()
                     q_words = set(q_lower.split())
                     q_for_es = q
