@@ -955,6 +955,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
     product_body = {
         "size": limit,
+        "explain": True,  # DEBUG: explain scoring
         "query": {
             "function_score": {
                 "query": product_bool_query,
@@ -1084,6 +1085,29 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             elif src.get("is_new"):
                 badge = "Nowość"
 
+            # DEBUG: Extract explain summary — query vs function_score breakdown
+            _explain = hit.get("_explanation", {})
+            _explain_summary = None
+            if _explain:
+                # function_score with sum: top level has details [query_score, function_sum]
+                _details = _explain.get("details", [])
+                if len(_details) >= 2:
+                    _query_score = _details[0].get("value", 0)
+                    _func_score = _details[1].get("value", 0)
+                    # Dig into query score details to find which clauses matched
+                    _qdetails = _details[0].get("details", [{}])
+                    _matched_clauses = []
+                    for d in _qdetails[0].get("details", []) if _qdetails else []:
+                        desc = d.get("description", "")[:80]
+                        val = d.get("value", 0)
+                        if val > 0:
+                            _matched_clauses.append(f"{val:.1f}: {desc}")
+                    _explain_summary = {
+                        "query_score": round(_query_score, 2),
+                        "func_score": round(_func_score, 2),
+                        "matched_clauses": _matched_clauses[:5],
+                    }
+
             product_results.append({
                 "name": src["name"],
                 "highlight": highlighted_name,
@@ -1097,6 +1121,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
                 "_score": hit.get("_score"),  # DEBUG: ES score for analysis
+                "_explain": _explain_summary,  # DEBUG: score breakdown
             })
     except Exception as e:
         print(f"Product parse error: {e}")
