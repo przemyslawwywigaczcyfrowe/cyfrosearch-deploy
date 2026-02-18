@@ -961,7 +961,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
     product_body = {
         "size": limit,
-        "explain": True,  # DEBUG: explain scoring
         "query": {
             "function_score": {
                 "query": product_bool_query,
@@ -1091,29 +1090,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             elif src.get("is_new"):
                 badge = "Nowość"
 
-            # DEBUG: Extract explain summary — query vs function_score breakdown
-            _explain = hit.get("_explanation", {})
-            _explain_summary = None
-            if _explain:
-                # function_score with sum: top level has details [query_score, function_sum]
-                _details = _explain.get("details", [])
-                if len(_details) >= 2:
-                    _query_score = _details[0].get("value", 0)
-                    _func_score = _details[1].get("value", 0)
-                    # Dig into query score details to find which clauses matched
-                    _qdetails = _details[0].get("details", [{}])
-                    _matched_clauses = []
-                    for d in _qdetails[0].get("details", []) if _qdetails else []:
-                        desc = d.get("description", "")[:80]
-                        val = d.get("value", 0)
-                        if val > 0:
-                            _matched_clauses.append(f"{val:.1f}: {desc}")
-                    _explain_summary = {
-                        "query_score": round(_query_score, 2),
-                        "func_score": round(_func_score, 2),
-                        "matched_clauses": _matched_clauses[:5],
-                    }
-
             product_results.append({
                 "name": src["name"],
                 "highlight": highlighted_name,
@@ -1126,8 +1102,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
-                "_score": hit.get("_score"),  # DEBUG: ES score for analysis
-                "_explain": _explain_summary,  # DEBUG: score breakdown
             })
     except Exception as e:
         print(f"Product parse error: {e}")
@@ -1173,16 +1147,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "time_ms": 0,
             "total_products": len(product_results),
             "cached": False,
-            # DEBUG: intent detection info
-            "debug": {
-                "brand_intent": _brand_intent,
-                "category_intent": matched_subcategories,
-                "model_number_intent": locals().get('_model_number_intent', False),
-                "model_remainder": locals().get('_model_remainder2'),
-                "model_remainder_clauses_count": len(locals().get('_model_remainder_clauses', [])),
-                "phrase_boost": locals().get('_phrase_boost'),
-                "pop_weight": locals().get('_pop_weight'),
-            },
         },
         "popular_queries": popular_queries[:5],
         "categories": category_results[:5],
@@ -1215,7 +1179,6 @@ async def suggest(
 
     elapsed_ms = round((time.monotonic() - start) * 1000, 1)
     result["meta"]["time_ms"] = elapsed_ms
-    result["meta"]["version"] = "v7-model-remainder"
 
     # ── Store in cache ──
     _suggest_cache.put(cache_key, result)
