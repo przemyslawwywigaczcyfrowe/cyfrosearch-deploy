@@ -1167,6 +1167,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "time_ms": 0,
             "total_products": len(product_results),
             "cached": False,
+            # DEBUG: intent detection info
+            "debug": {
+                "brand_intent": _brand_intent,
+                "category_intent": matched_subcategories,
+                "model_number_intent": locals().get('_model_number_intent', False),
+                "model_remainder": locals().get('_model_remainder2'),
+                "model_remainder_clauses_count": len(locals().get('_model_remainder_clauses', [])),
+                "phrase_boost": locals().get('_phrase_boost'),
+                "pop_weight": locals().get('_pop_weight'),
+            },
         },
         "popular_queries": popular_queries[:5],
         "categories": category_results[:5],
