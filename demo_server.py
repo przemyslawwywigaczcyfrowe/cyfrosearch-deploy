@@ -641,6 +641,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # the alias match. Used later to boost products with this word in their name,
     # so actual batteries rank above chargers/cages that merely mention "akumulatorów".
     _accessory_keyword_from_cat: str | None = None
+    _accessory_brand_from_cat: str | None = None   # brand detected in category remainder
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
         _rem_tokens_clean = [
             t for t in _cat_remainder_text.split()
@@ -659,6 +660,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 _cat_tokens_orig = _cat_check_text.split()
                 if _cat_tokens_orig:
                     _accessory_keyword_from_cat = _cat_tokens_orig[0]
+                _accessory_brand_from_cat = _rem_brand   # e.g. "Canon"
                 # Cancel category filter, fall through to standard text search
                 matched_subcategories = None
                 _cat_remainder_text = ""
@@ -1067,16 +1069,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
-                # When accessory-keyword-from-cat is active, add a must-match filter
-                # requiring 70% of query tokens. Without this, products matching only
-                # "akumulator" (but not "canon" or "r6") sneak in via min_should_match=1.
+                # When accessory-keyword-from-cat detected a brand in remainder
+                # (e.g. "akumulator do canon r6" → brand="Canon"), add a HARD filter
+                # requiring that brand appears in the product's name, description or brand field.
+                # This prevents DJI/GoPro/Smallrig batteries from matching "akumulator canon r6".
                 "filter": _brand_filter + _focal_filter + (
                     [{"multi_match": {
-                        "query": q_for_es,
-                        "fields": ["name", "name.morfologik", "name.folded", "brand"],
-                        "minimum_should_match": "60%",
+                        "query": _accessory_brand_from_cat,
+                        "fields": ["name", "name.folded", "description", "brand"],
+                        "type": "best_fields",
                     }}]
-                    if _accessory_keyword_from_cat else []
+                    if _accessory_brand_from_cat else []
                 ),
             }
         }
