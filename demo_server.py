@@ -1449,11 +1449,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             "minimum_should_match": "1",
                         }},
                         # Flash batteries (Speedlite LP-EL is Canon flash battery)
-                        {"match_phrase": {"name": "lamp błyskowych"}},
-                        {"match": {"name": "Speedlite"}},
-                        # Dummy adapters, cables, battery grips
                         {"multi_match": {
-                            "query": "Dummy koszyk zasilający D-TAP adapter baterii",
+                            "query": "błyskowych Speedlite LP-EL",
+                            "fields": ["name", "name.morfologik", "name.folded"],
+                            "type": "best_fields",
+                            "minimum_should_match": "1",
+                        }},
+                        # Dummy adapters, cables, battery grips, toner/ink sets
+                        {"multi_match": {
+                            "query": "Dummy koszyk zasilający D-TAP PFI-",
                             "fields": ["name"],
                             "type": "best_fields",
                             "minimum_should_match": "1",
