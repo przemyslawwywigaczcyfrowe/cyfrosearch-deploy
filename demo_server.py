@@ -702,6 +702,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     #
     _accessory_keyword_from_cat: str | None = None
     _accessory_brand_from_cat: str | None = None   # brand detected in category remainder
+    _accessory_model_from_cat: str | None = None   # model part after brand: "r6" from "canon r6"
     _product_for_brand_intent: bool = False         # "obiektyw do canon R6" pattern
     if matched_subcategories and _cat_remainder_text and not _brand_intent:
         _rem_tokens_clean = [
@@ -744,6 +745,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     if _cat_tokens_orig:
                         _accessory_keyword_from_cat = _cat_tokens_orig[0]
                     _accessory_brand_from_cat = _rem_brand   # e.g. "Canon"
+                    # Extract model part from remainder (everything after brand name)
+                    # "canon r6" → brand="Canon", model="r6"
+                    # "canon eos r6 mark ii" → brand="Canon", model="eos r6 mark ii"
+                    _brand_lower_tokens = _rem_brand.lower().split()
+                    _rem_lower_tokens = _cleaned_remainder.lower().split()
+                    # Find where brand ends in the cleaned remainder
+                    _model_start = 0
+                    for _bi, _bt in enumerate(_brand_lower_tokens):
+                        if _bi < len(_rem_lower_tokens) and _rem_lower_tokens[_bi] == _bt:
+                            _model_start = _bi + 1
+                    _model_tokens = _rem_lower_tokens[_model_start:]
+                    if _model_tokens:
+                        # Preserve original casing from _cleaned_remainder
+                        _orig_tokens = _cleaned_remainder.split()
+                        _accessory_model_from_cat = " ".join(_orig_tokens[_model_start:]).strip()
                     # Cancel category filter, fall through to standard text search
                     matched_subcategories = None
                     _cat_remainder_text = ""
@@ -1430,7 +1446,37 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         if _accessory_brand_from_cat else []
                     ),
                 ]
-                if _accessory_keyword_from_cat and _accessory_keyword_from_cat in ("akumulator", "bateria") else []
+                if _accessory_keyword_from_cat and _accessory_keyword_from_cat in ("akumulator", "akumulatory", "bateria", "baterie") else []
+            ),
+            # ── Model matching for accessory queries ──
+            # When searching "akumulator do canon R6" or "bateria do canon r6",
+            # boost products that mention the specific model in name/description.
+            # "Patona PROTECT zamiennik do LP-E6NH Canon EOS R5 EOS R6" → has "R6" → +2000
+            # "Mathorn bateria MB-103 do Canon LP-E10" → no "R6" → no boost
+            # Also boost full phrase "canon r6" for even stronger signal.
+            *(
+                [
+                    # +2000 for full brand+model phrase match (e.g. "Canon...R6" with slop)
+                    {"filter": {"match_phrase": {"name": {
+                        "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
+                        "slop": 5,
+                    }}}, "weight": 2000},
+                    {"filter": {"match_phrase": {"description": {
+                        "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
+                        "slop": 5,
+                    }}}, "weight": 800},
+                    # +500 per model token (e.g. "R6", "mark", "ii")
+                    *[
+                        {"filter": {"multi_match": {
+                            "query": _mt,
+                            "fields": ["name", "description"],
+                            "type": "best_fields",
+                        }}, "weight": 500}
+                        for _mt in _accessory_model_from_cat.split()
+                        if len(_mt) >= 2
+                    ],
+                ]
+                if _accessory_model_from_cat and _accessory_brand_from_cat else []
             ),
             # Condition-based boost — dynamically switch based on user intent
             # Higher "new" weight when brand-intent (prefer new over used products)
