@@ -1132,6 +1132,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         {"match_phrase": {"name": {"query": _mark_rem_concat, "boost": 250, "slop": 0}}},
                     ])
 
+        # For accessory+brand queries ("akumulator canon"), require MORE tokens to match.
+        # With 70% and 2 tokens, only 1 token needs to match (70% of 2 = 1.4 → 1),
+        # which lets products with just "Canon" in name through (flash/printer batteries).
+        # For 3+ tokens ("akumulator canon r6"), 70% of 3 = 2.1 → 2 is OK.
+        _q_token_count = len(q_for_es.split())
+        if _accessory_keyword_from_cat and _q_token_count <= 2:
+            _mm_pct = "100%"  # "akumulator canon" → both must match
+        else:
+            _mm_pct = "70%"
+
         product_bool_query = {
             "bool": {
                 "should": [
@@ -1147,7 +1157,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             ],
                             "fuzziness": "AUTO",
                             "prefix_length": 2,
-                            "minimum_should_match": "70%",
+                            "minimum_should_match": _mm_pct,
                         }
                     },
                     {
