@@ -521,22 +521,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
     q = _merge_mark_roman(_normalize_model_query(q))
 
-    # ── Alpha→digit split variants ──
-    # Users type "Pro1000" but product is "Pro-1000" (indexed as "pro" + "1000").
-    # We cannot do this in the normalizer (breaks brand detection for "Insta360" etc.)
-    # Instead, generate alternative query forms for matching in should clauses.
-    _RE_ALPHA_DIGIT_BOUNDARY = re.compile(r'([a-zA-Z])(\d)')
-    _q_hyphen_variant: str | None = None
-    _q_spaced_variant: str | None = None
-    _q_norm_lower = q.lower().strip()
-    if _RE_ALPHA_DIGIT_BOUNDARY.search(_q_norm_lower):
-        _hv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1-\2', q.strip())
-        _sv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1 \2', q.strip())
-        if _hv.lower() != _q_norm_lower:
-            _q_hyphen_variant = _hv
-        if _sv.lower() != _q_norm_lower:
-            _q_spaced_variant = _sv
-
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
 
@@ -560,6 +544,23 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 q_lower = q.lower().strip()
                 q_words = set(q_lower.split())
                 break
+
+    # ── Alpha→digit split variants ──
+    # Users type "Pro1000" but product is "Pro-1000" (indexed as "pro" + "1000").
+    # We cannot do this in the normalizer (breaks brand detection for "Insta360" etc.)
+    # Instead, generate alternative query forms for matching in should clauses.
+    # IMPORTANT: generated AFTER brand-alias rewrite so variants use canonical brand name.
+    _RE_ALPHA_DIGIT_BOUNDARY = re.compile(r'([a-zA-Z])(\d)')
+    _q_hyphen_variant: str | None = None
+    _q_spaced_variant: str | None = None
+    _q_norm_lower = q.lower().strip()
+    if _RE_ALPHA_DIGIT_BOUNDARY.search(_q_norm_lower):
+        _hv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1-\2', q.strip())
+        _sv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1 \2', q.strip())
+        if _hv.lower() != _q_norm_lower:
+            _q_hyphen_variant = _hv
+        if _sv.lower() != _q_norm_lower:
+            _q_spaced_variant = _sv
 
     # ── Condition-intent detection ──
     # If query contains "używany"/"uzywany" (or prefix like "uży"/"uzy"),
