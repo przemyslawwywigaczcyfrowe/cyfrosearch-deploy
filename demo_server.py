@@ -830,18 +830,27 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 },
             ]
             if _product_for_brand_intent:
-                # Add phrase match for model specificity: "canon r6" as phrase
-                # boosts products with exact model in name
+                # Strong phrase match for model specificity: "canon r6" as phrase
+                # "Klatka do Canon EOS R6" has "Canon...R6" → high phrase score
+                # "Klatka do Canon EOS R8" does NOT match "canon r6" phrase → no boost
                 _cat_text_clauses.append({
                     "match_phrase": {
-                        "name": {"query": _cat_remainder_text, "boost": 10, "slop": 2}
+                        "name": {"query": _cat_remainder_text, "boost": 50, "slop": 3}
                     }
                 })
                 _cat_text_clauses.append({
                     "match_phrase": {
-                        "description": {"query": _cat_remainder_text, "boost": 3, "slop": 3}
+                        "description": {"query": _cat_remainder_text, "boost": 15, "slop": 4}
                     }
                 })
+                # Also add individual token matches with HIGH boost for each word
+                # so "R6" appearing in name gives strong signal even without phrase match
+                _rem_tokens = _cat_remainder_text.split()
+                for _rt in _rem_tokens:
+                    if len(_rt) >= 2:
+                        _cat_text_clauses.append({
+                            "match": {"name": {"query": _rt, "boost": 8}}
+                        })
             if _product_for_brand_intent:
                 product_bool_query = {
                     "bool": {
@@ -1363,6 +1372,26 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     {"filter": {"match_phrase": {"name": _accessory_keyword_from_cat}}, "weight": 200},
                 ]
                 if _accessory_keyword_from_cat else []
+            ),
+            # ── Pure-product preference for accessory queries ──
+            # When searching "akumulator do canon", prefer pure batteries over
+            # charger+battery SETS. Sets have "ładowarka" or "dwukanałowa" in name.
+            # Pure batteries: "Newell zamiennik LP-E6NH" (URL starts with /akumulator-)
+            # Sets: "Newell dwukanałowa DL-USB-C i akumulator LP-E17" (URL starts with /ladowarka-)
+            # Boost products whose name starts with the accessory keyword (pure products)
+            # and slightly penalize products containing charger indicators.
+            *(
+                [
+                    # Boost products with "Akumulator" as first significant word in name
+                    # These are pure batteries, not sets
+                    {"filter": {"match_phrase_prefix": {"name": _accessory_keyword_from_cat}}, "weight": 150},
+                    # Also boost products in the core subcategory "do [Brand]" over generic "akumulatory"
+                    *(
+                        [{"filter": {"term": {"subcategory": f"do {_accessory_brand_from_cat}"}}, "weight": 200}]
+                        if _accessory_brand_from_cat else []
+                    ),
+                ]
+                if _accessory_keyword_from_cat and _accessory_keyword_from_cat in ("akumulator", "bateria") else []
             ),
             # Condition-based boost — dynamically switch based on user intent
             # Higher "new" weight when brand-intent (prefer new over used products)
