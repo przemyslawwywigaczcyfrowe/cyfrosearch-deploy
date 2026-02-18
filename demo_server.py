@@ -101,11 +101,31 @@ _RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
 # This is critical for camera model searches like "sony a7iv", "canon r6ii", "fuji xt5ii"
 _RE_DIGIT_TO_ALPHA = re.compile(r'(\d)([a-zA-Z])')
 
+# Model rewrites: users often concatenate model names that have spaces in the product name.
+# These are applied as whole-word replacements (case-insensitive).
+# Key pattern: Nikon Z series uses "Z fc", "Z f", "Z 30", "Z 50" with a space after Z.
+MODEL_REWRITES: dict[str, str] = {
+    "zfc": "z fc",
+    "z fc": "z fc",     # already correct, no-op
+}
+
 def _normalize_model_query(q: str) -> str:
     """Insert space at digit→letter boundaries within words.
     'sony a7iv' → 'sony a7 iv', 'canon r6ii' → 'canon r6 ii'
+    Also applies MODEL_REWRITES for known concatenated camera models.
     Preserves original spacing and case.
     """
+    # Apply model rewrites first (case-insensitive, whole-word)
+    q_lower_words = q.lower().split()
+    for i, w in enumerate(q_lower_words):
+        if w in MODEL_REWRITES:
+            rewrite = MODEL_REWRITES[w]
+            # Preserve original case if single char difference
+            q_words = q.split()
+            q_words[i] = rewrite
+            q = " ".join(q_words)
+            break
+
     return _RE_DIGIT_TO_ALPHA.sub(r'\1 \2', q)
 
 
