@@ -636,6 +636,35 @@ def _detect_brand_intent(q_lower: str) -> str | None:
 TOKEN_RE = re.compile(r'[A-Za-z0-9\u0080-\u024F]+')
 
 
+# ── Sales data (loaded at startup, used for post-ES reranking) ──
+_SALES_DATA: dict[str, tuple[int, int]] = {}  # {SKU_UPPER: (sales_30d, sales_365d)}
+
+import math as _math
+
+
+def _sales_boost(sku: str, es_score: float) -> float:
+    """Calculate boosted score by blending ES relevance with sales data.
+
+    Uses multiplicative boost: final = es_score * (1 + sales_factor)
+    where sales_factor = log1p(sales_30d) * 0.15 + log1p(sales_365d) * 0.05
+
+    This ensures:
+    - Bestsellers (s30=68) get ~0.78 boost (~78% higher)
+    - Medium sellers (s30=10) get ~0.36 boost
+    - Low sellers (s30=1) get ~0.10 boost
+    - Zero sellers get no boost (ES score preserved)
+    """
+    sku_upper = sku.upper().strip()
+    sales = _SALES_DATA.get(sku_upper)
+    if not sales:
+        return es_score
+    s30, s365 = sales
+    # 30-day sales = recent signal (higher weight)
+    # 365-day sales = stability signal (lower weight)
+    sales_factor = _math.log1p(s30) * 0.15 + _math.log1p(s365) * 0.05
+    return es_score * (1.0 + sales_factor)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     es = await get_es()
@@ -674,78 +703,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not load subcategories: {e}")
 
-    # ── Load real sales data from sales_data.json ──
-    # Updates sales_30d and sales_365d fields in ES for accurate sales-based ranking.
+    # ── Load real sales data from sales_data.json into memory ──
+    # Sales data is used at query-time to re-rank results via script_score or
+    # post-ES re-ranking. Loaded into a global dict keyed by SKU (uppercase).
     # Data source: Verto ERP export (Excel → JSON conversion).
+    global _SALES_DATA
     _sales_path = Path(__file__).parent / "sales_data.json"
     if _sales_path.exists():
         try:
             import json as _jmod
             with open(_sales_path, encoding="utf-8") as _sf:
-                _sales_data: dict[str, dict] = _jmod.load(_sf)
-            print(f"[OK] Loaded sales data for {len(_sales_data)} SKUs")
-
-            # Bulk update via update_by_query per SKU.
-            # For efficiency, batch into ES bulk API calls.
-            _bulk_body: list[dict] = []
-            _updated = 0
-            _batch_size = 500
-
-            for _sku, _vals in _sales_data.items():
-                s30 = _vals.get("s30", 0)
-                s365 = _vals.get("s365", 0)
-                if s30 > 0 or s365 > 0:
-                    # Use bulk update with upsert-style: match by SKU field
-                    _bulk_body.append({"update": {"_index": ES_INDEX}})
-                    _bulk_body.append({
-                        "script": {
-                            "source": "ctx._source.sales_30d = params.s30; ctx._source.sales_365d = params.s365;",
-                            "params": {"s30": s30, "s365": s365},
-                        },
-                        "upsert": {},  # won't create new docs
-                    })
-
-            # Can't use bulk with script per-SKU without knowing _id.
-            # Instead: use update_by_query with batched SKU lists.
-            _bulk_body = []  # discard above approach
-            _sku_batches: list[list[tuple[str, int, int]]] = [[]]
-            for _sku, _vals in _sales_data.items():
-                s30 = _vals.get("s30", 0)
-                s365 = _vals.get("s365", 0)
-                if s30 > 0 or s365 > 0:
-                    if len(_sku_batches[-1]) >= _batch_size:
-                        _sku_batches.append([])
-                    _sku_batches[-1].append((_sku, s30, s365))
-
-            for _batch in _sku_batches:
-                if not _batch:
-                    continue
-                # One update_by_query per SKU is too slow. Instead:
-                # Use a single update_by_query with painless script per batch
-                _sku_to_s30 = {sku: s30 for sku, s30, s365 in _batch}
-                _sku_to_s365 = {sku: s365 for sku, s30, s365 in _batch}
-                try:
-                    resp = await es.update_by_query(
-                        index=ES_INDEX,
-                        body={
-                            "query": {"terms": {"sku": list(_sku_to_s30.keys())}},
-                            "script": {
-                                "source": """
-                                    String sku = ctx._source.sku;
-                                    if (params.s30.containsKey(sku)) { ctx._source.sales_30d = params.s30.get(sku); }
-                                    if (params.s365.containsKey(sku)) { ctx._source.sales_365d = params.s365.get(sku); }
-                                """,
-                                "params": {"s30": _sku_to_s30, "s365": _sku_to_s365},
-                            },
-                        },
-                        request_timeout=60,
-                        conflicts="proceed",
-                    )
-                    _updated += resp.get("updated", 0)
-                except Exception as _be:
-                    print(f"  Sales batch update error: {_be}")
-
-            print(f"[OK] Updated sales data for {_updated} products in ES")
+                _raw_sales: dict[str, dict] = _jmod.load(_sf)
+            # Store as {SKU_UPPER: (sales_30d, sales_365d)}
+            _SALES_DATA = {
+                sku.upper(): (vals.get("s30", 0), vals.get("s365", 0))
+                for sku, vals in _raw_sales.items()
+                if vals.get("s30", 0) > 0 or vals.get("s365", 0) > 0
+            }
+            print(f"[OK] Loaded sales data for {len(_SALES_DATA)} SKUs into memory")
         except Exception as _se:
             print(f"Warning: Could not load sales data: {_se}")
 
@@ -1654,22 +1629,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "weight": _pop_weight,
             },
             # Sales volume boost (30-day) — recent sales signal
-            {
-                "field_value_factor": {
-                    "field": "sales_30d",
-                    "factor": 1.0, "modifier": "log1p", "missing": 0,
-                },
-                "weight": _sales_weight,
-            },
-            # Sales volume boost (365-day) — long-term popularity, lower weight
-            # Useful for products with seasonal sales or low recent volume.
-            {
-                "field_value_factor": {
-                    "field": "sales_365d",
-                    "factor": 0.5, "modifier": "log1p", "missing": 0,
-                },
-                "weight": max(1, _sales_weight // 3),
-            },
+            # NOTE: sales_30d / sales_365d fields are NOT in ES — sales boost is
+            # applied post-ES via _sales_boost() in product parsing.
+            # This avoids writing sales data to ES at startup (which blocks deploy).
             # Price tier boost — flagship products more relevant for brand queries
             # Higher weight when brand-intent (prefer cameras over lens caps)
             {
@@ -1959,10 +1921,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         return {"meta": {"query": q, "time_ms": elapsed_ms, "total_products": 0},
                 "popular_queries": [], "categories": [], "brands": [], "products": []}
 
-    # ── Parse products ──
+    # ── Parse products + post-ES sales reranking ──
+    # We collect (final_score, product_dict) tuples, then sort by final_score desc.
+    # final_score = es_score * (1 + sales_factor)  — blends relevance with sales data.
+    _scored_products: list[tuple[float, dict]] = []
     try:
         for hit in product_resp.get("hits", {}).get("hits", []):
             src = hit["_source"]
+            es_score = hit.get("_score", 0.0) or 0.0
             hl = hit.get("highlight", {})
             highlighted_name = hl.get("name", hl.get("name.prefix", [src["name"]]))[0]
 
@@ -1980,7 +1946,22 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             elif src.get("is_new"):
                 badge = "Nowość"
 
-            product_results.append({
+            # ── Sales-based score boost ──
+            # Try matching SKU from ES to sales data (multiple formats)
+            _sku_raw = src.get("sku", "") or ""
+            _final_score = es_score
+            if _SALES_DATA and _sku_raw:
+                _final_score = _sales_boost(_sku_raw, es_score)
+                # If exact match failed, try without hyphens/spaces
+                if _final_score == es_score:
+                    _sku_clean = _sku_raw.upper().replace("-", "").replace(" ", "").replace("/", "")
+                    _sales_lookup = _SALES_DATA.get(_sku_clean)
+                    if _sales_lookup:
+                        s30, s365 = _sales_lookup
+                        sf = _math.log1p(s30) * 0.15 + _math.log1p(s365) * 0.05
+                        _final_score = es_score * (1.0 + sf)
+
+            _scored_products.append((_final_score, {
                 "name": src["name"],
                 "highlight": highlighted_name,
                 "brand": src.get("brand", ""),
@@ -1992,9 +1973,14 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
-            })
+            }))
     except Exception as e:
         print(f"Product parse error: {e}")
+
+    # Sort by final_score (desc) — sales data may reorder products
+    if _scored_products:
+        _scored_products.sort(key=lambda x: x[0], reverse=True)
+        product_results = [p for _, p in _scored_products]
 
     # ── Extract categories from actual product results (top N) ──
     # This is more accurate than aggregating over ALL matched docs, because
@@ -2566,35 +2552,50 @@ async def health():
 
 @app.get("/api/admin/sales-check")
 async def admin_sales_check(sku: str = Query("BATSONNPFZ100")):
-    """Debug: check sales_30d/365d values for a given SKU. Tries term, match, and wildcard."""
+    """Debug: check product identifier fields. Searches by name to find products and show their sku/ean/_id."""
     es = await get_es()
     try:
-        # Try multiple query strategies since SKU field type is unknown
+        # Strategy 1: term match on sku field (exact)
         for strategy, q in [
             ("term_sku", {"term": {"sku": sku}}),
             ("term_sku_lower", {"term": {"sku": sku.lower()}}),
             ("match_sku", {"match": {"sku": sku}}),
-            ("match_name", {"match": {"name": sku}}),
         ]:
             resp = await es.search(
                 index=ES_INDEX,
-                body={
-                    "size": 3,
-                    "query": q,
-                    "_source": ["name", "sku", "brand", "sales_30d", "sales_365d",
-                                "ga4.popularity_score", "manufacturer_code", "ean"],
-                },
+                body={"size": 3, "query": q,
+                      "_source": ["name", "sku", "brand", "manufacturer_code",
+                                  "ean", "product_url", "slug", "product_id", "id_erp"]},
             )
             hits = resp.get("hits", {}).get("hits", [])
             if hits:
-                results = []
-                for h in hits:
-                    results.append({
-                        "_id": h["_id"],
-                        **h["_source"],
-                    })
-                return {"found": True, "strategy": strategy, "query": sku, "results": results}
-        return {"found": False, "sku": sku, "tried": ["term_sku", "term_sku_lower", "match_sku", "match_name"]}
+                return {"found": True, "strategy": strategy, "query": sku,
+                        "results": [{"_id": h["_id"], **h["_source"]} for h in hits]}
+
+        # Strategy 2: match on name (phrase) — always finds something
+        resp2 = await es.search(
+            index=ES_INDEX,
+            body={"size": 3, "query": {"match_phrase": {"name": sku}},
+                  "_source": ["name", "sku", "brand", "manufacturer_code",
+                              "ean", "product_url", "slug", "product_id", "id_erp"]},
+        )
+        hits2 = resp2.get("hits", {}).get("hits", [])
+        if hits2:
+            return {"found": True, "strategy": "match_phrase_name", "query": sku,
+                    "results": [{"_id": h["_id"], **h["_source"]} for h in hits2]}
+
+        # Strategy 3: just get a random sample to see field formats
+        resp3 = await es.search(
+            index=ES_INDEX,
+            body={"size": 3, "query": {"match_all": {}},
+                  "_source": ["name", "sku", "brand", "manufacturer_code",
+                              "ean", "product_url", "slug", "product_id", "id_erp"]},
+        )
+        hits3 = resp3.get("hits", {}).get("hits", [])
+        return {"found": bool(hits3), "strategy": "match_all_sample", "query": sku,
+                "results": [{"_id": h["_id"], **h["_source"]} for h in hits3],
+                "sales_data_loaded": len(_SALES_DATA),
+                "sample_sales_keys": list(_SALES_DATA.keys())[:5]}
     except Exception as e:
         return {"error": str(e)}
 
