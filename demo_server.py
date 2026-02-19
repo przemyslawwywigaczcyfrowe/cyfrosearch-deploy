@@ -1836,6 +1836,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 if _used_intent else
                 [{"filter": {"term": {"condition": "new"}}, "weight": 50 if _brand_intent else 25}]
             ),
+            # Used-intent: strong phrase match boost on clean query (without "używany")
+            # This ensures "eos r6 używany" → products with "EOS R6" in name rank above
+            # products that only match "EOS" (e.g. Canon EOS M6 ≠ Canon EOS R6).
+            *(
+                [{"filter": {"match_phrase": {"name": {"query": q_for_es, "slop": 2}}}, "weight": 500}]
+                if _used_intent and len(q_for_es.split()) >= 2 else []
+            ),
             # Focal-length intent: boost lens subcategories when query contains focal range
             *(
                 [{"filter": {"terms": {"subcategory": LENS_SUBCATS}}, "weight": 150}]
