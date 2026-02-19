@@ -619,7 +619,16 @@ async function doSearch(q) {
 
 function renderDropdown(data, query) {
   if (!data.products?.length && !data.popular_queries?.length && !data.categories?.length) {
-    dropdownContent.innerHTML = '<div class="no-results">Brak wynikow dla "' + esc(query) + '"</div>';
+    let noResultsHtml = '<div class="no-results">Brak wynikow dla "' + esc(query) + '"';
+    if (data.did_you_mean?.length) {
+      noResultsHtml += '<br><span style="color:#666;font-size:13px;">Czy chodziło Ci o: ';
+      noResultsHtml += data.did_you_mean.map(s =>
+        '<a href="#" style="color:#1a73e8;text-decoration:underline;" onclick="event.preventDefault();document.getElementById(\'search-input\').value=\'' + esc(s).replace(/'/g, "\\'") + '\';handleInput();">' + esc(s) + '</a>'
+      ).join(', ');
+      noResultsHtml += '?</span>';
+    }
+    noResultsHtml += '</div>';
+    dropdownContent.innerHTML = noResultsHtml;
     return;
   }
 

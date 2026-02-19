@@ -6,6 +6,8 @@ Optimized for low-latency autosuggest (<100ms target).
 
 from __future__ import annotations
 
+import json as _json
+import logging
 import os
 import re
 import time
@@ -27,6 +29,17 @@ ES_USER = os.environ.get("ES_USER", "elastic")
 ES_PASSWORD = os.environ.get("ES_PASSWORD", "changeme")
 ES_INDEX = os.environ.get("ES_INDEX", "products")
 ES_API_KEY = os.environ.get("ES_API_KEY", "")  # Elastic Cloud uses API key auth
+
+# ── Structured search logging ──
+# JSON-formatted logs to stdout (Render captures automatically).
+# Each suggest query is logged with: query, result_count, time_ms, intents, cached.
+_search_log = logging.getLogger("cyfrosearch.queries")
+_search_log.setLevel(logging.INFO)
+if not _search_log.handlers:
+    _sh = logging.StreamHandler()
+    _sh.setFormatter(logging.Formatter("%(message)s"))
+    _search_log.addHandler(_sh)
+    _search_log.propagate = False
 
 _es: AsyncElasticsearch | None = None
 
@@ -158,6 +171,101 @@ def _merge_mark_roman(q: str) -> str:
     return _RE_MARK_ROMAN.sub(lambda m: 'mark' + m.group(1), q)
 
 
+# ── Roman ↔ Arabic numeral conversion ──
+# Generates query variants swapping Roman numerals with Arabic digits and vice versa.
+# "sony a7 iii" → ["sony a7 3"], "canon r5 mark 3" → ["canon r5 mark iii"]
+# Also handles concatenated forms: "mk3" → "mkiii", "markiii" → "mark3"
+ROMAN_TO_ARABIC: dict[str, str] = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5"}
+ARABIC_TO_ROMAN: dict[str, str] = {v: k for k, v in ROMAN_TO_ARABIC.items()}
+_RE_MK_ARABIC = re.compile(r'^(mk|mark)(\d)$', re.IGNORECASE)
+_RE_MK_ROMAN = re.compile(r'^(mk|mark)(i{1,4}v?|iv|v)$', re.IGNORECASE)
+
+def _roman_arabic_variants(q: str) -> list[str]:
+    """Generate query variants with Roman↔Arabic numeral swaps.
+
+    >>> _roman_arabic_variants("sony a7 iii")
+    ['sony a7 3']
+    >>> _roman_arabic_variants("canon r6 mark 3")
+    ['canon r6 mark iii']
+    >>> _roman_arabic_variants("nikon z5 mk3")
+    ['nikon z5 mkiii']
+    """
+    tokens = q.lower().split()
+    variants: list[str] = []
+    for idx, tok in enumerate(tokens):
+        # Pure roman → arabic: "iii" → "3"
+        if tok in ROMAN_TO_ARABIC:
+            new = tokens[:idx] + [ROMAN_TO_ARABIC[tok]] + tokens[idx + 1:]
+            variants.append(" ".join(new))
+        # Pure single-digit arabic → roman: "3" → "iii"
+        elif tok in ARABIC_TO_ROMAN:
+            new = tokens[:idx] + [ARABIC_TO_ROMAN[tok]] + tokens[idx + 1:]
+            variants.append(" ".join(new))
+        # Concatenated mk/mark + digit: "mk3" → "mkiii"
+        m = _RE_MK_ARABIC.match(tok)
+        if m:
+            digit = m.group(2)
+            if digit in ARABIC_TO_ROMAN:
+                new = tokens[:idx] + [m.group(1).lower() + ARABIC_TO_ROMAN[digit]] + tokens[idx + 1:]
+                variants.append(" ".join(new))
+        # Concatenated mk/mark + roman: "mkiii" → "mk3"
+        m2 = _RE_MK_ROMAN.match(tok)
+        if m2:
+            roman = m2.group(2).lower()
+            if roman in ROMAN_TO_ARABIC:
+                new = tokens[:idx] + [m2.group(1).lower() + ROMAN_TO_ARABIC[roman]] + tokens[idx + 1:]
+                variants.append(" ".join(new))
+    return variants
+
+
+# ── F-number (aperture) normalization ──
+# Users type: "f1.4", "f/1.4", "f/1,4" (Polish comma), "f 1.4", "f:1.4"
+# ES index uses the product-name form which is typically "f/1.4" with a slash.
+# We canonicalize to "f/X.X" (dot) and generate variants for matching.
+_RE_FNUMBER = re.compile(
+    r'(?<!\w)'                 # not preceded by word char (avoid matching "RF1.4")
+    r'[fF]\s*[/:.]?\s*'       # "f", "f/", "f:", "f." with optional spaces
+    r'(\d+(?:[.,]\d+)?)'      # number with optional decimal (dot or comma)
+    r'(?!\w)',                 # not followed by word char
+)
+
+def _normalize_fnumber(q: str) -> tuple[str, list[str]]:
+    """Normalize f-number to canonical 'f/X.X' and generate matching variants.
+
+    Returns (normalized_query, list_of_variant_queries).
+    >>> _normalize_fnumber("sigma 35mm f1.4")
+    ('sigma 35mm f/1.4', ['sigma 35mm f1.4'])
+    >>> _normalize_fnumber("canon 50mm f/1,8")
+    ('canon 50mm f/1.8', ['canon 50mm f/1,8', 'canon 50mm f1.8'])
+    """
+    variants: list[str] = []
+    original = q
+
+    def replacer(m: re.Match) -> str:
+        num = m.group(1).replace(",", ".")
+        canonical = f"f/{num}"
+        return canonical
+
+    normalized = _RE_FNUMBER.sub(replacer, q)
+
+    if normalized != original:
+        variants.append(original)  # keep the user's original form as variant
+        # Polish comma variant
+        for m in _RE_FNUMBER.finditer(original):
+            num = m.group(1).replace(",", ".")
+            if "." in num:
+                # Add comma variant: f/1.4 → f/1,4
+                comma_q = normalized.replace(f"f/{num}", f"f/{num.replace('.', ',')}")
+                if comma_q != normalized and comma_q not in variants:
+                    variants.append(comma_q)
+                # Add no-slash variant: f/1.4 → f1.4
+                noslash_q = normalized.replace(f"f/{num}", f"f{num}")
+                if noslash_q != normalized and noslash_q not in variants:
+                    variants.append(noslash_q)
+
+    return normalized, variants
+
+
 # ── Precompiled constants (module-level, not per-request) ──
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
@@ -268,12 +376,51 @@ MAIN_PRODUCT_ALIASES = frozenset({
 USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 
 # ── Brand-intent detection ──
-# Brand alias mapping — common abbreviations → canonical brand names
+# Brand alias mapping — common abbreviations, typos, and phonetic misspellings
+# → canonical brand names.  Source: GA4 search logs + best-practices doc.
 BRAND_ALIASES: dict[str, str] = {
+    # ── Abbreviations ──
     "fuji": "fujifilm",
     "pana": "panasonic",
     "think tank": "thinktank",
-    "manfrott": "manfrotto",
+    # ── Common misspellings (adjacent keys, doubled/missing letters) ──
+    "cannon": "canon",          # doubled 'n' (also an English word)
+    "kanon": "canon",           # phonetic Polish spelling
+    "kannon": "canon",          # phonetic + doubled 'n'
+    "canoon": "canon",          # doubled 'o'
+    "nikkon": "nikon",          # doubled 'k'
+    "nikkoni": "nikon",         # doubled 'k' + suffix
+    "nkion": "nikon",           # transposition
+    "tamaron": "tamron",        # extra 'a' (phonetic)
+    "tamrom": "tamron",         # adjacent key 'm' for 'n'
+    # ── Chinese brand misspellings ──
+    "zhiuyn": "zhiyun",         # transposition
+    "zhyun": "zhiyun",          # missing 'i'
+    "ziyun": "zhiyun",          # missing 'h'
+    "dgi": "dji",               # swapped letter
+    "djii": "dji",              # doubled 'i'
+    # ── Compound brand splits/joins ──
+    "go pro": "gopro",          # space in compound
+    "insta 360": "insta360",    # space in compound
+    "fuji film": "fujifilm",    # space in compound
+    "glare one": "glareone",    # space in compound
+    "peak desing": "peak design",  # missing 'g' → 'ng' swap
+    "think tanks": "thinktank", # plural + space
+    # ── Phonetic misspellings (Polish) ──
+    "olimpus": "olympus",       # Polish phonetic 'i' for 'y'
+    "panasonik": "panasonic",   # Polish phonetic 'k' for 'c'
+    # ── Shortened/truncated ──
+    "sigm": "sigma",            # truncated
+    "sgima": "sigma",           # transposition
+    "manfrott": "manfrotto",    # truncated (missing 'o')
+    "fujfilm": "fujifilm",      # missing 'i'
+    "fugifilm": "fujifilm",     # transposition 'ji' → 'gi'
+    # ── Less common but attested ──
+    "hasselblat": "hasselblad", # devoicing final 'd' → 't'
+    "samian": "samyang",        # phonetic simplification
+    "samjang": "samyang",       # phonetic Polish 'j' for 'y'
+    "smallring": "smallrig",    # epenthetic 'n'
+    "nizi": "nisi",             # phonetic 'z' for 's'
 }
 
 # ── Category-intent aliases ──
@@ -568,6 +715,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     q_original = q.strip()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
     q = _merge_mark_roman(_normalize_model_query(q))
+    # Normalize f-numbers: "f1.4" → "f/1.4", "f/1,4" → "f/1.4"
+    q, _fnumber_variants = _normalize_fnumber(q)
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
@@ -1167,6 +1316,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     ],
                     "should": [
                         {"match_phrase": {"name": {"query": q_for_es, "boost": 30, "slop": 3}}},
+                        # Roman ↔ Arabic variants for accessory queries
+                        *[
+                            {"match_phrase": {"name": {"query": rv, "boost": 20, "slop": 2}}}
+                            for rv in _roman_arabic_variants(q_for_es)
+                        ],
                     ],
                     "filter": _brand_filter + _focal_filter + (
                         [{"multi_match": {
@@ -1254,6 +1408,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                             ]
                             if _q_spaced_variant else []
                         ),
+                        # Roman ↔ Arabic numeral variants
+                        # "sony a7 iii" → also search "sony a7 3" and vice versa
+                        *[
+                            {"match_phrase": {"name": {"query": rv, "boost": _phrase_boost * 2, "slop": 2}}}
+                            for rv in _roman_arabic_variants(q_for_es)
+                        ],
+                        # F-number variants: "f/1.4" → also match "f1.4", "f/1,4"
+                        *[
+                            {"match_phrase": {"name": {"query": fv, "boost": 20, "slop": 1}}}
+                            for fv in _fnumber_variants
+                        ],
                     ],
                     "minimum_should_match": 1,
                     "filter": _brand_filter + _focal_filter,
@@ -1804,6 +1969,46 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # Trim product results to requested limit (we fetched extra for category extraction)
     product_results = product_results[:limit]
 
+    # ── "Did you mean?" suggestions for zero-result queries ──
+    # When no products are found, run a relaxed fuzzy search to propose alternatives.
+    # This prevents dead-end empty pages (68% of e-commerce sites show blank zero-result pages).
+    did_you_mean: list[str] = []
+    if not product_results:
+        try:
+            _dym_resp = await es.search(
+                index=ES_INDEX,
+                body={
+                    "size": 5,
+                    "query": {
+                        "multi_match": {
+                            "query": q_for_es,
+                            "fields": ["name^2", "name.folded^2", "name.morfologik^2", "brand^3"],
+                            "fuzziness": "2",
+                            "prefix_length": 1,
+                            "minimum_should_match": "40%",
+                        }
+                    },
+                    "_source": ["name", "brand"],
+                },
+                request_timeout=5,
+                preference="cyfrosearch",
+            )
+            _seen: set[str] = set()
+            for hit in _dym_resp.get("hits", {}).get("hits", []):
+                name = hit["_source"].get("name", "")
+                brand = hit["_source"].get("brand", "")
+                # Extract a short suggestion: brand + first meaningful words
+                words = name.split()[:5]
+                suggestion = " ".join(words)
+                key = suggestion.lower()
+                if key not in _seen and len(suggestion) > 3:
+                    did_you_mean.append(suggestion)
+                    _seen.add(key)
+                if len(did_you_mean) >= 3:
+                    break
+        except Exception:
+            pass
+
     return {
         "meta": {
             "query": q,
@@ -1815,6 +2020,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         "categories": category_results[:5],
         "brands": brand_results[:4],
         "products": product_results,
+        **({"did_you_mean": did_you_mean} if did_you_mean else {}),
     }
 
 
@@ -1845,6 +2051,18 @@ async def suggest(
 
     # ── Store in cache ──
     _suggest_cache.put(cache_key, result)
+
+    # ── Structured search log ──
+    try:
+        _search_log.info(_json.dumps({
+            "event": "suggest",
+            "q": q.strip(),
+            "results": result["meta"].get("total_products", 0),
+            "ms": elapsed_ms,
+            "zero": result["meta"].get("total_products", 0) == 0,
+        }, ensure_ascii=False))
+    except Exception:
+        pass
 
     response.headers["Cache-Control"] = "public, max-age=30"
     return result
