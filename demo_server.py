@@ -2564,6 +2564,28 @@ async def health():
         return {"status": "error", "detail": str(e)}
 
 
+@app.get("/api/admin/sales-check")
+async def admin_sales_check(sku: str = Query("BATSONNPFZ100")):
+    """Debug: check sales_30d/365d values for a given SKU."""
+    es = await get_es()
+    try:
+        resp = await es.search(
+            index=ES_INDEX,
+            body={
+                "size": 1,
+                "query": {"term": {"sku": sku}},
+                "_source": ["name", "sku", "brand", "sales_30d", "sales_365d",
+                            "ga4.popularity_score"],
+            },
+        )
+        hits = resp.get("hits", {}).get("hits", [])
+        if hits:
+            return {"found": True, "sku": sku, **hits[0]["_source"], "_id": hits[0]["_id"]}
+        return {"found": False, "sku": sku}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ──────────────────────────────────────────────────
 # TRENDING / ZERO-STATE ENDPOINT
 # ──────────────────────────────────────────────────
