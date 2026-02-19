@@ -674,6 +674,81 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Warning: Could not load subcategories: {e}")
 
+    # ── Load real sales data from sales_data.json ──
+    # Updates sales_30d and sales_365d fields in ES for accurate sales-based ranking.
+    # Data source: Verto ERP export (Excel → JSON conversion).
+    _sales_path = Path(__file__).parent / "sales_data.json"
+    if _sales_path.exists():
+        try:
+            import json as _jmod
+            with open(_sales_path, encoding="utf-8") as _sf:
+                _sales_data: dict[str, dict] = _jmod.load(_sf)
+            print(f"[OK] Loaded sales data for {len(_sales_data)} SKUs")
+
+            # Bulk update via update_by_query per SKU.
+            # For efficiency, batch into ES bulk API calls.
+            _bulk_body: list[dict] = []
+            _updated = 0
+            _batch_size = 500
+
+            for _sku, _vals in _sales_data.items():
+                s30 = _vals.get("s30", 0)
+                s365 = _vals.get("s365", 0)
+                if s30 > 0 or s365 > 0:
+                    # Use bulk update with upsert-style: match by SKU field
+                    _bulk_body.append({"update": {"_index": ES_INDEX}})
+                    _bulk_body.append({
+                        "script": {
+                            "source": "ctx._source.sales_30d = params.s30; ctx._source.sales_365d = params.s365;",
+                            "params": {"s30": s30, "s365": s365},
+                        },
+                        "upsert": {},  # won't create new docs
+                    })
+
+            # Can't use bulk with script per-SKU without knowing _id.
+            # Instead: use update_by_query with batched SKU lists.
+            _bulk_body = []  # discard above approach
+            _sku_batches: list[list[tuple[str, int, int]]] = [[]]
+            for _sku, _vals in _sales_data.items():
+                s30 = _vals.get("s30", 0)
+                s365 = _vals.get("s365", 0)
+                if s30 > 0 or s365 > 0:
+                    if len(_sku_batches[-1]) >= _batch_size:
+                        _sku_batches.append([])
+                    _sku_batches[-1].append((_sku, s30, s365))
+
+            for _batch in _sku_batches:
+                if not _batch:
+                    continue
+                # One update_by_query per SKU is too slow. Instead:
+                # Use a single update_by_query with painless script per batch
+                _sku_to_s30 = {sku: s30 for sku, s30, s365 in _batch}
+                _sku_to_s365 = {sku: s365 for sku, s30, s365 in _batch}
+                try:
+                    resp = await es.update_by_query(
+                        index=ES_INDEX,
+                        body={
+                            "query": {"terms": {"sku": list(_sku_to_s30.keys())}},
+                            "script": {
+                                "source": """
+                                    String sku = ctx._source.sku;
+                                    if (params.s30.containsKey(sku)) { ctx._source.sales_30d = params.s30.get(sku); }
+                                    if (params.s365.containsKey(sku)) { ctx._source.sales_365d = params.s365.get(sku); }
+                                """,
+                                "params": {"s30": _sku_to_s30, "s365": _sku_to_s365},
+                            },
+                        },
+                        request_timeout=60,
+                        conflicts="proceed",
+                    )
+                    _updated += resp.get("updated", 0)
+                except Exception as _be:
+                    print(f"  Sales batch update error: {_be}")
+
+            print(f"[OK] Updated sales data for {_updated} products in ES")
+        except Exception as _se:
+            print(f"Warning: Could not load sales data: {_se}")
+
     warmup_queries = ["canon", "sony", "nikon", "sigma", "fujifilm", "panasonic", "tamron",
                       "samyang", "leica", "olympus", "godox", "profoto", "hasselblad", "zeiss"]
     warmup_ok = 0
@@ -1578,13 +1653,22 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 },
                 "weight": _pop_weight,
             },
-            # Sales volume boost
+            # Sales volume boost (30-day) — recent sales signal
             {
                 "field_value_factor": {
                     "field": "sales_30d",
                     "factor": 1.0, "modifier": "log1p", "missing": 0,
                 },
                 "weight": _sales_weight,
+            },
+            # Sales volume boost (365-day) — long-term popularity, lower weight
+            # Useful for products with seasonal sales or low recent volume.
+            {
+                "field_value_factor": {
+                    "field": "sales_365d",
+                    "factor": 0.5, "modifier": "log1p", "missing": 0,
+                },
+                "weight": max(1, _sales_weight // 3),
             },
             # Price tier boost — flagship products more relevant for brand queries
             # Higher weight when brand-intent (prefer cameras over lens caps)
