@@ -2566,22 +2566,35 @@ async def health():
 
 @app.get("/api/admin/sales-check")
 async def admin_sales_check(sku: str = Query("BATSONNPFZ100")):
-    """Debug: check sales_30d/365d values for a given SKU."""
+    """Debug: check sales_30d/365d values for a given SKU. Tries term, match, and wildcard."""
     es = await get_es()
     try:
-        resp = await es.search(
-            index=ES_INDEX,
-            body={
-                "size": 1,
-                "query": {"term": {"sku": sku}},
-                "_source": ["name", "sku", "brand", "sales_30d", "sales_365d",
-                            "ga4.popularity_score"],
-            },
-        )
-        hits = resp.get("hits", {}).get("hits", [])
-        if hits:
-            return {"found": True, "sku": sku, **hits[0]["_source"], "_id": hits[0]["_id"]}
-        return {"found": False, "sku": sku}
+        # Try multiple query strategies since SKU field type is unknown
+        for strategy, q in [
+            ("term_sku", {"term": {"sku": sku}}),
+            ("term_sku_lower", {"term": {"sku": sku.lower()}}),
+            ("match_sku", {"match": {"sku": sku}}),
+            ("match_name", {"match": {"name": sku}}),
+        ]:
+            resp = await es.search(
+                index=ES_INDEX,
+                body={
+                    "size": 3,
+                    "query": q,
+                    "_source": ["name", "sku", "brand", "sales_30d", "sales_365d",
+                                "ga4.popularity_score", "manufacturer_code", "ean"],
+                },
+            )
+            hits = resp.get("hits", {}).get("hits", [])
+            if hits:
+                results = []
+                for h in hits:
+                    results.append({
+                        "_id": h["_id"],
+                        **h["_source"],
+                    })
+                return {"found": True, "strategy": strategy, "query": sku, "results": results}
+        return {"found": False, "sku": sku, "tried": ["term_sku", "term_sku_lower", "match_sku", "match_name"]}
     except Exception as e:
         return {"error": str(e)}
 
