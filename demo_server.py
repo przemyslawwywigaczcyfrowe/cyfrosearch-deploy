@@ -709,6 +709,7 @@ async def lifespan(app: FastAPI):
     # Data source: Verto ERP export (Excel → JSON conversion).
     global _SALES_DATA
     _sales_path = Path(__file__).parent / "sales_data.json"
+    print(f"[SALES] Looking for sales data at: {_sales_path} (exists={_sales_path.exists()})")
     if _sales_path.exists():
         try:
             import json as _jmod
@@ -2547,6 +2548,8 @@ async def health():
             "status": "ok",
             "es_status": cluster["status"],
             "product_count": count["count"],
+            "sales_data_loaded": len(_SALES_DATA),
+            "sales_sample": list(_SALES_DATA.keys())[:3] if _SALES_DATA else [],
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
