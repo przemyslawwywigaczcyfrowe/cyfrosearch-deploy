@@ -2555,6 +2555,35 @@ async def health():
         return {"status": "error", "detail": str(e)}
 
 
+@app.get("/api/admin/sales-diag")
+async def admin_sales_diag():
+    """Diagnostic: check sales data file loading."""
+    import os as _os
+    _p = Path(__file__).parent / "sales_data.json"
+    result = {
+        "__file__": str(Path(__file__)),
+        "sales_path": str(_p),
+        "exists": _p.exists(),
+        "parent_files": [f for f in _os.listdir(Path(__file__).parent) if "sales" in f.lower()],
+        "sales_data_in_memory": len(_SALES_DATA),
+        "sample_keys": list(_SALES_DATA.keys())[:5],
+    }
+    if _p.exists():
+        result["file_size"] = _p.stat().st_size
+        try:
+            import json as _jmod2
+            with open(_p, encoding="utf-8") as _f2:
+                _raw = _jmod2.load(_f2)
+            result["json_keys_count"] = len(_raw)
+            result["sample_json_keys"] = list(_raw.keys())[:3]
+            # Count keys with s30 > 0
+            _valid = sum(1 for v in _raw.values() if v.get("s30", 0) > 0 or v.get("s365", 0) > 0)
+            result["valid_keys"] = _valid
+        except Exception as _e3:
+            result["load_error"] = str(_e3)
+    return result
+
+
 @app.get("/api/admin/sales-check")
 async def admin_sales_check(sku: str = Query("BATSONNPFZ100")):
     """Debug: check product identifier fields. Searches by name to find products and show their sku/ean/_id."""
