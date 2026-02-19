@@ -709,7 +709,6 @@ async def lifespan(app: FastAPI):
     # Data source: Verto ERP export (Excel → JSON conversion).
     global _SALES_DATA
     _sales_path = Path(__file__).parent / "sales_data.json"
-    print(f"[SALES] Looking for sales data at: {_sales_path} (exists={_sales_path.exists()})")
     if _sales_path.exists():
         try:
             import json as _jmod
