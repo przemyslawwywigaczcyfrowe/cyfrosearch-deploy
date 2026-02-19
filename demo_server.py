@@ -279,7 +279,7 @@ def _normalize_fnumber(q: str) -> tuple[str, list[str]]:
 # ── Precompiled constants (module-level, not per-request) ──
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
-    "nie", "sie", "jest", "to", "ale", "jak", "sn", "body", "p",
+    "nie", "sie", "jest", "to", "ale", "jak", "sn", "p",
     "mm", "wt", "ob", "szt",
     "aparat", "obiektyw", "kabel", "tusz", "pokrywka",
     "adapter", "pilot", "konwerter", "pasek", "torba", "futeralgx",
@@ -376,6 +376,11 @@ MAIN_PRODUCT_ALIASES = frozenset({
     "pasek", "paski",
     "parasol transparentny", "parasol paraboliczny",
     "parasole transparentne", "parasole paraboliczne",
+    "dron", "drony", "drone", "quadcopter",
+    "gopro", "kamera sportowa", "kamery sportowe",
+    "ring light", "lampa pierścieniowa",
+    "miecz", "miecz świetlny",
+    "led panel", "panel led",
 })
 # ACCESSORY_ONLY: categories that NEED cancel-category behavior.
 # These have brand-specific subcategories like "do Canon", "do Sony" in ES.
@@ -432,6 +437,153 @@ BRAND_ALIASES: dict[str, str] = {
     "smallring": "smallrig",    # epenthetic 'n'
     "nizi": "nisi",             # phonetic 'z' for 's'
 }
+
+# ── Product-term typo corrections (non-brand) ──
+# Misspelled product terms → correct form.  Applied as REPLACE in query.
+TYPO_CORRECTIONS: dict[str, str] = {
+    "obiektw": "obiektyw", "obietkyw": "obiektyw", "obitektyw": "obiektyw",
+    "obiektwy": "obiektywy",
+    "tripot": "tripod", "tripode": "tripod",
+    "flasz": "flash", "fleszsz": "flesz",
+    "staywa": "statyw", "statywa": "statyw",
+    "gimbla": "gimbal", "gimble": "gimbal",
+    "mikrfon": "mikrofon", "mirofon": "mikrofon",
+    "akumualtor": "akumulator", "filrt": "filtr",
+    "softbok": "softbox", "monoopod": "monopod",
+}
+
+# ── Slang → official product terms (unidirectional REPLACE) ──
+SLANG_ALIASES: dict[str, str] = {
+    "szklanka": "obiektyw", "szklanki": "obiektywy",
+    "beczka": "teleobiektyw", "beczki": "teleobiektywy",
+    "kijek": "monopod", "kijki": "monopody",
+    "body": "korpus",
+    "ciało": "korpus aparatu", "cialo": "korpus aparatu",
+    "okular": "wizjer",
+    "paluszek": "akumulator",
+}
+
+# ── English → Polish product term mappings (unidirectional EXPAND) ──
+# English term generates an additional Polish should-clause (both sent to ES).
+# Only terms NOT already handled by synonyms_photo.txt ES analyzer.
+EN_PL_ALIASES: dict[str, str] = {
+    "cage": "klatka", "l-bracket": "kątownik", "l bracket": "kątownik",
+    "strap": "pasek", "battery grip": "grip",
+    "light meter": "światłomierz", "reflector": "blenda",
+    "backdrop": "tło", "barn doors": "wrota",
+    "clamp": "zacisk", "diffuser": "dyfuzor",
+    "hotshoe": "stopka", "hot shoe": "stopka",
+    "viewfinder": "wizjer", "speedlight": "lampa reporterska",
+    "strobe": "lampa studyjna", "snoot": "strumienica",
+    "boom arm": "wysięgnik", "dolly": "wózek kamerowy",
+    "follow focus": "ostrościówka", "matte box": "kompendium",
+    "shoulder rig": "rig naramienny", "top handle": "uchwyt górny",
+    "base plate": "płyta bazowa", "quick release": "szybkozłączka",
+    "wireless": "bezprzewodowy", "battery charger": "ładowarka",
+    "lens cap": "pokrywka", "lens pen": "czyścik",
+    "blower": "gruszka", "cleaning kit": "zestaw czyszczący",
+    "rain cover": "osłona przeciwdeszczowa",
+    "screen protector": "osłona lcd",
+    "camera strap": "pasek do aparatu",
+    "wrist strap": "pasek na rękę", "neck strap": "pasek na szyję",
+}
+
+# ── Bidirectional synonym expansions (query-time) ──
+# Groups of equivalent terms NOT in synonyms_photo.txt ES analyzer.
+# Each term maps to all other terms in its group → added as should-clauses.
+def _build_synonym_expansions(groups: list[list[str]]) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    for group in groups:
+        normalized = [g.lower().strip() for g in group]
+        for term in normalized:
+            result[term] = [t for t in normalized if t != term]
+    return result
+
+SYNONYM_EXPANSIONS = _build_synonym_expansions([
+    # Drony
+    ["dron", "drone", "quadcopter", "uav"],
+    # Audio
+    ["lavalier", "krawatowy", "lavalier mikrofon"],
+    ["shotgun", "mikrofon kierunkowy"],
+    # Pilot / wyzwalacz
+    ["pilot zdalny", "remote", "wyzwalacz", "trigger"],
+    ["nadajnik", "transmitter"],
+    ["odbiornik", "receiver"],
+    # Ochrona
+    ["osłona lcd", "screen protector", "folia ochronna"],
+    ["osłona przeciwsłoneczna", "lens hood"],
+    # Karty / zasilanie
+    ["czytnik kart", "card reader"],
+    ["power bank", "bank energii", "ładowarka przenośna"],
+    # Video rigs
+    ["slider", "dolly", "wózek kamerowy"],
+    ["follow focus", "ostrościówka"],
+    ["matte box", "kompendium"],
+    # Oświetlenie
+    ["barndoors", "wrota", "skrzydełka"],
+    ["grid", "plaster miodu", "honeycomb"],
+    ["gel", "filtr żelowy", "filtr kolorowy"],
+    # Torby
+    ["nerka", "hip bag", "torba biodrowa"],
+    ["walizka", "hard case", "kufer"],
+    # Inne
+    ["etui", "pokrowiec", "case", "futerał"],
+    ["pilot", "remote", "wyzwalacz"],
+])
+
+
+def _expand_synonyms(q: str, q_lower: str) -> tuple[str, str, list[str]]:
+    """Apply synonym expansion to query at Python level.
+
+    Returns (new_q, new_q_lower, extra_should_phrases).
+
+    Processing order:
+      1. TYPO_CORRECTIONS  — replace misspelled tokens
+      2. SLANG_ALIASES      — replace slang with official terms
+      3. EN_PL_ALIASES      — collect Polish equivalents as extra should-clauses
+      4. SYNONYM_EXPANSIONS — collect bidirectional expansions as extra should-clauses
+
+    Max 5 extra phrases to prevent synonym explosion.
+    """
+    tokens = q_lower.split()
+    extra_phrases: list[str] = []
+
+    # Pass 1: Typo corrections (REPLACE per-token)
+    new_tokens = [TYPO_CORRECTIONS.get(t, t) for t in tokens]
+    if new_tokens != tokens:
+        q_lower = " ".join(new_tokens)
+        q = q_lower
+        tokens = new_tokens
+
+    # Pass 2: Slang (REPLACE per-token)
+    new_tokens = [SLANG_ALIASES.get(t, t) for t in tokens]
+    if new_tokens != tokens:
+        q_lower = " ".join(new_tokens)
+        q = q_lower
+        tokens = new_tokens
+
+    # Pass 3: EN→PL (EXPAND — generates additional should-phrases)
+    for width in (3, 2, 1):
+        for i in range(len(tokens) - width + 1):
+            span = " ".join(tokens[i:i + width])
+            if span in EN_PL_ALIASES:
+                pl = EN_PL_ALIASES[span]
+                expanded = " ".join(tokens[:i] + [pl] + tokens[i + width:])
+                if expanded not in extra_phrases:
+                    extra_phrases.append(expanded)
+
+    # Pass 4: Bidirectional synonyms (EXPAND — generates additional should-phrases)
+    for width in (2, 1):
+        for i in range(len(tokens) - width + 1):
+            span = " ".join(tokens[i:i + width])
+            if span in SYNONYM_EXPANSIONS:
+                for syn in SYNONYM_EXPANSIONS[span]:
+                    expanded = " ".join(tokens[:i] + [syn] + tokens[i + width:])
+                    if expanded not in extra_phrases:
+                        extra_phrases.append(expanded)
+
+    return q, q_lower, extra_phrases[:5]  # cap at 5
+
 
 # ── Category-intent aliases ──
 # Maps common search terms (singular forms, abbreviations) to lists of ES subcategory values.
@@ -575,6 +727,25 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     # torba fotograficzna
     "torba fotograficzna": ["torby fotograficzne", "torby kufry i walizki"],
     "torby fotograficzne": ["torby fotograficzne", "torby kufry i walizki"],
+    # dron / drone → drone subcategories
+    "dron": ["drony"],
+    "drony": ["drony"],
+    "drone": ["drony"],
+    "quadcopter": ["drony"],
+    # gopro → action cameras
+    "gopro": ["kamery sportowe"],
+    "kamera sportowa": ["kamery sportowe"],
+    "kamery sportowe": ["kamery sportowe"],
+    # ring light → LED ring lights
+    "ring light": ["lampy pierścieniowe LED"],
+    "lampa pierścieniowa": ["lampy pierścieniowe LED"],
+    # miecz → LED light wands
+    "miecz": ["miecze świetlne LED"],
+    "miecz świetlny": ["miecze świetlne LED"],
+    "miecz swietlny": ["miecze świetlne LED"],
+    # led panel → LED panels
+    "led panel": ["lampy panelowe LED"],
+    "panel led": ["lampy panelowe LED"],
 }
 
 # ── Parent-category injection ──
@@ -804,6 +975,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 # don't use the typo form (e.g. "manfrott" → "Manfrotto")
                 q_original = q.strip()
                 break
+
+    # ── Synonym expansion (typo corrections, slang rewrites, EN→PL, bidirectional) ──
+    q, q_lower, _synonym_extra_phrases = _expand_synonyms(q, q_lower)
+    q_words = set(q_lower.split())
 
     # ── Alpha→digit split variants ──
     # Users type "Pro1000" but product is "Pro-1000" (indexed as "pro" + "1000").
@@ -1478,6 +1653,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                         *[
                             {"match_phrase": {"name": {"query": fv, "boost": 20, "slop": 1}}}
                             for fv in _fnumber_variants
+                        ],
+                        # Synonym expansion: additional should-clauses from
+                        # EN→PL mappings and bidirectional synonym groups
+                        *[
+                            {"multi_match": {
+                                "query": _syn_exp,
+                                "fields": ["name^2", "name.folded^1.5", "name.morfologik"],
+                                "type": "best_fields",
+                                "boost": 15,
+                            }}
+                            for _syn_exp in _synonym_extra_phrases
                         ],
                     ],
                     "minimum_should_match": 1,
@@ -2442,6 +2628,9 @@ async def search(
                 q_lower_s = q.lower().strip()
                 break
 
+    # ── Synonym expansion (same logic as suggest) ──
+    q, q_lower_s, _synonym_extra_s = _expand_synonyms(q, q_lower_s)
+
     # ── Condition-intent detection (same logic as suggest) ──
     _used_intent_s = any(
         any(w.startswith(kw) for kw in USED_INTENT_PREFIXES)
@@ -2481,6 +2670,16 @@ async def search(
                 {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
                 {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                 {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
+                # Synonym expansion should-clauses
+                *[
+                    {"multi_match": {
+                        "query": _se,
+                        "fields": ["name^2", "name.folded^1.5"],
+                        "type": "best_fields",
+                        "boost": 15,
+                    }}
+                    for _se in _synonym_extra_s
+                ],
             ],
             "minimum_should_match": 1,
         }
