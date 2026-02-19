@@ -160,6 +160,16 @@ def _normalize_model_query(q: str) -> str:
     return " ".join(result)
 
 
+# ── Arabic → Roman pre-conversion for "mark" prefix ──
+# Convert "mark 3" → "mark iii", "mark 2" → "mark ii" etc. BEFORE the merge step.
+# This ensures "canon r6 mark 3" flows to "canon r6 markiii" through the full chain.
+_RE_MARK_ARABIC = re.compile(r'\bmark\s+([1-5])\b', re.IGNORECASE)
+_ARABIC_ROMAN_MAP = {"1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v"}
+
+def _mark_arabic_to_roman(q: str) -> str:
+    """Convert 'mark 3' → 'mark iii' to prepare for roman merging."""
+    return _RE_MARK_ARABIC.sub(lambda m: 'mark ' + _ARABIC_ROMAN_MAP.get(m.group(1), m.group(1)), q)
+
 # ── Roman numeral merging (matches ES analyzer behavior) ──
 # The polish_folded analyzer concatenates "mark" + Roman numerals into one token:
 # "mark III" → "markiii", "mark II" → "markii", "5D Mark IV" → "5d markiv"
@@ -714,7 +724,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # Save original query before normalization (for fallback matching on unsplit codes)
     q_original = q.strip()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
-    q = _merge_mark_roman(_normalize_model_query(q))
+    q = _merge_mark_roman(_mark_arabic_to_roman(_normalize_model_query(q)))
     # Normalize f-numbers: "f1.4" → "f/1.4", "f/1,4" → "f/1.4"
     q, _fnumber_variants = _normalize_fnumber(q)
 
@@ -2291,8 +2301,8 @@ async def search(
     sort: str = "relevance",
 ):
     es = await get_es()
-    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
-    q = _merge_mark_roman(_normalize_model_query(q))
+    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii", "mark 3" → "mark iii"
+    q = _merge_mark_roman(_mark_arabic_to_roman(_normalize_model_query(q)))
     offset = (page - 1) * per_page
 
     filters = []
