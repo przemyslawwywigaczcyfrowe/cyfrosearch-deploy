@@ -1485,6 +1485,34 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 }
             }
 
+    # ── Condition filter: hard-filter to "used" when user explicitly wants used products ──
+    # This is a FILTER (not a boost) so that new products are completely excluded.
+    # Boost alone (weight:200) was too weak vs model-match (+2000) and popularity.
+    if _used_intent:
+        # Inject {"term": {"condition": "used"}} into the bool filter clause
+        if isinstance(product_bool_query.get("bool"), dict):
+            _existing_filter = product_bool_query["bool"].get("filter", [])
+            if isinstance(_existing_filter, dict):
+                _existing_filter = [_existing_filter]
+            elif not isinstance(_existing_filter, list):
+                _existing_filter = []
+            _existing_filter.append({"term": {"condition": "used"}})
+            product_bool_query["bool"]["filter"] = _existing_filter
+        elif isinstance(product_bool_query.get("constant_score"), dict):
+            # Wrap constant_score filter with condition filter
+            _cs_filter = product_bool_query["constant_score"]["filter"]
+            product_bool_query["constant_score"]["filter"] = {
+                "bool": {"must": [_cs_filter, {"term": {"condition": "used"}}]}
+            }
+        else:
+            # Fallback: wrap entire query in bool+filter
+            product_bool_query = {
+                "bool": {
+                    "must": [product_bool_query],
+                    "filter": [{"term": {"condition": "used"}}],
+                }
+            }
+
     # ── Build function_score functions based on query type ──
     if matched_subcategories:
         # Category-intent: user browses a category → rank by POPULARITY, not price
