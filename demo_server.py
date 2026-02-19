@@ -1840,7 +1840,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "name", "brand", "price", "sale_price",
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
-            "sku", "ean", "manufacturer_code",
+            "sku", "ean", "manufacturer_code", "id_erp",
             "subcategory", "category_path",
         ],
     }
@@ -1947,15 +1947,17 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 badge = "Nowość"
 
             # ── Sales-based score boost ──
-            # Try matching SKU from ES to sales data (multiple formats)
-            _sku_raw = src.get("sku", "") or ""
+            # ES _id = Verto ERP code (same format as Excel SKU in sales_data.json)
+            # ES _source.sku = Sylius numeric ID (not useful for sales matching)
+            # ES _source.id_erp = Verto ERP code (backup for _id)
+            _erp_code = hit.get("_id", "") or src.get("id_erp", "") or src.get("manufacturer_code", "") or ""
             _final_score = es_score
-            if _SALES_DATA and _sku_raw:
-                _final_score = _sales_boost(_sku_raw, es_score)
+            if _SALES_DATA and _erp_code:
+                _final_score = _sales_boost(_erp_code, es_score)
                 # If exact match failed, try without hyphens/spaces
                 if _final_score == es_score:
-                    _sku_clean = _sku_raw.upper().replace("-", "").replace(" ", "").replace("/", "")
-                    _sales_lookup = _SALES_DATA.get(_sku_clean)
+                    _erp_clean = _erp_code.upper().replace("-", "").replace(" ", "").replace("/", "")
+                    _sales_lookup = _SALES_DATA.get(_erp_clean)
                     if _sales_lookup:
                         s30, s365 = _sales_lookup
                         sf = _math.log1p(s30) * 0.15 + _math.log1p(s365) * 0.05
