@@ -199,35 +199,25 @@ BRAND_ALIASES: dict[str, str] = {
 #   - "exclude_pattern": optional regex to exclude false-positive products
 MOUNT_INTENT_MAP: dict[tuple[str, str], dict] = {
     # Canon EF mount — "Canon EF" should show EF-mount lenses, NOT RF lenses/EOS R bodies
-    # EF lenses have "EF" in their name: "Canon 50 mm f/1.8 EF II", "Canon 24-70 f/2.8 L II EF USM"
-    # Subcategory filter keeps only lenses/cameras, name filter requires "EF" token.
+    # EF lenses have "EF" in their name: "Canon 50 mm f/1.8 EF STM", "Canon 24-70 f/2.8 L II EF USM"
+    # Name filter requires "EF" token, exclude "RF" to prevent RF products with "adapter EF-EOS R".
+    # No subcategory filter — some new EF lenses are in "standardowe" instead of "obiektywy do lustrzanek".
     ("canon", "ef"): {
         "name_phrases": ["EF"],
-        "name_exclude_phrases": ["RF"],  # exclude products with RF in name (adapters mentioning EF-EOS R)
-        "subcategories": [
-            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
-            "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
-            "adaptery bagnetowe",
-        ],
+        "name_exclude_phrases": ["RF"],
+        "subcategories": None,  # no subcategory filter — rely on name phrase + brand filter
     },
     ("canon", "ef-s"): {
         "name_phrases": ["EF-S"],
         "name_exclude_phrases": [],
-        "subcategories": [
-            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
-            "obiektywy do lustrzanek",
-        ],
+        "subcategories": None,
     },
     # Nikon F mount — "Nikon F" should show F-mount (AF-S/AF-P/AF-D) lenses, NOT Z lenses/bodies
-    # F-mount lenses have AF-S/AF-P/AF-D in name OR belong to "obiektywy do lustrzanek" subcategory
+    # F-mount lenses have AF-S/AF-P/AF-D in name. Exclude "Nikkor Z" to filter out Z-mount.
     ("nikon", "f"): {
         "name_phrases": ["AF-S", "AF-P", "AF-D", "AF", "Nikon F"],
-        "name_exclude_phrases": ["Nikkor Z"],  # exclude Z-mount lenses
-        "subcategories": [
-            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
-            "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
-            "adaptery bagnetowe",
-        ],
+        "name_exclude_phrases": ["Nikkor Z"],
+        "subcategories": None,  # no subcategory filter — rely on name phrase + brand filter
     },
 }
 
@@ -685,12 +675,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             else {"bool": {"should": _name_phrase_clauses, "minimum_should_match": 1}}
         )
 
-        # Combine filters: brand + subcategory + name phrase
+        # Combine filters: brand + name phrase (+ optional subcategory)
         _mount_filters: list[dict] = [
             {"term": {"brand": _brand_intent}},
-            {"terms": {"subcategory": _mount_subcats}},
             _name_filter,
         ]
+        if _mount_subcats:
+            _mount_filters.append({"terms": {"subcategory": _mount_subcats}})
 
         # Optional: exclude products with certain mount keywords in name
         # (e.g. exclude RF lenses from "Canon EF" results, exclude Nikkor Z from "Nikon F" results)
@@ -730,8 +721,9 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     "must_not": _mount_must_not,
                 }
             }
-        # Override category detection — mount-intent takes priority
-        matched_subcategories = _mount_subcats
+        # Mount-intent takes priority — set flag so scoring uses mount-intent path
+        # (matched_subcategories not used for filtering here, only for scoring branch)
+        matched_subcategories = _mount_subcats or ["__mount_intent__"]
     elif matched_subcategories:
         # Category-intent query: filter to subcategories.
         # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
