@@ -6,8 +6,6 @@ Optimized for low-latency autosuggest (<100ms target).
 
 from __future__ import annotations
 
-import json as _json
-import logging
 import os
 import re
 import time
@@ -29,17 +27,6 @@ ES_USER = os.environ.get("ES_USER", "elastic")
 ES_PASSWORD = os.environ.get("ES_PASSWORD", "changeme")
 ES_INDEX = os.environ.get("ES_INDEX", "products")
 ES_API_KEY = os.environ.get("ES_API_KEY", "")  # Elastic Cloud uses API key auth
-
-# ── Structured search logging ──
-# JSON-formatted logs to stdout (Render captures automatically).
-# Each suggest query is logged with: query, result_count, time_ms, intents, cached.
-_search_log = logging.getLogger("cyfrosearch.queries")
-_search_log.setLevel(logging.INFO)
-if not _search_log.handlers:
-    _sh = logging.StreamHandler()
-    _sh.setFormatter(logging.Formatter("%(message)s"))
-    _search_log.addHandler(_sh)
-    _search_log.propagate = False
 
 _es: AsyncElasticsearch | None = None
 
@@ -105,9 +92,6 @@ def _fold_polish(text: str) -> str:
     return text.translate(_map)
 
 
-# ── Polish stopwords (prepositions that add no search value) ──
-_PL_STOPWORDS = {"do", "dla", "na", "z", "ze", "w", "we", "i", "lub", "od", "po"}
-
 # ── Focal-length pattern ──
 # Detects zoom ranges like "24-70", "70-200", "100-400" in queries
 _RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
@@ -116,59 +100,14 @@ _RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
 # Splits tokens on digit→letter boundaries so "a7iv" → "a7 iv", "r6iii" → "r6 iii"
 # This is critical for camera model searches like "sony a7iv", "canon r6ii", "fuji xt5ii"
 _RE_DIGIT_TO_ALPHA = re.compile(r'(\d)([a-zA-Z])')
-# Dimension patterns like "100x200", "60x130" — should NOT be split
-_RE_DIMENSION = re.compile(r'^\d+x\d+$', re.IGNORECASE)
-
-# Model rewrites: users often concatenate model names that have spaces in the product name.
-# These are applied as whole-word replacements (case-insensitive).
-# Key pattern: Nikon Z series uses "Z fc", "Z f", "Z 30", "Z 50" with a space after Z.
-MODEL_REWRITES: dict[str, str] = {
-    "zfc": "z fc",
-    "z fc": "z fc",     # already correct, no-op
-}
 
 def _normalize_model_query(q: str) -> str:
     """Insert space at digit→letter boundaries within words.
     'sony a7iv' → 'sony a7 iv', 'canon r6ii' → 'canon r6 ii'
-    Also applies MODEL_REWRITES for known concatenated camera models.
     Preserves original spacing and case.
-    Only splits tokens with 4+ chars — short tokens like "3S", "r8" are
-    preserved as-is since splitting would destroy the model identifier.
     """
-    # Apply model rewrites first (case-insensitive, whole-word)
-    q_lower_words = q.lower().split()
-    for i, w in enumerate(q_lower_words):
-        if w in MODEL_REWRITES:
-            rewrite = MODEL_REWRITES[w]
-            # Preserve original case if single char difference
-            q_words = q.split()
-            q_words[i] = rewrite
-            q = " ".join(q_words)
-            break
+    return _RE_DIGIT_TO_ALPHA.sub(r'\1 \2', q)
 
-    # Apply digit→letter splitting per word, only for 4+ char tokens.
-    # Short tokens like "3S" (2 chars), "r8" (2 chars) stay intact.
-    # Long tokens like "a7iv" (4 chars), "r6iii" (5 chars) get split.
-    # Dimension patterns like "100x200", "60x130" are preserved (digits + x + digits).
-    words = q.split()
-    result = []
-    for w in words:
-        if len(w) >= 4 and not _RE_DIMENSION.match(w):
-            result.append(_RE_DIGIT_TO_ALPHA.sub(r'\1 \2', w))
-        else:
-            result.append(w)
-    return " ".join(result)
-
-
-# ── Arabic → Roman pre-conversion for "mark" prefix ──
-# Convert "mark 3" → "mark iii", "mark 2" → "mark ii" etc. BEFORE the merge step.
-# This ensures "canon r6 mark 3" flows to "canon r6 markiii" through the full chain.
-_RE_MARK_ARABIC = re.compile(r'\bmark\s+([1-5])\b', re.IGNORECASE)
-_ARABIC_ROMAN_MAP = {"1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v"}
-
-def _mark_arabic_to_roman(q: str) -> str:
-    """Convert 'mark 3' → 'mark iii' to prepare for roman merging."""
-    return _RE_MARK_ARABIC.sub(lambda m: 'mark ' + _ARABIC_ROMAN_MAP.get(m.group(1), m.group(1)), q)
 
 # ── Roman numeral merging (matches ES analyzer behavior) ──
 # The polish_folded analyzer concatenates "mark" + Roman numerals into one token:
@@ -181,105 +120,10 @@ def _merge_mark_roman(q: str) -> str:
     return _RE_MARK_ROMAN.sub(lambda m: 'mark' + m.group(1), q)
 
 
-# ── Roman ↔ Arabic numeral conversion ──
-# Generates query variants swapping Roman numerals with Arabic digits and vice versa.
-# "sony a7 iii" → ["sony a7 3"], "canon r5 mark 3" → ["canon r5 mark iii"]
-# Also handles concatenated forms: "mk3" → "mkiii", "markiii" → "mark3"
-ROMAN_TO_ARABIC: dict[str, str] = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5"}
-ARABIC_TO_ROMAN: dict[str, str] = {v: k for k, v in ROMAN_TO_ARABIC.items()}
-_RE_MK_ARABIC = re.compile(r'^(mk|mark)(\d)$', re.IGNORECASE)
-_RE_MK_ROMAN = re.compile(r'^(mk|mark)(i{1,4}v?|iv|v)$', re.IGNORECASE)
-
-def _roman_arabic_variants(q: str) -> list[str]:
-    """Generate query variants with Roman↔Arabic numeral swaps.
-
-    >>> _roman_arabic_variants("sony a7 iii")
-    ['sony a7 3']
-    >>> _roman_arabic_variants("canon r6 mark 3")
-    ['canon r6 mark iii']
-    >>> _roman_arabic_variants("nikon z5 mk3")
-    ['nikon z5 mkiii']
-    """
-    tokens = q.lower().split()
-    variants: list[str] = []
-    for idx, tok in enumerate(tokens):
-        # Pure roman → arabic: "iii" → "3"
-        if tok in ROMAN_TO_ARABIC:
-            new = tokens[:idx] + [ROMAN_TO_ARABIC[tok]] + tokens[idx + 1:]
-            variants.append(" ".join(new))
-        # Pure single-digit arabic → roman: "3" → "iii"
-        elif tok in ARABIC_TO_ROMAN:
-            new = tokens[:idx] + [ARABIC_TO_ROMAN[tok]] + tokens[idx + 1:]
-            variants.append(" ".join(new))
-        # Concatenated mk/mark + digit: "mk3" → "mkiii"
-        m = _RE_MK_ARABIC.match(tok)
-        if m:
-            digit = m.group(2)
-            if digit in ARABIC_TO_ROMAN:
-                new = tokens[:idx] + [m.group(1).lower() + ARABIC_TO_ROMAN[digit]] + tokens[idx + 1:]
-                variants.append(" ".join(new))
-        # Concatenated mk/mark + roman: "mkiii" → "mk3"
-        m2 = _RE_MK_ROMAN.match(tok)
-        if m2:
-            roman = m2.group(2).lower()
-            if roman in ROMAN_TO_ARABIC:
-                new = tokens[:idx] + [m2.group(1).lower() + ROMAN_TO_ARABIC[roman]] + tokens[idx + 1:]
-                variants.append(" ".join(new))
-    return variants
-
-
-# ── F-number (aperture) normalization ──
-# Users type: "f1.4", "f/1.4", "f/1,4" (Polish comma), "f 1.4", "f:1.4"
-# ES index uses the product-name form which is typically "f/1.4" with a slash.
-# We canonicalize to "f/X.X" (dot) and generate variants for matching.
-_RE_FNUMBER = re.compile(
-    r'(?<!\w)'                 # not preceded by word char (avoid matching "RF1.4")
-    r'[fF]\s*[/:.]?\s*'       # "f", "f/", "f:", "f." with optional spaces
-    r'(\d+(?:[.,]\d+)?)'      # number with optional decimal (dot or comma)
-    r'(?!\w)',                 # not followed by word char
-)
-
-def _normalize_fnumber(q: str) -> tuple[str, list[str]]:
-    """Normalize f-number to canonical 'f/X.X' and generate matching variants.
-
-    Returns (normalized_query, list_of_variant_queries).
-    >>> _normalize_fnumber("sigma 35mm f1.4")
-    ('sigma 35mm f/1.4', ['sigma 35mm f1.4'])
-    >>> _normalize_fnumber("canon 50mm f/1,8")
-    ('canon 50mm f/1.8', ['canon 50mm f/1,8', 'canon 50mm f1.8'])
-    """
-    variants: list[str] = []
-    original = q
-
-    def replacer(m: re.Match) -> str:
-        num = m.group(1).replace(",", ".")
-        canonical = f"f/{num}"
-        return canonical
-
-    normalized = _RE_FNUMBER.sub(replacer, q)
-
-    if normalized != original:
-        variants.append(original)  # keep the user's original form as variant
-        # Polish comma variant
-        for m in _RE_FNUMBER.finditer(original):
-            num = m.group(1).replace(",", ".")
-            if "." in num:
-                # Add comma variant: f/1.4 → f/1,4
-                comma_q = normalized.replace(f"f/{num}", f"f/{num.replace('.', ',')}")
-                if comma_q != normalized and comma_q not in variants:
-                    variants.append(comma_q)
-                # Add no-slash variant: f/1.4 → f1.4
-                noslash_q = normalized.replace(f"f/{num}", f"f{num}")
-                if noslash_q != normalized and noslash_q not in variants:
-                    variants.append(noslash_q)
-
-    return normalized, variants
-
-
 # ── Precompiled constants (module-level, not per-request) ──
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
-    "nie", "sie", "jest", "to", "ale", "jak", "sn", "p",
+    "nie", "sie", "jest", "to", "ale", "jak", "sn", "body", "p",
     "mm", "wt", "ob", "szt",
     "aparat", "obiektyw", "kabel", "tusz", "pokrywka",
     "adapter", "pilot", "konwerter", "pasek", "torba", "futeralgx",
@@ -334,256 +178,58 @@ SKIP_CATS = frozenset({
     "do ", "zbroje", "klatki", "pokrywki", "kable", "akcesoria", "torby", "filtry",
 })
 
-# ── "Product-for-product" intent ──
-# When a CATEGORY_ALIASES keyword is followed by "do [brand] [model]":
-#
-# MAIN_PRODUCT_ALIASES: categories that ARE the main product the user wants.
-#   "obiektyw do canon R6" = user wants LENSES compatible with Canon R6 (mount RF).
-#   → KEEP the category filter (lens subcategories), use "canon R6" as text query
-#     within that category. Brand filter on "Canon" is NOT applied (lenses can be
-#     Sigma/Tamron for Canon mount).
-#
-# Everything else (akumulator, bateria, klatka, pasek...): ACCESSORY categories.
-#   "akumulator do canon R6" = user wants batteries FOR Canon R6.
-#   → CANCEL category filter (batteries for Canon are in "do Canon" subcategory,
-#     not "akumulatory"), apply hard brand filter, use accessory-keyword scoring.
-#
-MAIN_PRODUCT_ALIASES = frozenset({
-    "obiektyw", "obiektywy",
-    "lampa", "lampy", "lampa led", "lampy led",
-    "statyw", "statyw oswietleniowy", "statyw oświetleniowy",
-    "softbox", "softboxy",
-    "gimbal", "gimbale",
-    "mikrofon", "mikrofony", "mic",
-    "drukarka", "drukarki", "drukarka fotograficzna",
-    "lornetka", "lornetki",
-    "parasol", "parasole",
-    "blenda", "blendy",
-    "monopod", "monopody",
-    "torba", "torba fotograficzna", "torby fotograficzne",
-    "plecak", "plecaki", "plecak fotograficzny",
-    "filtr",
-    "boom", "beauty dish",
-    "strumienica", "strumienice",
-    "monitor podgladowy", "monitor podglądowy", "monitory podgladowe", "monitory podglądowe",
-    "instax",
-    # Accessories that have their OWN subcategory (not in "do Canon" etc.)
-    "klatka", "klatki",
-    "karta", "karty", "karta sd", "karty sd", "karta pamięci",
-    "karta cfexpress", "karta cf express", "karta microsd",
-    "tlo", "tło", "tła", "tla",
-    "stół", "stol", "stoły", "stoly", "stół bezcieniowy", "stol bezcieniowy",
-    "pasek", "paski",
-    "parasol transparentny", "parasol paraboliczny",
-    "parasole transparentne", "parasole paraboliczne",
-    "dron", "drony", "drone", "quadcopter",
-    "gopro", "kamera sportowa", "kamery sportowe",
-    "ring light", "lampa pierścieniowa",
-    "miecz", "miecz świetlny",
-    "led panel", "panel led",
-})
-# ACCESSORY_ONLY: categories that NEED cancel-category behavior.
-# These have brand-specific subcategories like "do Canon", "do Sony" in ES.
-# Only: akumulator, bateria + their variants.
-# Everything else either has its own subcategory or is in MAIN_PRODUCT_ALIASES.
-
 # Condition-intent keywords (module-level, not per-request)
 USED_INTENT_PREFIXES = ("używan", "uzywany", "używany", "uży", "uzy")
 
 # ── Brand-intent detection ──
-# Brand alias mapping — common abbreviations, typos, and phonetic misspellings
-# → canonical brand names.  Source: GA4 search logs + best-practices doc.
+# Brand alias mapping — common abbreviations → canonical brand names
 BRAND_ALIASES: dict[str, str] = {
-    # ── Abbreviations ──
     "fuji": "fujifilm",
     "pana": "panasonic",
     "think tank": "thinktank",
-    # ── Common misspellings (adjacent keys, doubled/missing letters) ──
-    "cannon": "canon",          # doubled 'n' (also an English word)
-    "kanon": "canon",           # phonetic Polish spelling
-    "kannon": "canon",          # phonetic + doubled 'n'
-    "canoon": "canon",          # doubled 'o'
-    "nikkon": "nikon",          # doubled 'k'
-    "nikkoni": "nikon",         # doubled 'k' + suffix
-    "nkion": "nikon",           # transposition
-    "tamaron": "tamron",        # extra 'a' (phonetic)
-    "tamrom": "tamron",         # adjacent key 'm' for 'n'
-    # ── Chinese brand misspellings ──
-    "zhiuyn": "zhiyun",         # transposition
-    "zhyun": "zhiyun",          # missing 'i'
-    "ziyun": "zhiyun",          # missing 'h'
-    "dgi": "dji",               # swapped letter
-    "djii": "dji",              # doubled 'i'
-    # ── Compound brand splits/joins ──
-    "go pro": "gopro",          # space in compound
-    "insta 360": "insta360",    # space in compound
-    "fuji film": "fujifilm",    # space in compound
-    "glare one": "glareone",    # space in compound
-    "peak desing": "peak design",  # missing 'g' → 'ng' swap
-    "think tanks": "thinktank", # plural + space
-    # ── Phonetic misspellings (Polish) ──
-    "olimpus": "olympus",       # Polish phonetic 'i' for 'y'
-    "panasonik": "panasonic",   # Polish phonetic 'k' for 'c'
-    # ── Shortened/truncated ──
-    "sigm": "sigma",            # truncated
-    "sgima": "sigma",           # transposition
-    "manfrott": "manfrotto",    # truncated (missing 'o')
-    "fujfilm": "fujifilm",      # missing 'i'
-    "fugifilm": "fujifilm",     # transposition 'ji' → 'gi'
-    # ── Less common but attested ──
-    "hasselblat": "hasselblad", # devoicing final 'd' → 't'
-    "samian": "samyang",        # phonetic simplification
-    "samjang": "samyang",       # phonetic Polish 'j' for 'y'
-    "smallring": "smallrig",    # epenthetic 'n'
-    "nizi": "nisi",             # phonetic 'z' for 's'
 }
 
-# ── Product-term typo corrections (non-brand) ──
-# Misspelled product terms → correct form.  Applied as REPLACE in query.
-TYPO_CORRECTIONS: dict[str, str] = {
-    "obiektw": "obiektyw", "obietkyw": "obiektyw", "obitektyw": "obiektyw",
-    "obiektwy": "obiektywy",
-    "tripot": "tripod", "tripode": "tripod",
-    "flasz": "flash", "fleszsz": "flesz",
-    "staywa": "statyw", "statywa": "statyw",
-    "gimbla": "gimbal", "gimble": "gimbal",
-    "mikrfon": "mikrofon", "mirofon": "mikrofon",
-    "akumualtor": "akumulator", "filrt": "filtr",
-    "softbok": "softbox", "monoopod": "monopod",
+# ── Mount-intent detection ──
+# When a brand + mount-type keyword is detected (e.g. "Canon EF", "Nikon F"),
+# we filter to lens/adapter subcategories and require the mount keyword
+# to appear as a phrase in the product name, preventing RF/Z products from ranking.
+# Key: (brand_lower, remainder_lower) → dict with:
+#   - "name_filter": phrase that must appear in product name (case-insensitive match)
+#   - "subcategories": subcategories to filter to (lenses + adapters)
+#   - "exclude_pattern": optional regex to exclude false-positive products
+MOUNT_INTENT_MAP: dict[tuple[str, str], dict] = {
+    # Canon EF mount — "Canon EF" should show EF-mount lenses, NOT RF lenses/EOS R bodies
+    # EF lenses have "EF" in their name: "Canon 50 mm f/1.8 EF II", "Canon 24-70 f/2.8 L II EF USM"
+    # Subcategory filter keeps only lenses/cameras, name filter requires "EF" token.
+    ("canon", "ef"): {
+        "name_phrases": ["EF"],
+        "name_exclude_phrases": ["RF"],  # exclude products with RF in name (adapters mentioning EF-EOS R)
+        "subcategories": [
+            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+            "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+            "adaptery bagnetowe",
+        ],
+    },
+    ("canon", "ef-s"): {
+        "name_phrases": ["EF-S"],
+        "name_exclude_phrases": [],
+        "subcategories": [
+            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+            "obiektywy do lustrzanek",
+        ],
+    },
+    # Nikon F mount — "Nikon F" should show F-mount (AF-S/AF-P/AF-D) lenses, NOT Z lenses/bodies
+    # F-mount lenses have AF-S/AF-P/AF-D in name OR belong to "obiektywy do lustrzanek" subcategory
+    ("nikon", "f"): {
+        "name_phrases": ["AF-S", "AF-P", "AF-D", "AF", "Nikon F"],
+        "name_exclude_phrases": ["Nikkor Z"],  # exclude Z-mount lenses
+        "subcategories": [
+            "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+            "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+            "adaptery bagnetowe",
+        ],
+    },
 }
-
-# ── Slang → official product terms (unidirectional REPLACE) ──
-SLANG_ALIASES: dict[str, str] = {
-    "szklanka": "obiektyw", "szklanki": "obiektywy",
-    "beczka": "teleobiektyw", "beczki": "teleobiektywy",
-    "kijek": "monopod", "kijki": "monopody",
-    "body": "korpus",
-    "ciało": "korpus aparatu", "cialo": "korpus aparatu",
-    "okular": "wizjer",
-    "paluszek": "akumulator",
-}
-
-# ── English → Polish product term mappings (unidirectional EXPAND) ──
-# English term generates an additional Polish should-clause (both sent to ES).
-# Only terms NOT already handled by synonyms_photo.txt ES analyzer.
-EN_PL_ALIASES: dict[str, str] = {
-    "cage": "klatka", "l-bracket": "kątownik", "l bracket": "kątownik",
-    "strap": "pasek", "battery grip": "grip",
-    "light meter": "światłomierz", "reflector": "blenda",
-    "backdrop": "tło", "barn doors": "wrota",
-    "clamp": "zacisk", "diffuser": "dyfuzor",
-    "hotshoe": "stopka", "hot shoe": "stopka",
-    "viewfinder": "wizjer", "speedlight": "lampa reporterska",
-    "strobe": "lampa studyjna", "snoot": "strumienica",
-    "boom arm": "wysięgnik", "dolly": "wózek kamerowy",
-    "follow focus": "ostrościówka", "matte box": "kompendium",
-    "shoulder rig": "rig naramienny", "top handle": "uchwyt górny",
-    "base plate": "płyta bazowa", "quick release": "szybkozłączka",
-    "wireless": "bezprzewodowy", "battery charger": "ładowarka",
-    "lens cap": "pokrywka", "lens pen": "czyścik",
-    "blower": "gruszka", "cleaning kit": "zestaw czyszczący",
-    "rain cover": "osłona przeciwdeszczowa",
-    "screen protector": "osłona lcd",
-    "camera strap": "pasek do aparatu",
-    "wrist strap": "pasek na rękę", "neck strap": "pasek na szyję",
-}
-
-# ── Bidirectional synonym expansions (query-time) ──
-# Groups of equivalent terms NOT in synonyms_photo.txt ES analyzer.
-# Each term maps to all other terms in its group → added as should-clauses.
-def _build_synonym_expansions(groups: list[list[str]]) -> dict[str, list[str]]:
-    result: dict[str, list[str]] = {}
-    for group in groups:
-        normalized = [g.lower().strip() for g in group]
-        for term in normalized:
-            result[term] = [t for t in normalized if t != term]
-    return result
-
-SYNONYM_EXPANSIONS = _build_synonym_expansions([
-    # Drony
-    ["dron", "drone", "quadcopter", "uav"],
-    # Audio
-    ["lavalier", "krawatowy", "lavalier mikrofon"],
-    ["shotgun", "mikrofon kierunkowy"],
-    # Pilot / wyzwalacz
-    ["pilot zdalny", "remote", "wyzwalacz", "trigger"],
-    ["nadajnik", "transmitter"],
-    ["odbiornik", "receiver"],
-    # Ochrona
-    ["osłona lcd", "screen protector", "folia ochronna"],
-    ["osłona przeciwsłoneczna", "lens hood"],
-    # Karty / zasilanie
-    ["czytnik kart", "card reader"],
-    ["power bank", "bank energii", "ładowarka przenośna"],
-    # Video rigs
-    ["slider", "dolly", "wózek kamerowy"],
-    ["follow focus", "ostrościówka"],
-    ["matte box", "kompendium"],
-    # Oświetlenie
-    ["barndoors", "wrota", "skrzydełka"],
-    ["grid", "plaster miodu", "honeycomb"],
-    ["gel", "filtr żelowy", "filtr kolorowy"],
-    # Torby
-    ["nerka", "hip bag", "torba biodrowa"],
-    ["walizka", "hard case", "kufer"],
-    # Inne
-    ["etui", "pokrowiec", "case", "futerał"],
-    ["pilot", "remote", "wyzwalacz"],
-])
-
-
-def _expand_synonyms(q: str, q_lower: str) -> tuple[str, str, list[str]]:
-    """Apply synonym expansion to query at Python level.
-
-    Returns (new_q, new_q_lower, extra_should_phrases).
-
-    Processing order:
-      1. TYPO_CORRECTIONS  — replace misspelled tokens
-      2. SLANG_ALIASES      — replace slang with official terms
-      3. EN_PL_ALIASES      — collect Polish equivalents as extra should-clauses
-      4. SYNONYM_EXPANSIONS — collect bidirectional expansions as extra should-clauses
-
-    Max 5 extra phrases to prevent synonym explosion.
-    """
-    tokens = q_lower.split()
-    extra_phrases: list[str] = []
-
-    # Pass 1: Typo corrections (REPLACE per-token)
-    new_tokens = [TYPO_CORRECTIONS.get(t, t) for t in tokens]
-    if new_tokens != tokens:
-        q_lower = " ".join(new_tokens)
-        q = q_lower
-        tokens = new_tokens
-
-    # Pass 2: Slang (REPLACE per-token)
-    new_tokens = [SLANG_ALIASES.get(t, t) for t in tokens]
-    if new_tokens != tokens:
-        q_lower = " ".join(new_tokens)
-        q = q_lower
-        tokens = new_tokens
-
-    # Pass 3: EN→PL (EXPAND — generates additional should-phrases)
-    for width in (3, 2, 1):
-        for i in range(len(tokens) - width + 1):
-            span = " ".join(tokens[i:i + width])
-            if span in EN_PL_ALIASES:
-                pl = EN_PL_ALIASES[span]
-                expanded = " ".join(tokens[:i] + [pl] + tokens[i + width:])
-                if expanded not in extra_phrases:
-                    extra_phrases.append(expanded)
-
-    # Pass 4: Bidirectional synonyms (EXPAND — generates additional should-phrases)
-    for width in (2, 1):
-        for i in range(len(tokens) - width + 1):
-            span = " ".join(tokens[i:i + width])
-            if span in SYNONYM_EXPANSIONS:
-                for syn in SYNONYM_EXPANSIONS[span]:
-                    expanded = " ".join(tokens[:i] + [syn] + tokens[i + width:])
-                    if expanded not in extra_phrases:
-                        extra_phrases.append(expanded)
-
-    return q, q_lower, extra_phrases[:5]  # cap at 5
-
 
 # ── Category-intent aliases ──
 # Maps common search terms (singular forms, abbreviations) to lists of ES subcategory values.
@@ -632,10 +278,7 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     "plecak fotograficzny": ["plecaki fotograficzne"],
     "statyw": ["statywy (trójnogi)", "statywy do filmowania"],
     "filtr": ["filtry", "połówkowe i szare"],
-    "akumulator": ["akumulatory", "baterie specjalistyczne"],
-    "akumulatory": ["akumulatory", "baterie specjalistyczne"],
-    "bateria": ["akumulatory", "baterie specjalistyczne"],
-    "baterie": ["akumulatory", "baterie specjalistyczne"],
+    "akumulator": ["akumulatory i baterie"],
     # pasek / paski → strap subcategory
     "pasek": ["paski", "pasy biodrowe, szelki i kamizelki"],
     "paski": ["paski", "pasy biodrowe, szelki i kamizelki"],
@@ -646,32 +289,8 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
                        "SD / SDHC", "CompactFlash"],
     "karta cfexpress": ["CFexpress", "CFexpress Typ A", "CFexpress Type B"],
     "karta microsd": ["microSD"],
-    # stół / stoły → shadowless tables
-    "stół": ["stoły bezcieniowe"],
-    "stol": ["stoły bezcieniowe"],
-    "stoły": ["stoły bezcieniowe"],
-    "stoly": ["stoły bezcieniowe"],
-    "stół bezcieniowy": ["stoły bezcieniowe"],
-    "stol bezcieniowy": ["stoły bezcieniowe"],
-    # drukarka → printer subcategories
-    "drukarka": ["fotograficzne profesjonalne (A3)", "fotograficzne kompaktowe",
-                  "drukarka", "drukarki"],
-    "drukarki": ["fotograficzne profesjonalne (A3)", "fotograficzne kompaktowe",
-                  "drukarka", "drukarki"],
-    "drukarka fotograficzna": ["fotograficzne profesjonalne (A3)",
-                                "fotograficzne kompaktowe"],
-    # lornetka → all binocular subcategories
-    "lornetka": ["uniwersalne", "ornitologia i myślistwo dzienne",
-                  "turystyka", "żeglarstwo", "lornetki"],
-    "lornetki": ["uniwersalne", "ornitologia i myślistwo dzienne",
-                  "turystyka", "żeglarstwo", "lornetki"],
-    # parasol → parasol subcategories
-    "parasol": ["parasole transparentne", "parasole paraboliczne"],
-    "parasole": ["parasole transparentne", "parasole paraboliczne"],
-    "parasol transparentny": ["parasole transparentne"],
-    "parasol paraboliczny": ["parasole paraboliczne"],
-    "parasole transparentne": ["parasole transparentne"],
-    "parasole paraboliczne": ["parasole paraboliczne"],
+    "microsd": ["microSD"],
+    "micro sd": ["microSD"],
     # softbox → all softbox subcategories
     "softbox": ["softboxy", "softboxy oktagonalne", "softboxy prostokątne",
                 "softboxy heksagonalne", "softboxy paraboliczne", "softboxy wideo",
@@ -727,34 +346,6 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     # torba fotograficzna
     "torba fotograficzna": ["torby fotograficzne", "torby kufry i walizki"],
     "torby fotograficzne": ["torby fotograficzne", "torby kufry i walizki"],
-    # dron / drone → drone subcategories
-    "dron": ["drony"],
-    "drony": ["drony"],
-    "drone": ["drony"],
-    "quadcopter": ["drony"],
-    # gopro → action cameras
-    "gopro": ["kamery sportowe"],
-    "kamera sportowa": ["kamery sportowe"],
-    "kamery sportowe": ["kamery sportowe"],
-    # ring light → LED ring lights
-    "ring light": ["lampy pierścieniowe LED"],
-    "lampa pierścieniowa": ["lampy pierścieniowe LED"],
-    # miecz → LED light wands
-    "miecz": ["miecze świetlne LED"],
-    "miecz świetlny": ["miecze świetlne LED"],
-    "miecz swietlny": ["miecze świetlne LED"],
-    # led panel → LED panels
-    "led panel": ["lampy panelowe LED"],
-    "panel led": ["lampy panelowe LED"],
-}
-
-# ── Parent-category injection ──
-# Some subcategories are too specific for users. When they appear in results,
-# inject the parent label so users see a broader navigation option.
-# Key → parent label to inject, Value → set of child subcategories that trigger it.
-PARENT_CATEGORY_INJECT: dict[str, set[str]] = {
-    "lornetki": {"uniwersalne", "ornitologia i myślistwo dzienne", "turystyka",
-                  "żeglarstwo", "astronomia", "kompaktowe", "lornetki"},
 }
 
 # Brand cache — populated once from ES on first request
@@ -807,35 +398,6 @@ def _detect_brand_intent(q_lower: str) -> str | None:
 TOKEN_RE = re.compile(r'[A-Za-z0-9\u0080-\u024F]+')
 
 
-# ── Sales data (loaded at startup, used for post-ES reranking) ──
-_SALES_DATA: dict[str, tuple[int, int]] = {}  # {SKU_UPPER: (sales_30d, sales_365d)}
-
-import math as _math
-
-
-def _sales_boost(sku: str, es_score: float) -> float:
-    """Calculate boosted score by blending ES relevance with sales data.
-
-    Uses multiplicative boost: final = es_score * (1 + sales_factor)
-    where sales_factor = log1p(sales_30d) * 0.15 + log1p(sales_365d) * 0.05
-
-    This ensures:
-    - Bestsellers (s30=68) get ~0.78 boost (~78% higher)
-    - Medium sellers (s30=10) get ~0.36 boost
-    - Low sellers (s30=1) get ~0.10 boost
-    - Zero sellers get no boost (ES score preserved)
-    """
-    sku_upper = sku.upper().strip()
-    sales = _SALES_DATA.get(sku_upper)
-    if not sales:
-        return es_score
-    s30, s365 = sales
-    # 30-day sales = recent signal (higher weight)
-    # 365-day sales = stability signal (lower weight)
-    sales_factor = _math.log1p(s30) * 0.15 + _math.log1p(s365) * 0.05
-    return es_score * (1.0 + sales_factor)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     es = await get_es()
@@ -873,27 +435,6 @@ async def lifespan(app: FastAPI):
                     print(f"Warning: CATEGORY_ALIASES['{alias_key}'] target '{target}' not found in ES subcategories")
     except Exception as e:
         print(f"Warning: Could not load subcategories: {e}")
-
-    # ── Load real sales data from sales_data.json into memory ──
-    # Sales data is used at query-time to re-rank results via script_score or
-    # post-ES re-ranking. Loaded into a global dict keyed by SKU (uppercase).
-    # Data source: Verto ERP export (Excel → JSON conversion).
-    global _SALES_DATA
-    _sales_path = Path(__file__).parent / "sales_data.json"
-    if _sales_path.exists():
-        try:
-            import json as _jmod
-            with open(_sales_path, encoding="utf-8") as _sf:
-                _raw_sales: dict[str, dict] = _jmod.load(_sf)
-            # Store as {SKU_UPPER: (sales_30d, sales_365d)}
-            _SALES_DATA = {
-                sku.upper(): (vals.get("s30", 0), vals.get("s365", 0))
-                for sku, vals in _raw_sales.items()
-                if vals.get("s30", 0) > 0 or vals.get("s365", 0) > 0
-            }
-            print(f"[OK] Loaded sales data for {len(_SALES_DATA)} SKUs into memory")
-        except Exception as _se:
-            print(f"Warning: Could not load sales data: {_se}")
 
     warmup_queries = ["canon", "sony", "nikon", "sigma", "fujifilm", "panasonic", "tamron",
                       "samyang", "leica", "olympus", "godox", "profoto", "hasselblad", "zeiss"]
@@ -942,12 +483,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     brand_results = []
     popular_queries: list[dict] = []
 
-    # Save original query before normalization (for fallback matching on unsplit codes)
-    q_original = q.strip()
     # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
-    q = _merge_mark_roman(_mark_arabic_to_roman(_normalize_model_query(q)))
-    # Normalize f-numbers: "f1.4" → "f/1.4", "f/1,4" → "f/1.4"
-    q, _fnumber_variants = _normalize_fnumber(q)
+    q = _merge_mark_roman(_normalize_model_query(q))
 
     q_lower = q.lower().strip()
     q_words = set(q_lower.split())
@@ -971,31 +508,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 q = _brand_intent + q[len(prefix):]
                 q_lower = q.lower().strip()
                 q_words = set(q_lower.split())
-                # Also update q_original so original-query fallback clauses
-                # don't use the typo form (e.g. "manfrott" → "Manfrotto")
-                q_original = q.strip()
                 break
-
-    # ── Synonym expansion (typo corrections, slang rewrites, EN→PL, bidirectional) ──
-    q, q_lower, _synonym_extra_phrases = _expand_synonyms(q, q_lower)
-    q_words = set(q_lower.split())
-
-    # ── Alpha→digit split variants ──
-    # Users type "Pro1000" but product is "Pro-1000" (indexed as "pro" + "1000").
-    # We cannot do this in the normalizer (breaks brand detection for "Insta360" etc.)
-    # Instead, generate alternative query forms for matching in should clauses.
-    # IMPORTANT: generated AFTER brand-alias rewrite so variants use canonical brand name.
-    _RE_ALPHA_DIGIT_BOUNDARY = re.compile(r'([a-zA-Z])(\d)')
-    _q_hyphen_variant: str | None = None
-    _q_spaced_variant: str | None = None
-    _q_norm_lower = q.lower().strip()
-    if _RE_ALPHA_DIGIT_BOUNDARY.search(_q_norm_lower):
-        _hv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1-\2', q.strip())
-        _sv = _RE_ALPHA_DIGIT_BOUNDARY.sub(r'\1 \2', q.strip())
-        if _hv.lower() != _q_norm_lower:
-            _q_hyphen_variant = _hv
-        if _sv.lower() != _q_norm_lower:
-            _q_spaced_variant = _sv
 
     # ── Condition-intent detection ──
     # If query contains "używany"/"uzywany" (or prefix like "uży"/"uzy"),
@@ -1015,6 +528,45 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         q_for_es = " ".join(q_clean_words).strip() or q
     else:
         q_for_es = q
+
+    # ── Mount-intent detection ──
+    # Detects lens mount system queries like "Canon EF", "Nikon F", "Canon EF-S"
+    # When brand + mount keyword detected → filter to lens subcategories
+    # and require mount identifier to appear in product name.
+    _mount_intent: dict | None = None
+    _mount_remainder: str = ""  # text after mount keyword (e.g. "50mm" from "Canon EF 50mm")
+    if _brand_intent:
+        brand_lower = _brand_intent.lower()
+        remainder_after_brand = q_lower
+        # Remove brand name from query to get remainder
+        if brand_lower in remainder_after_brand:
+            remainder_after_brand = remainder_after_brand.replace(brand_lower, "", 1).strip()
+        # Also try alias
+        for alias, canonical in BRAND_ALIASES.items():
+            if canonical == brand_lower and alias in q_lower:
+                r2 = q_lower.replace(alias, "", 1).strip()
+                if len(r2) < len(remainder_after_brand):
+                    remainder_after_brand = r2
+
+        # Check if remainder starts with a mount keyword
+        remainder_tokens = remainder_after_brand.split()
+        if remainder_tokens:
+            # Try 1-token mount (e.g. "ef", "f") and 2-token (e.g. "ef-s")
+            for n_tok in (1,):
+                if n_tok > len(remainder_tokens):
+                    continue
+                mount_key = " ".join(remainder_tokens[:n_tok])
+                lookup = (brand_lower, mount_key)
+                if lookup in MOUNT_INTENT_MAP:
+                    _mount_intent = MOUNT_INTENT_MAP[lookup]
+                    _mount_remainder = " ".join(remainder_tokens[n_tok:]).strip()
+                    break
+            # Also try hyphenated forms: "ef-s" as single token
+            if not _mount_intent and remainder_tokens[0] in ("ef-s", "ef-m"):
+                lookup = (brand_lower, remainder_tokens[0])
+                if lookup in MOUNT_INTENT_MAP:
+                    _mount_intent = MOUNT_INTENT_MAP[lookup]
+                    _mount_remainder = " ".join(remainder_tokens[1:]).strip()
 
     # ── Category-intent detection ──
     # If the query matches a subcategory name (or a CATEGORY_ALIAS), treat it as a
@@ -1051,7 +603,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # 0b) First-word alias match — "klatka sony a7 iv" → check "klatka"
         #     Also try first two words: "lampa led godox" → check "lampa led"
         #     Saves the REMAINDER text for use in text-matching within the category.
-        _matched_cat_alias_key: str | None = None  # which alias key matched
         if not matched_subcategories:
             cat_tokens = _cat_check_text.split()
             for nw in (2, 1):
@@ -1062,114 +613,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 if prefix_cat in CATEGORY_ALIASES:
                     matched_subcategories = CATEGORY_ALIASES[prefix_cat]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
-                    _matched_cat_alias_key = prefix_cat
                     break
                 elif prefix_folded in CATEGORY_ALIASES:
                     matched_subcategories = CATEGORY_ALIASES[prefix_folded]
                     _cat_remainder_text = " ".join(cat_tokens[nw:]).strip()
-                    _matched_cat_alias_key = prefix_folded
                     break
-    # ── Handle "category + brand/model" queries ──
-    # Two distinct patterns:
-    #
-    # A) MAIN PRODUCT + brand/model: "obiektyw do canon R6", "lampa do sony"
-    #    User wants products FROM that category compatible WITH the brand/model.
-    #    → KEEP category filter, strip stopwords, use brand+model as text remainder.
-    #    → Do NOT apply brand filter (Sigma/Tamron lenses are "for Canon" too).
-    #    → Do NOT set _accessory_keyword_from_cat (no accessory scoring needed).
-    #
-    # B) ACCESSORY + brand/model: "akumulator do canon R6", "klatka do canon r6"
-    #    User wants accessories FOR a specific device.
-    #    → CANCEL category filter ("do Canon" is a separate subcategory).
-    #    → Apply hard brand filter on product name/description.
-    #    → Set _accessory_keyword_from_cat for accessory-specific scoring.
-    #
-    _accessory_keyword_from_cat: str | None = None
-    _accessory_brand_from_cat: str | None = None   # brand detected in category remainder
-    _accessory_model_from_cat: str | None = None   # model part after brand: "r6" from "canon r6"
-    _product_for_brand_intent: bool = False         # "obiektyw do canon R6" pattern
-    if matched_subcategories and _cat_remainder_text and not _brand_intent:
-        _rem_tokens_clean = [
-            t for t in _cat_remainder_text.split()
-            if t.lower() not in _PL_STOPWORDS
-        ]
-        _cleaned_remainder = " ".join(_rem_tokens_clean).strip()
-        if _cleaned_remainder:
-            # Check if remainder contains a brand name ANYWHERE (not just at start).
-            # "operatorska canon r6" → brand "Canon" found at position 1.
-            # _detect_brand_intent only checks the start, so also try
-            # each token position as a potential brand start.
-            _rem_brand = _detect_brand_intent(_cleaned_remainder.lower())
-            if not _rem_brand:
-                _rem_words = _cleaned_remainder.lower().split()
-                for _wi in range(1, len(_rem_words)):
-                    _sub = " ".join(_rem_words[_wi:])
-                    _rem_brand = _detect_brand_intent(_sub)
-                    if _rem_brand:
-                        break
-            if _rem_brand:
-                _cat_alias_key = _matched_cat_alias_key or ""
-                if _cat_alias_key.lower() in MAIN_PRODUCT_ALIASES:
-                    # ── PATH A: Main product + brand/model ──
-                    # "obiektyw do canon R6" → keep lens filter, search "canon R6" within lenses
-                    # "lampa do sony" → keep lamp filter, search "sony" within lamps
-                    _product_for_brand_intent = True
-                    # Strip stopwords from remainder to get clean text
-                    _cat_remainder_text = _cleaned_remainder
-                    # Rewrite query for ES: strip stopwords but KEEP category keyword
-                    # "obiektyw do canon R6" → "obiektyw canon R6"
-                    q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
-                    q_lower = q.lower().strip()
-                    q_words = set(q_lower.split())
-                    q_for_es = q
-                else:
-                    # ── PATH B: Accessory + brand/model ──
-                    # "akumulator do canon R6" → cancel category, accessory scoring
-                    _cat_tokens_orig = _cat_check_text.split()
-                    if _cat_tokens_orig:
-                        _accessory_keyword_from_cat = _cat_tokens_orig[0]
-                    _accessory_brand_from_cat = _rem_brand   # e.g. "Canon"
-                    # Extract model part from remainder (everything after brand name)
-                    # "canon r6" → brand="Canon", model="r6"
-                    # "canon eos r6 mark ii" → brand="Canon", model="eos r6 mark ii"
-                    _brand_lower_tokens = _rem_brand.lower().split()
-                    _rem_lower_tokens = _cleaned_remainder.lower().split()
-                    # Find where brand ends in the cleaned remainder
-                    _model_start = 0
-                    for _bi, _bt in enumerate(_brand_lower_tokens):
-                        if _bi < len(_rem_lower_tokens) and _rem_lower_tokens[_bi] == _bt:
-                            _model_start = _bi + 1
-                    _model_tokens = _rem_lower_tokens[_model_start:]
-                    if _model_tokens:
-                        # Preserve original casing from _cleaned_remainder
-                        _orig_tokens = _cleaned_remainder.split()
-                        _accessory_model_from_cat = " ".join(_orig_tokens[_model_start:]).strip()
-                    # Cancel category filter, fall through to standard text search
-                    matched_subcategories = None
-                    _cat_remainder_text = ""
-                    # Rewrite query to strip stopwords
-                    q = " ".join(t for t in q.split() if t.lower() not in _PL_STOPWORDS)
-                    # Synonym rewrite: "bateria"/"baterie" → also include "akumulator"
-                    # Camera batteries use "akumulator" or "zamiennik" in product names,
-                    # not "bateria". Without this rewrite, products with "bateria" in name
-                    # (flash batteries, printer batteries) get unfairly high BM25 scores.
-                    _BATTERY_SYNONYMS = {"bateria": "akumulator", "baterie": "akumulator"}
-                    if _accessory_keyword_from_cat and _accessory_keyword_from_cat in _BATTERY_SYNONYMS:
-                        _syn = _BATTERY_SYNONYMS[_accessory_keyword_from_cat]
-                        # Replace "bateria" → "akumulator" in query for ES text matching
-                        q = " ".join(
-                            _syn if t.lower() == _accessory_keyword_from_cat else t
-                            for t in q.split()
-                        )
-                    q_lower = q.lower().strip()
-                    q_words = set(q_lower.split())
-                    q_for_es = q
-            else:
-                _cat_remainder_text = _cleaned_remainder
-        # If after stripping stopwords nothing remains, keep it empty (pure category browse)
-        else:
-            _cat_remainder_text = ""
-
     if not matched_subcategories and not _brand_intent and _cat_check_text:
         q_folded = _fold_polish(_cat_check_text)
         if _subcategory_set:
@@ -1216,8 +664,75 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # Key insight: use boost_mode="sum" so popularity is ADDED to BM25 (not multiplied)
     # This prevents small accessories with repeated brand name from dominating flagships
 
-    # Build the core bool query — if category intent detected, add a strong category filter
-    if matched_subcategories:
+    # Build the core bool query — priority: mount-intent > category-intent > text-matching
+    if _mount_intent:
+        # Mount-intent query: "Canon EF", "Nikon F", etc.
+        # Strategy: filter to brand + lens subcategories, require mount keyword in name,
+        # and optionally match additional text (e.g. "Canon EF 50mm" → text="50mm")
+        _mount_subcats = _mount_intent["subcategories"]
+        _mount_phrases = _mount_intent["name_phrases"]
+        _mount_exclude = _mount_intent.get("name_exclude_re")
+
+        # Build name filter: product name must contain at least one mount phrase
+        # Use "should" with minimum_should_match=1 so any phrase variant matches
+        _name_phrase_clauses = [
+            {"match_phrase": {"name": {"query": phrase, "slop": 0}}}
+            for phrase in _mount_phrases
+        ]
+        _name_filter = (
+            _name_phrase_clauses[0]
+            if len(_name_phrase_clauses) == 1
+            else {"bool": {"should": _name_phrase_clauses, "minimum_should_match": 1}}
+        )
+
+        # Combine filters: brand + subcategory + name phrase
+        _mount_filters: list[dict] = [
+            {"term": {"brand": _brand_intent}},
+            {"terms": {"subcategory": _mount_subcats}},
+            _name_filter,
+        ]
+
+        # Optional: exclude products with certain mount keywords in name
+        # (e.g. exclude RF lenses from "Canon EF" results, exclude Nikkor Z from "Nikon F" results)
+        _mount_exclude_phrases = _mount_intent.get("name_exclude_phrases", [])
+        _mount_must_not: list[dict] = [
+            {"match_phrase": {"name": {"query": phrase}}}
+            for phrase in _mount_exclude_phrases
+            if phrase
+        ]
+
+        if _mount_remainder:
+            # Mount + additional text: "Canon EF 50mm" → match "50mm" within mount-filtered results
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": _mount_remainder,
+                                "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
+                                           "name.folded^2"],
+                                "fuzziness": "AUTO",
+                                "prefix_length": 2,
+                                "minimum_should_match": "70%",
+                            }
+                        }
+                    ],
+                    "filter": _mount_filters,
+                    "must_not": _mount_must_not,
+                }
+            }
+        else:
+            # Pure mount browse: "Canon EF" → all EF lenses ranked by popularity
+            product_bool_query = {
+                "bool": {
+                    "must": [{"match_all": {}}],
+                    "filter": _mount_filters,
+                    "must_not": _mount_must_not,
+                }
+            }
+        # Override category detection — mount-intent takes priority
+        matched_subcategories = _mount_subcats
+    elif matched_subcategories:
         # Category-intent query: filter to subcategories.
         # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
         subcat_filter = (
@@ -1234,61 +749,24 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
         if _cat_remainder_text:
             # Category + additional text (e.g. "klatka sony a7 iv" → cat=klatki, text="sony a7 iv")
-            # Use text matching within the category filter so results are relevant to remainder.
-            #
-            # For "product-for-brand" queries (obiektyw do canon R6, klatka do canon r6):
-            # Use should (boost) instead of must, because the model name (R6) may not
-            # appear in the product name (Canon RF lenses don't say "R6" in title).
-            # Also add match_phrase for precise model matching ("canon r6" phrase).
-            _cat_text_clauses = [
-                {
-                    "multi_match": {
-                        "query": _cat_remainder_text,
-                        "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
-                                   "name.folded^2", "brand^3", "description^1"],
-                        "fuzziness": "AUTO",
-                        "prefix_length": 2,
-                        "minimum_should_match": "1" if _product_for_brand_intent else "70%",
-                    }
-                },
-            ]
-            if _product_for_brand_intent:
-                # Strong phrase match for model specificity: "canon r6" as phrase
-                # "Klatka do Canon EOS R6" has "Canon...R6" → high phrase score
-                # "Klatka do Canon EOS R8" does NOT match "canon r6" phrase → no boost
-                _cat_text_clauses.append({
-                    "match_phrase": {
-                        "name": {"query": _cat_remainder_text, "boost": 50, "slop": 3}
-                    }
-                })
-                _cat_text_clauses.append({
-                    "match_phrase": {
-                        "description": {"query": _cat_remainder_text, "boost": 15, "slop": 4}
-                    }
-                })
-                # Also add individual token matches with HIGH boost for each word
-                # so "R6" appearing in name gives strong signal even without phrase match
-                _rem_tokens = _cat_remainder_text.split()
-                for _rt in _rem_tokens:
-                    if len(_rt) >= 2:
-                        _cat_text_clauses.append({
-                            "match": {"name": {"query": _rt, "boost": 8}}
-                        })
-            if _product_for_brand_intent:
-                product_bool_query = {
-                    "bool": {
-                        "should": _cat_text_clauses,
-                        "minimum_should_match": 1,
-                        "filter": [_all_cat_filters],
-                    }
+            # Use text matching within the category filter so results are relevant to remainder
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": _cat_remainder_text,
+                                "fields": ["name^3", "name.prefix^2", "name.morfologik^2",
+                                           "name.folded^2", "brand^3"],
+                                "fuzziness": "AUTO",
+                                "prefix_length": 2,
+                                "minimum_should_match": "70%",
+                            }
+                        }
+                    ],
+                    "filter": [_all_cat_filters],
                 }
-            else:
-                product_bool_query = {
-                    "bool": {
-                        "must": _cat_text_clauses,
-                        "filter": [_all_cat_filters],
-                    }
-                }
+            }
         else:
             # Pure category browse (e.g. "lampa", "karta sd") — constant_score
             # so BM25 text relevance does NOT affect ranking
@@ -1305,79 +783,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # When brand-intent detected, reduce phrase match boosts so that
         # function_score signals (brand +300, main_cat +1000, price) can outweigh
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
-        # BUT keep boost high enough so "sigma 15 1.4" beats "sigma 85 1.4" via phrase proximity
-        #
-        # Model-number intent: when brand-intent is active and the remainder
-        # looks like a specific model code (short, contains digits), the user is
-        # searching for an EXACT product model. In that case, phrase matching
-        # should strongly dominate over popularity-based ranking.
-        # Examples: "smallrig 220B", "canon r8", "sony a7iv", "godox v1"
-        _model_number_intent = False
-        if _brand_intent:
-            _brand_lower = _brand_intent.lower()
-            _remainder = q_lower.replace(_brand_lower, "").strip()
-            # Also check alias form
-            for _al, _cn in BRAND_ALIASES.items():
-                if _cn == _brand_lower and _al in q_lower:
-                    _r2 = q_lower.replace(_al, "").strip()
-                    if len(_r2) < len(_remainder):
-                        _remainder = _r2
-            # Model-number intent: remainder must be a specific model code.
-            # Requires at least 2 "specificity points" to avoid false positives.
-            # Scoring: each digit = 1 point, roman numeral token = 1 point,
-            # short alphanumeric token (≤4 chars with both letters+digits) = 1 point.
-            # "smallrig 220B" (3 digits + alphanum) → 4 pts → model intent.
-            # "sony a7 iv" (1 digit + roman + alphanum) → 3 pts → model intent.
-            # "insta360 go 3s" (1 digit + alphanum "3s") → 2 pts → model intent.
-            # "canon r8" (1 digit + alphanum "r8") → 2 pts → model intent.
-            _ROMAN_SET = {"ii", "iii", "iv", "v"}
-            _rem_tokens = _remainder.split()
-            _total_digits = sum(c.isdigit() for c in _remainder)
-            _roman_bonus = sum(1 for t in _rem_tokens if t in _ROMAN_SET)
-            # Alphanumeric token bonus: tokens mixing letters+digits (e.g. "3s", "a7", "r8")
-            # are strong model identifiers. Count each as 2 points (even if only 1 digit).
-            # This ensures "insta360 go 3s" (1 digit + alphanumeric bonus) → 2 pts → intent.
-            _alphanum_bonus = sum(
-                1 for t in _rem_tokens
-                if (any(c.isdigit() for c in t) and any(c.isalpha() for c in t)
-                    and len(t) <= 4 and t not in _ROMAN_SET)
-            )
-            _specificity = _total_digits + _roman_bonus + _alphanum_bonus
-            if (1 <= len(_rem_tokens) <= 3
-                and _specificity >= 2
-                and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
-                _model_number_intent = True
-            # Also trigger for very specific long queries (e.g. "35 mm f/1.4 sony fe")
-            # These are full product name searches where phrase match should dominate.
-            # Heuristic: >3 tokens with ≥2 digits = user knows exactly what they want.
-            elif (len(_rem_tokens) > 3
-                  and _total_digits >= 2
-                  and any(any(c.isdigit() for c in t) for t in _rem_tokens)):
-                _model_number_intent = True
-
-        # Accessory-intent: when brand + remainder contains an accessory keyword,
-        # the user is looking for a specific accessory, not a camera/lens.
-        # Reduce main_cat_weight so cameras don't dominate over adapters, batteries etc.
-        _ACCESSORY_KEYWORDS = {"adapter", "adaptor", "ładowarka", "ladowarka", "bateria",
-                               "akumulator", "grip", "pasek", "torba", "plecak", "filtr",
-                               "kabel", "osłona", "oslona", "pokrywka", "zasilacz", "pilot",
-                               "konwerter", "lampa", "statyw", "cage", "klatka"}
-        _accessory_intent = False
-        if _brand_intent and _remainder:
-            _rem_words = set(_remainder.split())
-            if _rem_words & _ACCESSORY_KEYWORDS:
-                _accessory_intent = True
-
-        if _model_number_intent:
-            # Specific model search: phrase must dominate
-            _phrase_boost = 80
-            _phrase_prefix_boost = 15
-        elif _brand_intent:
-            _phrase_boost = 30
-            _phrase_prefix_boost = 5
-        else:
-            _phrase_boost = 50
-            _phrase_prefix_boost = 5
+        _phrase_boost = 10 if _brand_intent else 50
+        _phrase_prefix_boost = 2 if _brand_intent else 5
 
         # Focal-length intent: filter to lens subcategories and require phrase match
         _focal_filter = (
@@ -1394,310 +801,48 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _brand_intent else []
         )
 
-        # ── Model code variant generation ──
-        # Many photo/video products use letter+number codes: B300, G200, X100, R5, A7
-        # Users often drop the letter prefix: "molus 300" instead of "molus b300"
-        # Generate match_phrase variants with common letter prefixes prepended to numbers.
-        #
-        # Also handles alphanumeric codes where user INCLUDES the letter:
-        # "220B" → also try without the letter ("220") with all prefixes → "a220", "b220" etc.
-        # This helps when ES tokenizes "RC 220B" differently from user's "220B".
-        _ROMAN_NUMS = {"ii", "iii", "iv", "v"}
-        _model_variant_phrases = []
-        _q_tokens = q_for_es.lower().split()
-        for _i, _tok in enumerate(_q_tokens):
-            # Case 1: Pure digits (e.g. "300") → generate "a300", "b300", ...
-            if _tok.isdigit() and len(_tok) >= 2:
-                for _pre in "abcdefghijklmnoprstuvwxyz":
-                    _vtokens = _q_tokens[:_i] + [_pre + _tok] + _q_tokens[_i+1:]
-                    _model_variant_phrases.append(" ".join(_vtokens))
-            # Case 2: Digits + trailing letter(s) (e.g. "220b", "100d", "r5c")
-            # Strip trailing letters and generate variants with different prefixes
-            elif len(_tok) >= 2 and not _tok.isalpha():
-                _m = re.match(r'^(\d{2,})([a-z]{1,2})$', _tok)
-                if _m:
-                    # "220b" → digits="220", suffix="b"
-                    _digits = _m.group(1)
-                    _suffix = _m.group(2)
-                    # Generate variants swapping the suffix letter
-                    for _pre in "abcdefghijklmnoprstuvwxyz":
-                        if _pre != _suffix:
-                            _vtokens = _q_tokens[:_i] + [_digits + _pre] + _q_tokens[_i+1:]
-                            _model_variant_phrases.append(" ".join(_vtokens))
-                # Also check leading letter + digits: "r5" → "a5", "b5", ...
-                _m2 = re.match(r'^([a-z])(\d{1,})$', _tok)
-                if _m2 and len(_tok) >= 2:
-                    _letter = _m2.group(1)
-                    _digits2 = _m2.group(2)
-                    for _pre in "abcdefghijklmnoprstuvwxyz":
-                        if _pre != _letter:
-                            _vtokens = _q_tokens[:_i] + [_pre + _digits2] + _q_tokens[_i+1:]
-                            _model_variant_phrases.append(" ".join(_vtokens))
-
-            # Case 3: Model + Roman numeral concatenation
-            # Products like "Nikon Z5II" are indexed as single token "z5ii" but users
-            # type "z5 II" (two tokens). Generate concatenated variant: "z5" + "ii" → "z5ii"
-            # Pattern: alphanumeric token (e.g. "z5", "z6", "z50") followed by roman numeral
-            if (_i + 1 < len(_q_tokens)
-                and _q_tokens[_i + 1] in _ROMAN_NUMS
-                and re.match(r'^[a-z]\d+$', _tok)):
-                _concat = _tok + _q_tokens[_i + 1]  # "z5" + "ii" → "z5ii"
-                _vtokens = _q_tokens[:_i] + [_concat] + _q_tokens[_i+2:]
-                _model_variant_phrases.append(" ".join(_vtokens))
-
-            # Case 4: Standalone Roman numeral → prepend "mark" to match ES tokenization
-            # ES mark_normalizer char filter concatenates "mark III" → "markiii" in the index.
-            # Users type "canon r6III" → normalized to "canon r6 iii" → tokens ["canon","r6","iii"]
-            # but the index has "markiii" as a single token. Generate variant with "mark" prepended:
-            # "canon r6 iii" → "canon r6 markiii"
-            if (_tok in _ROMAN_NUMS
-                and _i > 0):
-                _mark_concat = "mark" + _tok  # "iii" → "markiii"
-                _vtokens = _q_tokens[:_i] + [_mark_concat] + _q_tokens[_i+1:]
-                _model_variant_phrases.append(" ".join(_vtokens))
-
-            # Case 5: Letters + trailing digit(s) → append letters to find suffixed variants.
-            # Users type "sony fx3" but product is "Sony ILME-FX3A" — "fx3a" is the full code.
-            # Pattern: 2+ letters followed by 1+ digits (e.g. "fx3", "fx30", "sl60").
-            # Generate: "fx3a", "fx3b", ... (only common suffixes, not full alphabet)
-            _m5 = re.match(r'^([a-z]{2,})(\d+)$', _tok)
-            if _m5 and len(_tok) >= 3:
-                _base = _tok  # "fx3"
-                for _suf in "abcdefghijklmnoprstuvwxyz":
-                    _vtokens = _q_tokens[:_i] + [_base + _suf] + _q_tokens[_i+1:]
-                    _model_variant_phrases.append(" ".join(_vtokens))
-
-        # When model-number intent detected, add a focused match on the remainder
-        # (model code only, without brand). This avoids IDF dilution from the brand
-        # token that appears in ALL products when brand filter is active.
-        _model_remainder_clauses = []
-        _model_remainder2 = None
-        if _model_number_intent and _brand_intent:
-            _brand_lower2 = _brand_intent.lower()
-            _model_remainder2 = q_for_es.lower().replace(_brand_lower2, "").strip()
-            if _model_remainder2:
-                # _normalize_model_query inserts spaces at digit→letter boundaries:
-                # "220B" → "220 B". But ES indexes "220B" as single token "220b"
-                # (split_on_numerics=false). We need BOTH forms for matching:
-                # - "220 b" for search-time analyzer (standard tokenizer splits it)
-                # - "220b" (concatenated) for direct token match in index
-                _rem_concat = re.sub(r'\s+', '', _model_remainder2)  # "220 b" → "220b"
-                _model_remainder_clauses = [
-                    # Concatenated form — matches ES index token directly
-                    {"match_phrase": {"name": {"query": _rem_concat, "boost": 300, "slop": 0}}},
-                    # Spaced form — matches via search analyzer tokenization
-                    {"match_phrase": {"name": {"query": _model_remainder2, "boost": 200, "slop": 2}}},
-                    # Sub-field with different analyzer
-                    {"match_phrase": {"name.folded": {"query": _rem_concat, "boost": 200, "slop": 0}}},
-                ]
-                # Alpha→digit split for remainder: "pro1000" → "pro-1000" / "pro 1000"
-                # Users type "Pro1000" but product has "Pro-1000" (tokens "pro" + "1000")
-                _re_ad = re.compile(r'([a-zA-Z])(\d)')
-                if _re_ad.search(_rem_concat):
-                    _rem_hyphen = _re_ad.sub(r'\1-\2', _rem_concat)
-                    _rem_spaced = _re_ad.sub(r'\1 \2', _rem_concat)
-                    if _rem_hyphen != _rem_concat:
-                        _model_remainder_clauses.extend([
-                            {"match_phrase": {"name": {"query": _rem_hyphen, "boost": 300, "slop": 1}}},
-                            {"match_phrase": {"name.folded": {"query": _rem_hyphen, "boost": 250, "slop": 1}}},
-                        ])
-                    if _rem_spaced != _rem_concat and _rem_spaced != _model_remainder2:
-                        _model_remainder_clauses.extend([
-                            {"match_phrase": {"name": {"query": _rem_spaced, "boost": 250, "slop": 1}}},
-                        ])
-                # If remainder ends with a roman numeral, also try "mark" + roman variant.
-                # E.g. remainder "r6 iii" → also try "r6 markiii" (ES indexes "mark III" as "markiii")
-                _rem_tokens2 = _model_remainder2.split()
-                if _rem_tokens2 and _rem_tokens2[-1] in {"ii", "iii", "iv", "v"}:
-                    _mark_rem = " ".join(_rem_tokens2[:-1]) + " mark" + _rem_tokens2[-1]
-                    _mark_rem_concat = re.sub(r'\s+', '', _mark_rem)
-                    _model_remainder_clauses.extend([
-                        {"match_phrase": {"name": {"query": _mark_rem, "boost": 250, "slop": 2}}},
-                        {"match_phrase": {"name": {"query": _mark_rem_concat, "boost": 250, "slop": 0}}},
-                    ])
-
-        # For accessory+brand queries ("akumulator canon"), require MORE tokens to match.
-        # With 70% and 2 tokens, only 1 token needs to match (70% of 2 = 1.4 → 1),
-        # which lets products with just "Canon" in name through (flash/printer batteries).
-        # For 3+ tokens ("akumulator canon r6"), 70% of 3 = 2.1 → 2 is OK.
-        _q_token_count = len(q_for_es.split())
-        if _accessory_keyword_from_cat and _q_token_count <= 2:
-            _mm_pct = "100%"  # "akumulator canon" → both must match
-        else:
-            _mm_pct = "70%"
-
-        # For accessory+brand queries, use a simpler, more constrained query structure.
-        # The standard should-based query has too many clauses that let wrong products
-        # through (flash batteries matching "Canon", cages matching "R6").
-        # Instead: put the main multi_match in "must" so products MUST match the tokens.
-        if _accessory_keyword_from_cat:
-            product_bool_query = {
-                "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": q_for_es,
-                                "type": "best_fields",
-                                "fields": [
-                                    "name^3", "name.prefix^2",
-                                    "name.morfologik^2", "name.folded^2",
-                                    "brand^3", "description^1",
-                                ],
-                                "fuzziness": "AUTO",
-                                "prefix_length": 2,
-                                "minimum_should_match": _mm_pct,
-                            }
-                        },
-                    ],
-                    "should": [
-                        {"match_phrase": {"name": {"query": q_for_es, "boost": 30, "slop": 3}}},
-                        # Roman ↔ Arabic variants for accessory queries
-                        *[
-                            {"match_phrase": {"name": {"query": rv, "boost": 20, "slop": 2}}}
-                            for rv in _roman_arabic_variants(q_for_es)
-                        ],
-                    ],
-                    "filter": _brand_filter + _focal_filter + (
-                        [{"multi_match": {
-                            "query": _accessory_brand_from_cat,
-                            "fields": ["name", "name.folded", "description", "brand"],
+        product_bool_query = {
+            "bool": {
+                "should": [
+                    {
+                        "multi_match": {
+                            "query": q_for_es,
                             "type": "best_fields",
-                        }}]
-                        if _accessory_brand_from_cat else []
-                    ),
-                }
+                            "fields": [
+                                "name^3", "name.prefix^2",
+                                "name.morfologik^2", "name.folded^2",
+                                "brand^3", "sku^6", "ean^6",
+                                "manufacturer_code^8", "id_erp^8",
+                            ],
+                            "fuzziness": "AUTO",
+                            "prefix_length": 2,
+                            "minimum_should_match": "70%",
+                        }
+                    },
+                    {
+                        "match_phrase": {
+                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 2}
+                        }
+                    },
+                    {
+                        "match_phrase_prefix": {
+                            "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
+                        }
+                    },
+                    # Exact-match on keyword fields (case-sensitive) for product codes
+                    {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
+                    {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
+                    # Case-insensitive fallback (uppercase variant)
+                    {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
+                    {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
+                ],
+                "minimum_should_match": 1,
+                # Filters: brand-intent + focal-length intent (both optional)
+                "filter": _brand_filter + _focal_filter,
             }
-        else:
-            product_bool_query = {
-                "bool": {
-                    "should": [
-                        {
-                            "multi_match": {
-                                "query": q_for_es,
-                                "type": "best_fields",
-                                "fields": [
-                                    "name^3", "name.prefix^2",
-                                    "name.morfologik^2", "name.folded^2",
-                                    "brand^3", "sku^6", "ean^6",
-                                    "manufacturer_code^8", "id_erp^8",
-                                ],
-                                "fuzziness": "AUTO",
-                                "prefix_length": 2,
-                                "minimum_should_match": _mm_pct,
-                            }
-                        },
-                        {
-                            "match_phrase": {
-                                "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 3}
-                            }
-                        },
-                        # Model-number remainder match — high boost, no IDF dilution from brand
-                        *_model_remainder_clauses,
-                        {
-                            "match_phrase_prefix": {
-                                "name": {"query": q_for_es, "boost": _phrase_prefix_boost}
-                            }
-                        },
-                        # Model code variants: "molus 300" → try "molus b300", "molus g300" etc.
-                        *[
-                            {"match_phrase": {"name": {"query": v, "boost": _phrase_boost * 2, "slop": 2}}}
-                            for v in _model_variant_phrases[:26]
-                        ],
-                        # Original unsplit query fallback
-                        *(
-                            [
-                                {"match_phrase": {"name": {"query": q_original, "boost": _phrase_boost * 3, "slop": 1}}},
-                                {"match_phrase": {"name.folded": {"query": q_original, "boost": _phrase_boost * 2, "slop": 1}}},
-                                {"match": {"name": {"query": q_original, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
-                            ]
-                            if q_original.lower() != q_for_es.lower() else []
-                        ),
-                        # Exact-match on keyword fields (case-sensitive) for product codes
-                        {"term": {"manufacturer_code": {"value": q_trimmed, "boost": 100}}},
-                        {"term": {"id_erp": {"value": q_trimmed, "boost": 100}}},
-                        {"term": {"sku": {"value": q_trimmed, "boost": 100}}},
-                        {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
-                        # Case-insensitive fallback (uppercase variant)
-                        {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
-                        {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
-                        # Original query on keyword fields (when normalization changed the query)
-                        *(
-                            [
-                                {"term": {"manufacturer_code": {"value": q_original, "boost": 100}}},
-                                {"term": {"sku": {"value": q_original, "boost": 100}}},
-                            ]
-                            if q_original != q_trimmed else []
-                        ),
-                        # Alpha→digit split variants
-                        *(
-                            [
-                                {"match_phrase": {"name": {"query": _q_hyphen_variant, "boost": _phrase_boost * 3, "slop": 1}}},
-                                {"match_phrase": {"name.folded": {"query": _q_hyphen_variant, "boost": _phrase_boost * 2, "slop": 1}}},
-                            ]
-                            if _q_hyphen_variant else []
-                        ),
-                        *(
-                            [
-                                {"match_phrase": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost * 2, "slop": 1}}},
-                                {"match": {"name": {"query": _q_spaced_variant, "boost": _phrase_boost, "fuzziness": "AUTO"}}},
-                            ]
-                            if _q_spaced_variant else []
-                        ),
-                        # Roman ↔ Arabic numeral variants
-                        # "sony a7 iii" → also search "sony a7 3" and vice versa
-                        *[
-                            {"match_phrase": {"name": {"query": rv, "boost": _phrase_boost * 2, "slop": 2}}}
-                            for rv in _roman_arabic_variants(q_for_es)
-                        ],
-                        # F-number variants: "f/1.4" → also match "f1.4", "f/1,4"
-                        *[
-                            {"match_phrase": {"name": {"query": fv, "boost": 20, "slop": 1}}}
-                            for fv in _fnumber_variants
-                        ],
-                        # Synonym expansion: additional should-clauses from
-                        # EN→PL mappings and bidirectional synonym groups
-                        *[
-                            {"multi_match": {
-                                "query": _syn_exp,
-                                "fields": ["name^2", "name.folded^1.5", "name.morfologik"],
-                                "type": "best_fields",
-                                "boost": 15,
-                            }}
-                            for _syn_exp in _synonym_extra_phrases
-                        ],
-                    ],
-                    "minimum_should_match": 1,
-                    "filter": _brand_filter + _focal_filter,
-                }
-            }
-
-    # ── Condition filter: hard-filter to "used" when user explicitly wants used products ──
-    # This is a FILTER (not a boost) so that new products are completely excluded.
-    # Boost alone (weight:200) was too weak vs model-match (+2000) and popularity.
-    if _used_intent:
-        # Inject {"term": {"condition": "used"}} into the bool filter clause
-        if isinstance(product_bool_query.get("bool"), dict):
-            _existing_filter = product_bool_query["bool"].get("filter", [])
-            if isinstance(_existing_filter, dict):
-                _existing_filter = [_existing_filter]
-            elif not isinstance(_existing_filter, list):
-                _existing_filter = []
-            _existing_filter.append({"term": {"condition": "used"}})
-            product_bool_query["bool"]["filter"] = _existing_filter
-        elif isinstance(product_bool_query.get("constant_score"), dict):
-            # Wrap constant_score filter with condition filter
-            _cs_filter = product_bool_query["constant_score"]["filter"]
-            product_bool_query["constant_score"]["filter"] = {
-                "bool": {"must": [_cs_filter, {"term": {"condition": "used"}}]}
-            }
-        else:
-            # Fallback: wrap entire query in bool+filter
-            product_bool_query = {
-                "bool": {
-                    "must": [product_bool_query],
-                    "filter": [{"term": {"condition": "used"}}],
-                }
-            }
+        }
 
     # ── Build function_score functions based on query type ──
     if matched_subcategories:
@@ -1761,25 +906,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 if _used_intent else
                 [{"filter": {"term": {"condition": "new"}}, "weight": 25}]
             ),
-            # ── Product-for-brand model matching ──
-            # "klatka do canon r6" → massive boost for products with "R6" in name.
-            # This must be in function_score (not just BM25 should) because category
-            # scoring uses sqrt(pageviews)*50 which can give 1000+ points, easily
-            # drowning out BM25 text-match differences.
-            *(
-                [
-                    # Full phrase match: "Canon...R6" (slop=3) → +2000
-                    {"filter": {"match_phrase": {"name": {"query": _cat_remainder_text, "slop": 3}}}, "weight": 2000},
-                    # Individual model tokens: each non-brand word gets a boost
-                    # For "canon r6": "r6" → +500 per matching product
-                    *[
-                        {"filter": {"match": {"name": _rt}}, "weight": 500}
-                        for _rt in _cat_remainder_text.split()
-                        if len(_rt) >= 2 and _rt.lower() not in _brand_set
-                    ],
-                ]
-                if _product_for_brand_intent and _cat_remainder_text else []
-            ),
         ]
     else:
         # Standard text-matching: brand queries like "canon", "sony a7" etc.
@@ -1788,64 +914,30 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Brand-intent: when detected, boost products of that brand (+300)
         # and strongly boost main categories (+1000) so cameras/lenses beat
         # accessories, scopes, and other non-core products of the same brand.
-        #
-        # Model-number intent: when user searches for a specific model (brand + digits),
-        # REDUCE popularity/price influence so that text relevance (match_phrase)
-        # can dominate. This ensures "smallrig 220B" → RC 220B, not random popular items.
-        if _model_number_intent:
-            _main_cat_weight = 100  # low — model specificity matters more
-            _price_weight = 5       # minimal — price doesn't determine model match
-            _pop_weight = 15        # reduced — popularity shouldn't override exact model match
-            _sales_weight = 5       # reduced
-            _brand_weight = 200     # still useful but lower than standard brand-intent
-        elif _accessory_intent:
-            # User searching for brand + accessory (e.g. "canon adapter", "sony ładowarka")
-            # Don't boost main categories (cameras/lenses) — let text matching decide
-            _main_cat_weight = 0    # no camera/lens bias
-            _price_weight = 10      # moderate — adapters cheaper than cameras is fine
-            _pop_weight = 40        # moderate popularity influence
-            _sales_weight = 15      # moderate
-            _brand_weight = 300     # still filter to brand
-        elif _brand_intent:
-            _main_cat_weight = 1000
-            _price_weight = 30
-            _pop_weight = 80
-            _sales_weight = 30
-            _brand_weight = 300
-        elif _accessory_keyword_from_cat:
-            # Query like "akumulator do canon r6" — user wants accessories, not cameras.
-            # Suppress main category boost (cameras/lenses), reduce price/popularity
-            # so that text relevance + accessory-keyword category boost can dominate.
-            _main_cat_weight = 0     # no camera/lens bias
-            _price_weight = 5        # cheap accessories are fine
-            _pop_weight = 30         # reduced — niche products have low popularity
-            _sales_weight = 10
-            _brand_weight = 0        # no brand detected
-        else:
-            _main_cat_weight = 120
-            _price_weight = 15
-            _pop_weight = 80
-            _sales_weight = 30
-            _brand_weight = 0  # no brand detected
-
+        _main_cat_weight = 1000 if _brand_intent else 120
+        _price_weight = 30 if _brand_intent else 15
         scoring_functions = [
             # Brand-intent boost — if user searches a brand, prefer that brand's products
             *(
-                [{"filter": {"term": {"brand": _brand_intent}}, "weight": _brand_weight}]
+                [{"filter": {"term": {"brand": _brand_intent}}, "weight": 300}]
                 if _brand_intent else []
             ),
-            # Popularity — strongest signal for generic queries, reduced for model-number queries
+            # Popularity — strongest signal
             {
                 "field_value_factor": {
                     "field": "ga4.popularity_score",
                     "factor": 1.5, "modifier": "log1p", "missing": 0,
                 },
-                "weight": _pop_weight,
+                "weight": 80,
             },
-            # Sales volume boost (30-day) — recent sales signal
-            # NOTE: sales_30d / sales_365d fields are NOT in ES — sales boost is
-            # applied post-ES via _sales_boost() in product parsing.
-            # This avoids writing sales data to ES at startup (which blocks deploy).
+            # Sales volume boost
+            {
+                "field_value_factor": {
+                    "field": "sales_30d",
+                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 30,
+            },
             # Price tier boost — flagship products more relevant for brand queries
             # Higher weight when brand-intent (prefer cameras over lens caps)
             {
@@ -1859,8 +951,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"availability": "in_stock"}}, "weight": 50},
             # na_zamowienie — available for order, less than in_stock but above out_of_stock
             {"filter": {"term": {"availability": "na_zamowienie"}}, "weight": 30},
-            # Bestseller — strong signal (reduced for model-number intent)
-            {"filter": {"term": {"is_bestseller": True}}, "weight": 20 if _model_number_intent else 60},
+            # Bestseller — strong signal
+            {"filter": {"term": {"is_bestseller": True}}, "weight": 60},
             # Main product categories get boosted over accessories
             # Much higher weight when brand-intent detected (cameras > scopes/lens caps)
             {"filter": {"terms": {"subcategory": [
@@ -1875,159 +967,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             {"filter": {"term": {"is_promo": True}}, "weight": 20},
             # New products (cold start problem solver)
             {"filter": {"term": {"is_new": True}}, "weight": 30},
-            # ── Accessory-keyword boosts ──
-            # When query starts with "akumulator"/"bateria" + brand, two boosts:
-            # 1) Subcategory boost: products in battery/charger subcategories (+300)
-            # 2) Name match boost: products with the exact keyword in name (+200)
-            #    "Patona Akumulator LP-E6N" has "akumulator" in name → +200
-            #    "Canon CG-A10 do akumulatorów" has "akumulatorów" (genitive) → lower match
-            *(
-                [
-                    {"filter": {"terms": {"subcategory":
-                        CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
-                        ["do Canon", "do Sony", "do Nikon", "do Fujifilm", "do Panasonic",
-                         "do Olympus", "do Leica", "do Pentax", "do Sigma",
-                         "ładowarki", "zasilanie", "akcesoria do zasilania",
-                         "akumulatory i ładowarki", "V-lock", "do V-Mount"]
-                    }}, "weight": 300},
-                    {"filter": {"match_phrase": {"name": _accessory_keyword_from_cat}}, "weight": 200},
-                ]
-                if _accessory_keyword_from_cat else []
-            ),
-            # ── Pure-product preference for accessory queries ──
-            # When searching "akumulator do canon", prefer pure batteries over
-            # charger+battery SETS and standalone chargers.
-            # Pure batteries: "Newell zamiennik LP-E6NH", "Patona Akumulator LP-E6N"
-            # Charger sets: "Newell dwukanałowa DL-USB-C i akumulator LP-E17"
-            # Chargers: "Canon CG-A10 do akumulatorów Canon", "Newell DC-USB do akumulatorów"
-            #
-            # Strategy: boost products that do NOT contain charger-indicating words.
-            # A bool.must_not filter inside function_score matches products WITHOUT
-            # "ładowark" or "dwukanałow" in name → those get the extra weight.
-            *(
-                [
-                    # +400 for products WITHOUT charger/printer/flash/adapter words in name
-                    # = pure camera batteries. Uses multiple match clauses for precision:
-                    {"filter": {"bool": {"must_not": [
-                        # Chargers
-                        {"multi_match": {
-                            "query": "ładowarka dwukanałowa ładowarki DC-USB CG- Charger",
-                            "fields": ["name", "name.morfologik"],
-                            "type": "best_fields",
-                            "minimum_should_match": "1",
-                        }},
-                        # Printer batteries
-                        {"multi_match": {
-                            "query": "drukarka drukarki drukarek",
-                            "fields": ["name", "name.morfologik"],
-                            "type": "best_fields",
-                            "minimum_should_match": "1",
-                        }},
-                        # Flash batteries (Speedlite LP-EL is Canon flash battery)
-                        {"multi_match": {
-                            "query": "błyskowych Speedlite LP-EL",
-                            "fields": ["name", "name.morfologik", "name.folded"],
-                            "type": "best_fields",
-                            "minimum_should_match": "1",
-                        }},
-                        # Dummy adapters, cables, battery grips, toner/ink sets
-                        {"multi_match": {
-                            "query": "Dummy koszyk zasilający D-TAP PFI-",
-                            "fields": ["name"],
-                            "type": "best_fields",
-                            "minimum_should_match": "1",
-                        }},
-                    ]}}, "weight": 400},
-                    # +200 for products in the brand-specific subcategory (e.g. "do Canon")
-                    *(
-                        [{"filter": {"term": {"subcategory": f"do {_accessory_brand_from_cat}"}}, "weight": 200}]
-                        if _accessory_brand_from_cat else []
-                    ),
-                    # Synonym boost: when user searches "bateria do canon",
-                    # also boost products with "akumulator" in name (and vice versa).
-                    # Camera batteries use "akumulator" or "zamiennik", not "bateria".
-                    {"filter": {"multi_match": {
-                        "query": "akumulator zamiennik LP-E LP-EL NP-F NP-W NP-BX EN-EL BLX",
-                        "fields": ["name"],
-                        "type": "best_fields",
-                        "minimum_should_match": "1",
-                    }}, "weight": 300},
-                ]
-                if _accessory_keyword_from_cat and _accessory_keyword_from_cat in ("akumulator", "akumulatory", "bateria", "baterie") else []
-            ),
-            # ── Model matching for accessory queries ──
-            # When searching "akumulator do canon R6" or "bateria do canon r6",
-            # boost products that mention the specific model AND are in relevant
-            # accessory subcategories. Without subcategory filter, cages/brackets
-            # with "Canon R6" in name would dominate over actual batteries.
-            #
-            # Strategy: two tiers of model boost:
-            # 1) STRONG (+2000): model match + in accessory subcategory → exact intent match
-            # 2) MODERATE (+300): model match alone → relevant Canon R6 product but wrong type
-            *(
-                [
-                    # Tier 1: model + accessory subcategory = perfect match
-                    {"filter": {"bool": {"must": [
-                        {"match_phrase": {"name": {
-                            "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
-                            "slop": 5,
-                        }}},
-                        {"terms": {"subcategory":
-                            CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
-                            [f"do {_accessory_brand_from_cat}"] +
-                            ["ładowarki", "zasilanie", "akcesoria do zasilania",
-                             "akumulatory i ładowarki", "V-lock", "do V-Mount"]
-                        }},
-                    ]}}, "weight": 2000},
-                    # Tier 1b: model in description + subcategory
-                    {"filter": {"bool": {"must": [
-                        {"match_phrase": {"description": {
-                            "query": f"{_accessory_brand_from_cat} {_accessory_model_from_cat}",
-                            "slop": 5,
-                        }}},
-                        {"terms": {"subcategory":
-                            CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
-                            [f"do {_accessory_brand_from_cat}"] +
-                            ["ładowarki", "zasilanie", "akcesoria do zasilania",
-                             "akumulatory i ładowarki", "V-lock", "do V-Mount"]
-                        }},
-                    ]}}, "weight": 1000},
-                    # Tier 2: model token match WITHIN accessory subcategories
-                    # Lower boost, but still requires subcategory membership to prevent
-                    # non-accessory products (cages, screen protectors) from leaking in.
-                    *[
-                        {"filter": {"bool": {"must": [
-                            {"multi_match": {
-                                "query": _mt,
-                                "fields": ["name", "description"],
-                                "type": "best_fields",
-                            }},
-                            {"terms": {"subcategory":
-                                CATEGORY_ALIASES.get(_accessory_keyword_from_cat, []) +
-                                [f"do {_accessory_brand_from_cat}"] +
-                                ["ładowarki", "zasilanie", "akcesoria do zasilania",
-                                 "akumulatory i ładowarki", "V-lock", "do V-Mount"]
-                            }},
-                        ]}}, "weight": 500}
-                        for _mt in _accessory_model_from_cat.split()
-                        if len(_mt) >= 2
-                    ],
-                ]
-                if _accessory_model_from_cat and _accessory_brand_from_cat and _accessory_keyword_from_cat else []
-            ),
             # Condition-based boost — dynamically switch based on user intent
             # Higher "new" weight when brand-intent (prefer new over used products)
             *(
                 [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
                 if _used_intent else
                 [{"filter": {"term": {"condition": "new"}}, "weight": 50 if _brand_intent else 25}]
-            ),
-            # Used-intent: strong phrase match boost on clean query (without "używany")
-            # This ensures "eos r6 używany" → products with "EOS R6" in name rank above
-            # products that only match "EOS" (e.g. Canon EOS M6 ≠ Canon EOS R6).
-            *(
-                [{"filter": {"match_phrase": {"name": {"query": q_for_es, "slop": 2}}}, "weight": 500}]
-                if _used_intent and len(q_for_es.split()) >= 2 else []
             ),
             # Focal-length intent: boost lens subcategories when query contains focal range
             *(
@@ -2036,11 +981,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             ),
         ]
 
-    # Fetch more products than requested for category extraction.
-    # The extra products are used to count subcategories, then trimmed to `limit`.
-    _fetch_size = max(limit, 20)
     product_body = {
-        "size": _fetch_size,
+        "size": limit,
         "query": {
             "function_score": {
                 "query": product_bool_query,
@@ -2061,32 +1003,39 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "name", "brand", "price", "sale_price",
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
-            "sku", "ean", "manufacturer_code", "id_erp",
-            "subcategory", "category_path",
+            "sku", "ean", "manufacturer_code",
         ],
     }
 
-    # Query 2: Brands aggregation only.
-    # Categories are now extracted from actual product results (more accurate).
-    # Brand aggregation still uses broad query since we need all brands, not just top N.
+    # Query 2: Categories + Brands (combined into ONE query with multiple aggs)
     agg_body = {
         "size": 0,
-        "query": product_bool_query,
+        "query": {
+            "multi_match": {
+                "query": q,
+                "fields": ["name^3", "name.prefix^2", "brand^2", "subcategory"],
+                "fuzziness": "AUTO",
+            }
+        },
         "aggs": {
+            "subcategories": {"terms": {"field": "subcategory", "size": 6}},
+            "categories": {"terms": {"field": "category_path", "size": 5}},
             "brands": {"terms": {"field": "brand", "size": 4}},
         },
     }
 
     # Query 3: Suggestion source (top 20 popular products for name extraction)
-    # Use the same product_bool_query (with brand/category filters) so that
-    # "popular product" suggestions are filtered to the correct brand/category.
-    # Previously used a simple multi_match without brand filter, causing e.g.
-    # "Canon r6III" to suggest R6 II (more popular) as the popular product.
     suggest_source_body = {
         "size": 20,
         "query": {
             "function_score": {
-                "query": product_bool_query,
+                "query": {
+                    "multi_match": {
+                        "query": q,
+                        "fields": ["name^3", "name.prefix^2", "brand^3"],
+                        "fuzziness": "AUTO",
+                    }
+                },
                 "functions": [
                     {
                         "field_value_factor": {
@@ -2142,14 +1091,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         return {"meta": {"query": q, "time_ms": elapsed_ms, "total_products": 0},
                 "popular_queries": [], "categories": [], "brands": [], "products": []}
 
-    # ── Parse products + post-ES sales reranking ──
-    # We collect (final_score, product_dict) tuples, then sort by final_score desc.
-    # final_score = es_score * (1 + sales_factor)  — blends relevance with sales data.
-    _scored_products: list[tuple[float, dict]] = []
+    # ── Parse products ──
     try:
         for hit in product_resp.get("hits", {}).get("hits", []):
             src = hit["_source"]
-            es_score = hit.get("_score", 0.0) or 0.0
             hl = hit.get("highlight", {})
             highlighted_name = hl.get("name", hl.get("name.prefix", [src["name"]]))[0]
 
@@ -2167,24 +1112,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             elif src.get("is_new"):
                 badge = "Nowość"
 
-            # ── Sales-based score boost ──
-            # ES _id = Verto ERP code (same format as Excel SKU in sales_data.json)
-            # ES _source.sku = Sylius numeric ID (not useful for sales matching)
-            # ES _source.id_erp = Verto ERP code (backup for _id)
-            _erp_code = hit.get("_id", "") or src.get("id_erp", "") or src.get("manufacturer_code", "") or ""
-            _final_score = es_score
-            if _SALES_DATA and _erp_code:
-                _final_score = _sales_boost(_erp_code, es_score)
-                # If exact match failed, try without hyphens/spaces
-                if _final_score == es_score:
-                    _erp_clean = _erp_code.upper().replace("-", "").replace(" ", "").replace("/", "")
-                    _sales_lookup = _SALES_DATA.get(_erp_clean)
-                    if _sales_lookup:
-                        s30, s365 = _sales_lookup
-                        sf = _math.log1p(s30) * 0.15 + _math.log1p(s365) * 0.05
-                        _final_score = es_score * (1.0 + sf)
-
-            _scored_products.append((_final_score, {
+            product_results.append({
                 "name": src["name"],
                 "highlight": highlighted_name,
                 "brand": src.get("brand", ""),
@@ -2196,61 +1124,27 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
-            }))
+            })
     except Exception as e:
         print(f"Product parse error: {e}")
 
-    # Sort by final_score (desc) — sales data may reorder products
-    if _scored_products:
-        _scored_products.sort(key=lambda x: x[0], reverse=True)
-        product_results = [p for _, p in _scored_products]
-
-    # ── Extract categories from actual product results (top N) ──
-    # This is more accurate than aggregating over ALL matched docs, because
-    # the aggregation includes fuzzy matches and low-relevance products that
-    # the user never sees. Counting subcategories of the TOP ranked products
-    # gives category suggestions that match what the user actually finds useful.
+    # ── Parse categories — prefer subcategories ──
     try:
-        from collections import Counter
-        _subcat_counts: Counter[str] = Counter()
-        _catpath_counts: Counter[str] = Counter()
-        for hit in product_resp.get("hits", {}).get("hits", []):
-            src = hit["_source"]
-            sc = src.get("subcategory", "")
-            cp = src.get("category_path", "")
-            if sc and len(sc) > 2:
-                _subcat_counts[sc] += 1
-            if cp and len(cp) > 2:
-                _catpath_counts[cp] += 1
-        # Prefer subcategories; fall back to category_path
-        if _subcat_counts:
-            for name, count in _subcat_counts.most_common(6):
+        aggs = agg_resp.get("aggregations", {})
+        for bucket in aggs.get("subcategories", {}).get("buckets", []):
+            name = bucket["key"]
+            if name and len(name) > 2:
                 category_results.append({
-                    "name": name, "short_name": name, "count": count,
+                    "name": name, "short_name": name, "count": bucket["doc_count"],
                 })
-            # ── Parent category injection ──
-            # When specific subcategories appear, inject a broader parent label
-            # so users see a navigable general category (e.g. "lornetki").
-            _found_subcats = set(_subcat_counts.keys())
-            for parent_label, child_set in PARENT_CATEGORY_INJECT.items():
-                _overlap = _found_subcats & child_set
-                if _overlap:
-                    # Sum counts of all matching child subcategories
-                    _parent_count = sum(_subcat_counts[c] for c in _overlap)
-                    # Only inject if parent label not already present
-                    if not any(cr["name"] == parent_label for cr in category_results):
-                        # Insert at position 0 (most useful for user navigation)
-                        category_results.insert(0, {
-                            "name": parent_label, "short_name": parent_label,
-                            "count": _parent_count,
-                        })
-        elif _catpath_counts:
-            for path, count in _catpath_counts.most_common(5):
+        if not category_results:
+            for bucket in aggs.get("categories", {}).get("buckets", []):
+                path = bucket["key"]
                 parts = path.split(" > ")
                 category_results.append({
                     "name": path,
                     "short_name": parts[-1] if parts else path,
-                    "count": count,
+                    "count": bucket["doc_count"],
                 })
     except Exception as e:
         print(f"Category parse error: {e}")
@@ -2269,49 +1163,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     except Exception as e:
         print(f"Query suggestion error: {e}")
 
-    # Trim product results to requested limit (we fetched extra for category extraction)
-    product_results = product_results[:limit]
-
-    # ── "Did you mean?" suggestions for zero-result queries ──
-    # When no products are found, run a relaxed fuzzy search to propose alternatives.
-    # This prevents dead-end empty pages (68% of e-commerce sites show blank zero-result pages).
-    did_you_mean: list[str] = []
-    if not product_results:
-        try:
-            _dym_resp = await es.search(
-                index=ES_INDEX,
-                body={
-                    "size": 5,
-                    "query": {
-                        "multi_match": {
-                            "query": q_for_es,
-                            "fields": ["name^2", "name.folded^2", "name.morfologik^2", "brand^3"],
-                            "fuzziness": "2",
-                            "prefix_length": 1,
-                            "minimum_should_match": "40%",
-                        }
-                    },
-                    "_source": ["name", "brand"],
-                },
-                request_timeout=5,
-                preference="cyfrosearch",
-            )
-            _seen: set[str] = set()
-            for hit in _dym_resp.get("hits", {}).get("hits", []):
-                name = hit["_source"].get("name", "")
-                brand = hit["_source"].get("brand", "")
-                # Extract a short suggestion: brand + first meaningful words
-                words = name.split()[:5]
-                suggestion = " ".join(words)
-                key = suggestion.lower()
-                if key not in _seen and len(suggestion) > 3:
-                    did_you_mean.append(suggestion)
-                    _seen.add(key)
-                if len(did_you_mean) >= 3:
-                    break
-        except Exception:
-            pass
-
     return {
         "meta": {
             "query": q,
@@ -2323,7 +1174,6 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         "categories": category_results[:5],
         "brands": brand_results[:4],
         "products": product_results,
-        **({"did_you_mean": did_you_mean} if did_you_mean else {}),
     }
 
 
@@ -2354,18 +1204,6 @@ async def suggest(
 
     # ── Store in cache ──
     _suggest_cache.put(cache_key, result)
-
-    # ── Structured search log ──
-    try:
-        _search_log.info(_json.dumps({
-            "event": "suggest",
-            "q": q.strip(),
-            "results": result["meta"].get("total_products", 0),
-            "ms": elapsed_ms,
-            "zero": result["meta"].get("total_products", 0) == 0,
-        }, ensure_ascii=False))
-    except Exception:
-        pass
 
     response.headers["Cache-Control"] = "public, max-age=30"
     return result
@@ -2594,8 +1432,8 @@ async def search(
     sort: str = "relevance",
 ):
     es = await get_es()
-    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii", "mark 3" → "mark iii"
-    q = _merge_mark_roman(_mark_arabic_to_roman(_normalize_model_query(q)))
+    # Normalize model numbers: "a7iv" → "a7 iv", "r6ii" → "r6 ii"
+    q = _merge_mark_roman(_normalize_model_query(q))
     offset = (page - 1) * per_page
 
     filters = []
@@ -2627,9 +1465,6 @@ async def search(
                 q = _brand_intent_s + q[len(prefix_s):]
                 q_lower_s = q.lower().strip()
                 break
-
-    # ── Synonym expansion (same logic as suggest) ──
-    q, q_lower_s, _synonym_extra_s = _expand_synonyms(q, q_lower_s)
 
     # ── Condition-intent detection (same logic as suggest) ──
     _used_intent_s = any(
@@ -2670,16 +1505,6 @@ async def search(
                 {"term": {"ean": {"value": q_trimmed, "boost": 100}}},
                 {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                 {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
-                # Synonym expansion should-clauses
-                *[
-                    {"multi_match": {
-                        "query": _se,
-                        "fields": ["name^2", "name.folded^1.5"],
-                        "type": "best_fields",
-                        "boost": 15,
-                    }}
-                    for _se in _synonym_extra_s
-                ],
             ],
             "minimum_should_match": 1,
         }
@@ -2781,90 +1606,9 @@ async def health():
             "status": "ok",
             "es_status": cluster["status"],
             "product_count": count["count"],
-            "sales_data_loaded": len(_SALES_DATA),
-            "sales_sample": list(_SALES_DATA.keys())[:3] if _SALES_DATA else [],
         }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
-
-
-@app.get("/api/admin/sales-diag")
-async def admin_sales_diag():
-    """Diagnostic: check sales data file loading."""
-    import os as _os
-    _p = Path(__file__).parent / "sales_data.json"
-    result = {
-        "__file__": str(Path(__file__)),
-        "sales_path": str(_p),
-        "exists": _p.exists(),
-        "parent_files": [f for f in _os.listdir(Path(__file__).parent) if "sales" in f.lower()],
-        "sales_data_in_memory": len(_SALES_DATA),
-        "sample_keys": list(_SALES_DATA.keys())[:5],
-    }
-    if _p.exists():
-        result["file_size"] = _p.stat().st_size
-        try:
-            import json as _jmod2
-            with open(_p, encoding="utf-8") as _f2:
-                _raw = _jmod2.load(_f2)
-            result["json_keys_count"] = len(_raw)
-            result["sample_json_keys"] = list(_raw.keys())[:3]
-            # Count keys with s30 > 0
-            _valid = sum(1 for v in _raw.values() if v.get("s30", 0) > 0 or v.get("s365", 0) > 0)
-            result["valid_keys"] = _valid
-        except Exception as _e3:
-            result["load_error"] = str(_e3)
-    return result
-
-
-@app.get("/api/admin/sales-check")
-async def admin_sales_check(sku: str = Query("BATSONNPFZ100")):
-    """Debug: check product identifier fields. Searches by name to find products and show their sku/ean/_id."""
-    es = await get_es()
-    try:
-        # Strategy 1: term match on sku field (exact)
-        for strategy, q in [
-            ("term_sku", {"term": {"sku": sku}}),
-            ("term_sku_lower", {"term": {"sku": sku.lower()}}),
-            ("match_sku", {"match": {"sku": sku}}),
-        ]:
-            resp = await es.search(
-                index=ES_INDEX,
-                body={"size": 3, "query": q,
-                      "_source": ["name", "sku", "brand", "manufacturer_code",
-                                  "ean", "product_url", "slug", "product_id", "id_erp"]},
-            )
-            hits = resp.get("hits", {}).get("hits", [])
-            if hits:
-                return {"found": True, "strategy": strategy, "query": sku,
-                        "results": [{"_id": h["_id"], **h["_source"]} for h in hits]}
-
-        # Strategy 2: match on name (phrase) — always finds something
-        resp2 = await es.search(
-            index=ES_INDEX,
-            body={"size": 3, "query": {"match_phrase": {"name": sku}},
-                  "_source": ["name", "sku", "brand", "manufacturer_code",
-                              "ean", "product_url", "slug", "product_id", "id_erp"]},
-        )
-        hits2 = resp2.get("hits", {}).get("hits", [])
-        if hits2:
-            return {"found": True, "strategy": "match_phrase_name", "query": sku,
-                    "results": [{"_id": h["_id"], **h["_source"]} for h in hits2]}
-
-        # Strategy 3: just get a random sample to see field formats
-        resp3 = await es.search(
-            index=ES_INDEX,
-            body={"size": 3, "query": {"match_all": {}},
-                  "_source": ["name", "sku", "brand", "manufacturer_code",
-                              "ean", "product_url", "slug", "product_id", "id_erp"]},
-        )
-        hits3 = resp3.get("hits", {}).get("hits", [])
-        return {"found": bool(hits3), "strategy": "match_all_sample", "query": sku,
-                "results": [{"_id": h["_id"], **h["_source"]} for h in hits3],
-                "sales_data_loaded": len(_SALES_DATA),
-                "sample_sales_keys": list(_SALES_DATA.keys())[:5]}
-    except Exception as e:
-        return {"error": str(e)}
 
 
 # ──────────────────────────────────────────────────
