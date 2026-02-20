@@ -1075,7 +1075,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
             "sku", "ean", "manufacturer_code",
-            "subcategory",  # debug: expose subcategory in response
+            "subcategory",
         ],
     }
 
@@ -1797,24 +1797,6 @@ async def trending():
     except Exception as e:
         print(f"Trending endpoint error: {e}")
         return {"products": [], "categories": []}
-
-
-# ──────────────────────────────────────────────────
-# DEBUG: product lookup by URL slug or name substring
-# ──────────────────────────────────────────────────
-@app.get("/api/debug/product")
-async def debug_product(q: str = Query(...)):
-    """Debug: find product by name substring and show ALL fields."""
-    es = await get_es()
-    resp = await es.search(
-        index=ES_INDEX,
-        body={
-            "size": 3,
-            "query": {"match_phrase": {"name": q}},
-            "_source": True,  # all fields
-        },
-    )
-    return [hit["_source"] for hit in resp["hits"]["hits"]]
 
 
 # ──────────────────────────────────────────────────
