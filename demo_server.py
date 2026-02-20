@@ -1009,6 +1009,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             "availability", "condition", "image_url", "product_url",
             "is_promo", "is_bestseller", "is_new",
             "sku", "ean", "manufacturer_code",
+            "subcategory",  # debug: expose subcategory in response
         ],
     }
 
@@ -1129,6 +1130,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "image_url": src.get("image_url"),
                 "product_url": src.get("product_url", "#"),
                 "badge": badge,
+                "subcategory": src.get("subcategory", ""),  # debug
             })
     except Exception as e:
         print(f"Product parse error: {e}")
