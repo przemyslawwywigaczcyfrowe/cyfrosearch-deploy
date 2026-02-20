@@ -1,0 +1,105 @@
+fos_elastica:
+    clients:
+        default: { url: '%env(ELASTICSEARCH_URL)%' }
+    indexes:
+        bitbag_shop_product:
+            index_name: "%bitbag_es_index_prefix%bitbag_shop_products_%kernel.environment%"
+            indexable_callback: ['@app.component.product.checker.product_eligibility', 'isEligibleForElasticIndex']
+            settings:
+                analysis:
+                    filter:
+                        synonym_graph_filter:
+                            type: synonym_graph
+                            synonyms: [
+                              # --- Synonimy dwukierunkowe (wszystkie terminy są równoznaczne) ---
+                                "fuji, fujifilm, fuij, fuijfilm, fuji film, fuij film",
+                                "om system, om systems, olympus, olimpus",
+                                "smallrig, smallring",
+                                "canon, kannon, cannon, kanon",
+                                "karty pamięci, karta pamięci, karta SD, karty SD",
+                                "Canon EOS R5 Mark II, Canon EOS R5 Mark 2, Canon EOS R5 Mark2, EOS R5 Marki i, Kanon EOS R5 Mark II, Kanon EOS R5 Mark 2, Kanon EOS R5 Mark2, Canon R5 Mark II, Kanon R5 Mark II, R5 Mark II, R5 mark 2, R5 mark2",
+                              
+                              # --- Synonimy jednokierunkowe (wyszukanie synonimu znajdzie termin główny) - jeśli wpiszesz lustrzanka to zostanie wyszukane aparat cyfrowy ---
+                                "lustrzanka, luztrzanka => aparat cyfrowy",
+                                "komputer => laptop",
+                                "leika, lejka, lejca => leica",
+                                "calumed => calumet",
+                                "r5 mark ii, eos r5 m ii, eos r5 mk ii, canon r5 mark ii, canon eos r5 m ii, eos r5 ii, canon eos r5 ii, canon eos 5 mark ii, canon eos 5 ii, eos 5 mark ii => canon eos r5 mark ii",
+                                "dlux8, dlux 8, d lux8, d lux 8 => d-lux 8",
+                                "led patona => lapma led patona",
+                                "xt-5 => fujifilm x-t5",
+                                "spinka => klips"
+                            ]
+                    analyzer:
+                        default_search_analyzer:
+                            type: custom
+                            tokenizer: standard
+                            filter: [ lowercase, polish_stem, synonym_graph_filter ]
+                index.mapping.total_fields.limit: 5000
+            properties:
+                enabled: ~
+                name_pl_pl:
+                    type: text
+                    analyzer: default_search_analyzer
+                    fields:
+                        keyword:
+                            type: keyword
+                        sort:
+                            type: icu_collation_keyword
+                            language: pl
+                            country: PL
+                            index: true
+            persistence:
+                provider:
+                    query_builder_method: createElasticSearchQueryBuilder
+                driver: orm
+                model: "%sylius.model.product.class%"
+                listener:
+                    defer: false
+                    logger: true
+                elastica_to_model_transformer:
+                    ignore_missing: true
+        app_taxon:
+            index_name: "%bitbag_es_index_prefix%app_taxon%kernel.environment%"
+            properties:
+                enabled: ~
+            persistence:
+                driver: orm
+                model: "%sylius.model.taxon.class%"
+                listener:
+                    defer: false
+                    logger: true
+                elastica_to_model_transformer:
+                    ignore_missing: true
+
+        bitbag_attribute_taxons:
+            index_name: "%bitbag_es_index_prefix%bitbag_attribute_taxons_%kernel.environment%"
+            properties:
+                attribute_code:
+                    property_path: code
+            persistence:
+                driver: orm
+                model: "%sylius.model.product_attribute.class%"
+                listener:
+                    defer: false
+                    logger: true
+                elastica_to_model_transformer:
+                    ignore_missing: true
+            settings:
+                index.mapping.total_fields.limit: 3000
+
+        bitbag_option_taxons:
+            index_name: "%bitbag_es_index_prefix%bitbag_option_taxons_%kernel.environment%"
+            properties:
+                option_code:
+                    property_path: code
+            persistence:
+                driver: orm
+                model: "%sylius.model.product_option.class%"
+                listener:
+                    defer: false
+                    logger: true
+                elastica_to_model_transformer:
+                    ignore_missing: true
+            settings:
+                index.mapping.total_fields.limit: 3000

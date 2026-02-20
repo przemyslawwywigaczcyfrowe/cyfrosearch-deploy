@@ -1,0 +1,38 @@
+parameters:
+    elasticsearch.property.ean: ean
+    elasticsearch.property.erp_id: erp_id
+    elasticsearch.property.producer: producer
+    elasticsearch.property.featured: featured
+    elasticsearch.property.new_or_promotion: new_or_promotion
+    elasticsearch.property.popularity: popularity
+    elasticsearch.property.taxon_popularity: popularity
+    elasticsearch.property.rating: rating
+    elasticsearch.property.inventory_availability: inventory_availability
+    elasticsearch.property.label: label
+    elasticsearch.property.is_featured_in_search_modal: is_featured_in_search_modal
+    elasticsearch.property.is_sale: is_sale
+    elasticsearch.property.percentage_discount: percentage_discount
+    elasticsearch.property.product_main_taxon_name: product_main_taxon_name
+    elasticsearch.property.product_main_taxon_code: product_main_taxon_code
+    elasticsearch.property.score: _score
+    elasticsearch.property.state: state
+    elasticsearch.property.bestseller: bestseller
+    elasticsearch.property.product_realization_time: product_realization_time
+    elasticsearch.property.product_realization_time_booster: product_realization_time_booster
+
+    # ── Boosters (field-level boost in multi_match) ──
+    # CHANGED: from 1/1/1/10/1/1 to meaningful values based on CyfroSearch prototype
+    # See WDROŻENIE_ES_Cyfrowe.md Faza 0 for rationale
+    elasticsearch.booster.name: '%env(int:ELASTICSEARCH_NAME_BOOSTER)%'
+    elasticsearch.booster.description: '%env(int:ELASTICSEARCH_DESCRIPTION_BOOSTER)%'
+    elasticsearch.booster.producer: '%env(int:ELASTICSEARCH_PRODUCER_BOOSTER)%'
+    elasticsearch.booster.main_category: '%env(int:ELASTICSEARCH_MAIN_CATEGORY_BOOSTER)%'
+    elasticsearch.booster.sub_category: '%env(int:ELASTICSEARCH_SUB_CATEGORY_BOOSTER)%'
+    elasticsearch.booster.child_category: '%env(int:ELASTICSEARCH_CHILD_CATEGORY_BOOSTER)%'
+
+    # ── Weights (function_score function weights) ──
+    # CHANGED: from 1/1/1/100 to values matching CyfroSearch scoring model
+    elasticsearch.weight.popularity: '%env(int:ELASTICSEARCH_POPULARITY_WEIGHT)%'
+    elasticsearch.weight.new_or_promotion: '%env(int:ELASTICSEARCH_NEW_OR_PROMOTION_WEIGHT)%'
+    elasticsearch.weight.rating: '%env(int:ELASTICSEARCH_RATING_WEIGHT)%'
+    elasticsearch.weight.featured: '%env(int:ELASTICSEARCH_FEATURED_WEIGHT)%'

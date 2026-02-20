@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+    NEW FILE: Intent detection services for CyfroSearch-quality search.
+
+    These services detect user intent from search queries:
+    - BrandIntentDetector: "canon r8" → brand=Canon, "fuji" → brand=Fujifilm
+    - CategoryIntentDetector: "lampa" → lamp subcategories, "karta sd" → SD cards
+    - SearchIntentResolver: orchestrates all detectors + query normalization
+-->
+
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services
+            http://symfony.com/schema/dic/services/services-1.0.xsd"
+>
+    <services>
+        <!-- Brand Intent Detector -->
+        <!-- Detects brand names at query start: "canon r8" → Canon, "fuji xt5" → Fujifilm -->
+        <!-- Loads all brand names from ES 'producer' field on first use -->
+        <service class="App\Component\Elasticsearch\IntentDetector\BrandIntentDetector"
+                 id="app.component.elasticsearch.intent_detector.brand"
+        >
+            <argument type="service" id="fos_elastica.finder.bitbag_shop_product" />
+        </service>
+
+        <!-- Category Intent Detector -->
+        <!-- Detects category browsing: "lampa" → 7 lamp subcategories, "karta sd" → SD cards -->
+        <!-- Uses 50+ CATEGORY_ALIASES + ES subcategory aggregation -->
+        <service class="App\Component\Elasticsearch\IntentDetector\CategoryIntentDetector"
+                 id="app.component.elasticsearch.intent_detector.category"
+        >
+            <argument type="service" id="fos_elastica.finder.bitbag_shop_product" />
+        </service>
+
+        <!-- Search Intent Resolver -->
+        <!-- Orchestrates: normalize model numbers → detect brand → rewrite aliases → -->
+        <!-- detect condition ("używany") → detect category → detect focal length -->
+        <service class="App\Component\Elasticsearch\IntentDetector\SearchIntentResolver"
+                 id="app.component.elasticsearch.intent_detector.search_intent_resolver"
+        >
+            <argument type="service" id="app.component.elasticsearch.intent_detector.brand" />
+            <argument type="service" id="app.component.elasticsearch.intent_detector.category" />
+        </service>
+    </services>
+</container>
