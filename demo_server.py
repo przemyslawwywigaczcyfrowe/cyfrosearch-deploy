@@ -749,7 +749,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
 
         if _cat_remainder_text:
             # Category + additional text (e.g. "klatka sony a7 iv" → cat=klatki, text="sony a7 iv")
-            # Use text matching within the category filter so results are relevant to remainder
+            # Use text matching within the category filter so results are relevant to remainder.
+            # Also add match_phrase boost so exact sequences (e.g. "64 GB Extreme Pro") rank higher.
             product_bool_query = {
                 "bool": {
                     "must": [
@@ -763,6 +764,10 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                                 "minimum_should_match": "70%",
                             }
                         }
+                    ],
+                    "should": [
+                        # Boost exact phrase matches within category results
+                        {"match_phrase": {"name": {"query": _cat_remainder_text, "boost": 30, "slop": 2}}},
                     ],
                     "filter": [_all_cat_filters],
                 }
