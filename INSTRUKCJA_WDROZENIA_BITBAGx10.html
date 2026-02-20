@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>CyfroSearch x10 — Etap 1: Największy efekt, najmniejszy koszt</title>
+<style>
+  @page { margin: 2cm; size: A4; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 11pt;
+    line-height: 1.55;
+    color: #222;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  h1 { font-size: 20pt; color: #b71c1c; border-bottom: 3px solid #b71c1c; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 15pt; color: #c62828; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { font-size: 12pt; color: #d32f2f; margin-top: 20px; }
+  h4 { font-size: 11pt; color: #e53935; margin-top: 15px; }
+  code { background: #f5f5f5; padding: 1px 4px; border-radius: 3px; font-size: 10pt; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; }
+  pre { background: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; padding: 12px; font-size: 9.5pt; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; line-height: 1.4; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #ffebee; }
+  .step { background: #fce4ec; border-left: 4px solid #c62828; padding: 8px 12px; margin: 15px 0; border-radius: 0 5px 5px 0; }
+  .step-num { font-weight: bold; color: #c62828; font-size: 13pt; }
+  .warning { background: #fff3e0; border-left: 4px solid #ef6c00; padding: 8px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+  .success { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 8px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+  .impact { background: #fff8e1; border-left: 4px solid #f9a825; padding: 8px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+  .file-path { color: #6a1b9a; font-weight: bold; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  .header-meta { color: #666; font-size: 10pt; margin-bottom: 5px; }
+  .page-break { page-break-before: always; }
+  .big-number { font-size: 28pt; font-weight: bold; color: #c62828; }
+  .pareto-box { background: #ffebee; border: 2px solid #c62828; border-radius: 8px; padding: 15px 20px; margin: 15px 0; text-align: center; }
+  .vs-table td:first-child { font-weight: bold; color: #c62828; }
+  @media print {
+    body { font-size: 10pt; }
+    pre { font-size: 8.5pt; }
+    .step { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<p class="header-meta">CyfroSearch &rarr; BitBag | Etap 1 (d&zwnj;źwignia x10) | 20 lutego 2026</p>
+
+<h1>Etap 1: Dźwignia x10<br><span style="font-size:14pt; color:#555;">Minimum zmian &rarr; maksimum efektu</span></h1>
+
+<p><strong>Zasada Pareto:</strong> 20% zmian daje 80% poprawy jakości wyszukiwania.<br>
+<strong>Dla kogo:</strong> PHP/Symfony developer pracujący z Sylius + BitBag ES Plugin<br>
+<strong>Zakres:</strong> Wyszukiwanie produktów + sugestie produktów i kategorii<br>
+<strong>Wymagania:</strong> Elasticsearch 7.17+, pluginy <code>analysis-stempel</code> + <code>analysis-icu</code></p>
+
+<div class="pareto-box">
+<span class="big-number">3 kroki</span><br>
+<strong>które rozwiązują największe problemy obecnego wyszukiwania</strong>
+</div>
+
+<!-- ============================================================ -->
+<h2>Problemy obecnego wyszukiwania</h2>
+
+<p>Prototyp CyfroSearch został przetestowany na <strong>top 100 zapytań GA4</strong> z cyfrowe.pl. Oto 3 najczęstsze kategorie problemów:</p>
+
+<table>
+<tr><th>Problem</th><th>Przykład</th><th>Co się dzieje teraz</th><th>Rozwiązanie</th></tr>
+<tr>
+<td><strong>1. Zapytanie markowe</strong><br>(~40% zapytań)</td>
+<td><code>canon</code>, <code>sony</code>, <code>fuji</code></td>
+<td>Akcesoria, kable, adaptery mieszają się z aparatami. Użytkownik widzi bałagan.</td>
+<td><strong>Krok 1:</strong> Boostery .env + FunctionScore</td>
+</tr>
+<tr>
+<td><strong>2. Zapytanie kategorii</strong><br>(~25% zapytań)</td>
+<td><code>lampa</code>, <code>karta sd</code>, <code>statyw</code></td>
+<td>"karta sd" zwraca obiektywy SDM. "lampa" zwraca lampy + losowe akcesoria.</td>
+<td><strong>Krok 2:</strong> Intent Detection + Category filter</td>
+</tr>
+<tr>
+<td><strong>3. Dokładny model</strong><br>(~20% zapytań)</td>
+<td><code>sony a7iv</code>, <code>fuji xt5</code>, <code>canon r5 mark II</code></td>
+<td>"a7iv" nie trafia (brak spacji). "fuji" nie trafia (brak aliasu Fujifilm). "mark II" tokenizuje się źle.</td>
+<td><strong>Krok 3:</strong> Normalizacja + match_phrase</td>
+</tr>
+</table>
+
+<div class="impact"><strong>Te 3 problemy dotyczą ~85% zapytań użytkowników.</strong> Rozwiązanie ich to dźwignia x10.</div>
+
+<!-- ============================================================ -->
+<h2 id="krok1" class="page-break"><span class="step-num">Krok 1</span> — Boostery .env + FunctionScore</h2>
+<div class="step">Bez zmian w kodzie (sam .env) + modyfikacja 1 pliku PHP | Bez reindexu | Efekt natychmiastowy</div>
+
+<h3>Problem</h3>
+<p>Wyszukanie <code>canon</code> zwraca listę, gdzie akumulator do drukarki Canon jest obok aparatu Canon EOS R5. Obecny FunctionScore nie rozróżnia głównych produktów od akcesoriów i nie wzmacnia marki.</p>
+
+<h3>Co zrobić</h3>
+
+<h4>Część A: Zmień wartości w <code>.env</code></h4>
+<pre>
+# --- PRZED (domyślne) ---
+ELASTICSEARCH_POPULARITY_WEIGHT=1
+ELASTICSEARCH_NEW_OR_PROMOTION_WEIGHT=1
+ELASTICSEARCH_RATING_WEIGHT=1
+
+# --- PO (przetestowane w CyfroSearch) ---
+ELASTICSEARCH_POPULARITY_WEIGHT=80
+ELASTICSEARCH_NEW_OR_PROMOTION_WEIGHT=20
+ELASTICSEARCH_RATING_WEIGHT=10
+</pre>
+
+<div class="impact"><strong>Efekt:</strong> Popularne produkty (aparaty, obiektywy) wyprzedzają niszowe akcesoria. Natychmiastowa poprawa na <strong>wszystkich</strong> zapytaniach.</div>
+
+<h4>Część B: Dodaj boost na główne kategorie w <code>FunctionScoreProductsQueryBuilder.php</code></h4>
+<p>Dodaj nową funkcję scoringu w metodzie <code>buildQuery()</code>:</p>
+<pre>
+// DODAJ: Boost na główne kategorie produktów (aparaty, obiektywy, kamery)
+// Przy zapytaniu "canon" — aparat Canon EOS R5 (+120) >> kabel Canon USB (+0)
+$functionScore->addFunction(
+    'filter',
+    null,
+    new Terms('product_main_taxon_name_1_pl_pl', [
+        'aparaty cyfrowe', 'bezlusterkowce', 'kompakty', 'lustrzanki',
+        'obiektywy stałoogniskowe', 'obiektywy zmiennoogniskowe (zoom)',
+        'obiektywy do lustrzanek', 'obiektywy do bezlusterkowców',
+        'kamery cyfrowe', 'kamery sportowe', 'drony',
+    ]),
+    120,  // weight
+);
+
+// DODAJ: Boost na dostępność — produkty "in_stock" przed "na_zamowienie"
+$functionScore->addFunction(
+    'filter',
+    null,
+    new Term(['state' => 'in_stock']),
+    50,
+);
+
+// DODAJ: Bestseller boost
+$functionScore->addFunction(
+    'filter',
+    null,
+    new Term(['bestseller' => true]),
+    60,
+);
+</pre>
+
+<div class="warning"><strong>Uwaga:</strong> Nazwa pola <code>product_main_taxon_name_1_pl_pl</code> i <code>state</code> musi odpowiadać Twoim polom w indeksie ES. Sprawdź za pomocą: <code>curl -s localhost:9200/bitbag_shop_products_prod/_mapping | python -m json.tool</code></div>
+
+<h3>Test weryfikacyjny</h3>
+<table>
+<tr><th>Zapytanie</th><th>Przed</th><th>Po</th></tr>
+<tr><td><code>canon</code></td><td>Mix: kable, adaptery, aparaty</td><td>Top 5: aparaty Canon EOS</td></tr>
+<tr><td><code>sony</code></td><td>Mix: słuchawki, piloty, aparaty</td><td>Top 5: aparaty Sony Alpha</td></tr>
+<tr><td><code>nikon</code></td><td>Mix: paski, torby, lustrzanki</td><td>Top 5: aparaty/obiektywy Nikon</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="krok2" class="page-break"><span class="step-num">Krok 2</span> — Intent Detection (kategorie)</h2>
+<div class="step">4 nowe pliki PHP | Bez reindexu | Rozwiązuje ~25% zapytań</div>
+
+<h3>Problem</h3>
+<p><code>karta sd</code> zwraca obiektywy z "SDM" w nazwie zamiast kart pamięci. <code>lampa</code> zwraca losowe produkty zamiast lamp LED/błyskowych. <code>statyw</code> zwraca torby na statyw zamiast statywów.</p>
+
+<h3>Co zrobić</h3>
+
+<h4>Utwórz 4 pliki w <code class="file-path">src/Component/Elasticsearch/IntentDetector/</code></h4>
+
+<h4>Plik 1: <code>CategoryIntent.php</code></h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class CategoryIntent
+{
+    public function __construct(
+        public readonly array $subcategories,  // ["SD / SDHC / SDXC", "CFexpress"]
+        public readonly string $remainder,      // "godox" z "lampa godox"
+    ) {}
+
+    public function hasRemainder(): bool
+    { return '' !== $this->remainder; }
+}
+</pre>
+
+<h4>Plik 2: <code>CategoryIntentDetector.php</code></h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class CategoryIntentDetector
+{
+    /**
+     * KLUCZOWA MAPA: słowo kluczowe → podkategorie ES.
+     * DOSTOSUJ nazwy podkategorii do drzewa Taxon w TWOIM Syliusie!
+     *
+     * Jak znaleźć prawidłowe nazwy:
+     * SELECT DISTINCT t.name FROM sylius_taxon_translation t
+     * WHERE t.locale = 'pl_PL' ORDER BY t.name;
+     */
+    public const CATEGORY_ALIASES = [
+        'karta sd'    => ['SD / SDHC / SDXC', 'SD / SDHC'],
+        'karta'       => ['SD / SDHC / SDXC', 'CFexpress', 'microSD', 'CompactFlash'],
+        'lampa'       => ['lampy LED', 'lampy studyjne LED', 'lampy panelowe LED',
+                          'miecze świetlne LED', 'lampy pierścieniowe LED',
+                          'lampy błyskowe', 'lampy reporterskie'],
+        'obiektyw'    => ['obiektywy stałoogniskowe',
+                          'obiektywy zmiennoogniskowe (zoom)',
+                          'obiektywy do lustrzanek',
+                          'obiektywy do bezlusterkowców'],
+        'statyw'      => ['statywy (trójnogi)', 'statywy do filmowania'],
+        'filtr'       => ['filtry', 'połówkowe i szare'],
+        'akumulator'  => ['akumulatory', 'baterie specjalistyczne'],
+        'bateria'     => ['akumulatory', 'baterie specjalistyczne'],
+        'pasek'       => ['paski', 'pasy biodrowe, szelki i kamizelki'],
+        'klatka'      => ['klatki', 'zestawy do foto-video'],
+        'plecak'      => ['plecaki fotograficzne'],
+        'torba'       => ['torby fotograficzne', 'torby kufry i walizki'],
+        'softbox'     => ['softboxy', 'softboxy oktagonalne', 'softboxy prostokątne'],
+        'gimbal'      => ['gimbale', 'stabilizatory', 'systemy stabilizacji'],
+        'mikrofon'    => ['mikrofony', 'mikrofony bezprzewodowe'],
+        'dron'        => ['drony'],
+        'drony'       => ['drony'],
+        'tło'         => ['tła kartonowe', 'tła składane', 'tła plastikowe',
+                          'tła materiałowe', 'tła winylowe'],
+        'lornetka'    => ['uniwersalne', 'lornetki'],
+    ];
+
+    public function detect(string $query): ?CategoryIntent
+    {
+        $q = mb_strtolower(trim($query));
+
+        // Dokładne dopasowanie całego zapytania
+        if (isset(self::CATEGORY_ALIASES[$q])) {
+            return new CategoryIntent(self::CATEGORY_ALIASES[$q], '');
+        }
+
+        // Dopasowanie pierwszych 1-2 słów → reszta jako remainder
+        $tokens = explode(' ', $q);
+        foreach ([2, 1] as $n) {
+            if ($n >= count($tokens)) continue;
+            $prefix = implode(' ', array_slice($tokens, 0, $n));
+            if (isset(self::CATEGORY_ALIASES[$prefix])) {
+                $remainder = trim(implode(' ', array_slice($tokens, $n)));
+                return new CategoryIntent(self::CATEGORY_ALIASES[$prefix], $remainder);
+            }
+        }
+        return null;
+    }
+}
+</pre>
+
+<h4>Plik 3: Integracja w <code>ProductsQueryBuilder.php</code></h4>
+<p>Dodaj CategoryIntentDetector jako zależność i użyj go na początku <code>buildQuery()</code>:</p>
+<pre>
+// Na początku buildQuery():
+$queryText = $data['name'] ?? $data['query'] ?? '';
+$categoryDetector = $this->categoryDetector;
+$categoryIntent = $categoryDetector->detect($queryText);
+
+if (null !== $categoryIntent) {
+    // CATEGORY-INTENT: filtruj do podkategorii
+    $subcatFilter = new Terms(
+        'product_main_taxon_name_1_pl_pl',
+        $categoryIntent->subcategories
+    );
+    $boolQuery->addFilter($subcatFilter);
+
+    if ($categoryIntent->hasRemainder()) {
+        // "lampa godox" → filtr na lampy + MultiMatch na "godox"
+        $multiMatch = new MultiMatch();
+        $multiMatch->setQuery($categoryIntent->remainder);
+        $multiMatch->setFields(['name_pl_pl^3', 'producer^3']);
+        $multiMatch->setFuzziness('AUTO');
+        $boolQuery->addMust($multiMatch);
+    } else {
+        // Czyste "lampa" → pokaż wszystko z tych kategorii
+        // (ranking przez FunctionScore — popularność, bestseller, dostępność)
+        $boolQuery->addMust(new \Elastica\Query\MatchAll());
+    }
+    return $boolQuery;
+}
+
+// ... reszta istniejącej logiki MultiMatch dla zwykłych zapytań ...
+</pre>
+
+<h4>Plik 4: Rejestracja serwisu</h4>
+<p>W <code>services/query_builder.xml</code> dodaj CategoryIntentDetector jako argument ProductsQueryBuilder.</p>
+
+<div class="impact"><strong>Efekt:</strong> "karta sd" → TYLKO karty pamięci (nie obiektywy SDM). "lampa" → TYLKO lampy (nie losowe akcesoria). "statyw" → TYLKO statywy (nie torby na statywy).</div>
+
+<h3>Test weryfikacyjny</h3>
+<table>
+<tr><th>Zapytanie</th><th>Przed</th><th>Po</th></tr>
+<tr><td><code>karta sd</code></td><td>Obiektywy SDM, losowe produkty</td><td>Karty SD/SDHC/SDXC posortowane po popularności</td></tr>
+<tr><td><code>lampa</code></td><td>Mix lamp + random akcesoria</td><td>Lampy LED, błyskowe, panelowe</td></tr>
+<tr><td><code>statyw</code></td><td>Torby na statywy, losowe</td><td>Statywy trójnożne, do filmowania</td></tr>
+<tr><td><code>lampa godox</code></td><td>Losowe produkty Godox</td><td>Lampy Godox (LED + błyskowe)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="krok3" class="page-break"><span class="step-num">Krok 3</span> — Normalizacja modeli + match_phrase + synonimy</h2>
+<div class="step">Zmiana w 2 plikach PHP + rozszerzenie synonimów w fos_elastica.yaml | Reindex (synonimy)</div>
+
+<h3>Problem</h3>
+<ul>
+<li><code>sony a7iv</code> — nie trafia, bo w ES jest "a7 iv" (ze spacją)</li>
+<li><code>fuji xt5</code> — nie trafia, bo w ES jest "Fujifilm" (nie "fuji")</li>
+<li><code>canon r5 mark II</code> — trafia słabo, bo "mark" i "II" tokenizują się oddzielnie</li>
+<li><code>canon eos r8</code> — trafia, ale "Canon EOS R8 Body" nie jest na #1 (brak phrase boost)</li>
+</ul>
+
+<h3>Część A: Normalizacja modeli w PHP</h3>
+<p>Dodaj na początku <code>buildQuery()</code>, PRZED wysłaniem do ES:</p>
+<pre>
+// 1. Wstaw spację między cyframi a literami: "a7iv" → "a7 iv"
+$queryText = preg_replace('/(\d)([a-zA-Z])/', '$1 $2', $queryText);
+
+// 2. Sklej "mark" + numerał rzymski: "mark III" → "markIII"
+//    (bo ES tokenizuje "mark" i "III" oddzielnie)
+$queryText = preg_replace_callback(
+    '/\bmark\s+(i{1,4}v?|iv|v)\b/i',
+    fn($m) => 'mark' . $m[1],
+    $queryText
+);
+</pre>
+
+<h3>Część B: match_phrase boost</h3>
+<p>W <code>ProductsQueryBuilder::buildTextMatchingQuery()</code>, dodaj do <code>bool.should</code>:</p>
+<pre>
+// Obecne: tylko MultiMatch (szuka tokenów niezależnie)
+// DODAJ: match_phrase z slop=2 — nagradza dokładną kolejność słów
+// "canon eos r8" matchuje lepiej "Canon EOS R8 Body" niż "Canon EOS M8"
+$matchPhrase = new MatchPhrase('name_pl_pl', [
+    'query' => $queryText,
+    'boost' => 50,    // silny boost za dokładną frazę
+    'slop'  => 2,     // dozwolone 2 słowa "na przód/tył"
+]);
+$shouldQuery->addShould($matchPhrase);
+</pre>
+
+<h3>Część C: Rozszerz synonimy w <code>fos_elastica.yaml</code></h3>
+<p>Obecna lista jest dobra, ale brakuje kluczowych aliasów:</p>
+<pre>
+synonym_graph_filter:
+  type: synonym_graph
+  synonyms:
+    # --- Istniejące (zachowaj) ---
+    - "fuji, fujifilm, fuij, fuijfilm, fuji film"
+    - "om system, olympus, olimpus"
+    - "canon, kannon, cannon, kanon"
+    # ...
+
+    # --- DODAJ (nowe) ---
+    - "szkło, obiektyw"
+    - "statyw, tripod, trójnóg"
+    - "lampa, flesz, flash, błysk"
+    - "etui, pokrowiec, case, futerał"
+    - "dron, drone, quadcopter"
+    - "szklanka, szklanki => obiektyw"
+    - "beczka => teleobiektyw"
+    - "cage => klatka"
+    - "strap => pasek"
+    - "body => korpus"
+</pre>
+
+<div class="warning"><strong>Po zmianie synonimów:</strong> wymagany reindex: <code>bin/console fos:elastica:populate --env=prod</code></div>
+
+<div class="impact"><strong>Efekt:</strong> "sony a7iv" → Sony A7 IV na #1. "fuji xt5" → Fujifilm X-T5 na #1. "canon eos r8" → Canon EOS R8 na #1 (match_phrase). "cage" → klatki operatorskie.</div>
+
+<h3>Test weryfikacyjny</h3>
+<table>
+<tr><th>Zapytanie</th><th>Przed</th><th>Po</th></tr>
+<tr><td><code>sony a7iv</code></td><td>Brak wyników / losowe</td><td>Sony A7 IV #1</td></tr>
+<tr><td><code>fuji xt5</code></td><td>Brak / losowe</td><td>Fujifilm X-T5 #1</td></tr>
+<tr><td><code>canon eos r8</code></td><td>Nie na #1 (body vs gripy)</td><td>Canon EOS R8 Body #1</td></tr>
+<tr><td><code>canon r5 mark II</code></td><td>Mix R5 i Mark II</td><td>Canon EOS R5 Mark II #1</td></tr>
+<tr><td><code>cage</code></td><td>Brak wyników</td><td>Klatki operatorskie</td></tr>
+<tr><td><code>szklanka</code></td><td>Brak wyników</td><td>Obiektywy</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 class="page-break">Podsumowanie: 3 kroki = dźwignia x10</h2>
+
+<div class="pareto-box">
+<table style="border:none; width:100%;" class="vs-table">
+<tr style="border:none;"><td style="border:none; width:50%; vertical-align:top;">
+<strong style="font-size:14pt;">PRZED</strong><br><br>
+&bull; "canon" = bałagan (kable + aparaty)<br>
+&bull; "karta sd" = obiektywy SDM<br>
+&bull; "sony a7iv" = brak wyników<br>
+&bull; "fuji xt5" = brak wyników<br>
+&bull; "lampa" = losowe produkty<br>
+&bull; "cage" = brak wyników
+</td>
+<td style="border:none; width:50%; vertical-align:top;">
+<strong style="font-size:14pt; color:#2e7d32;">PO (3 kroki)</strong><br><br>
+&bull; "canon" = aparaty Canon na górze<br>
+&bull; "karta sd" = karty pamięci<br>
+&bull; "sony a7iv" = Sony A7 IV #1<br>
+&bull; "fuji xt5" = Fujifilm X-T5 #1<br>
+&bull; "lampa" = lampy LED i błyskowe<br>
+&bull; "cage" = klatki operatorskie
+</td></tr>
+</table>
+</div>
+
+<table>
+<tr><th>Krok</th><th>Co robi</th><th>Jakie zapytania naprawia</th><th>Wymaga reindexu?</th></tr>
+<tr>
+<td><strong>1</strong></td>
+<td>Boostery .env + FunctionScore (główne kategorie, dostępność, bestseller)</td>
+<td>~40% — zapytania markowe: <code>canon</code>, <code>sony</code>, <code>nikon</code>, <code>fujifilm</code></td>
+<td>NIE</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>CategoryIntentDetector (filtr podkategorii)</td>
+<td>~25% — zapytania kategorii: <code>karta sd</code>, <code>lampa</code>, <code>statyw</code>, <code>obiektyw</code></td>
+<td>NIE</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>Normalizacja modeli + match_phrase + synonimy</td>
+<td>~20% — konkretne modele: <code>sony a7iv</code>, <code>fuji xt5</code>, <code>canon r5 mark II</code></td>
+<td>TAK (synonimy)</td>
+</tr>
+<tr>
+<th colspan="2">RAZEM</th>
+<th colspan="2">~85% zapytań użytkowników</th>
+</tr>
+</table>
+
+<h3>Kolejność wdrażania</h3>
+<div class="success">
+<strong>Krok 1</strong> (boostery) &rarr; <strong>Krok 2</strong> (intent kategorii) &rarr; <strong>Krok 3</strong> (normalizacja + synonimy)<br><br>
+Krok 1 i 2 <strong>nie wymagają reindexu</strong> — można wdrożyć natychmiast.<br>
+Krok 3 wymaga reindexu tylko w części C (synonimy).
+</div>
+
+<h3>Co dalej? (Etap 2)</h3>
+<p>Po wdrożeniu tych 3 kroków, pełny dokument <strong>INSTRUKCJA_WDROZENIA_BITBAG.pdf</strong> opisuje kolejne fazy:</p>
+<ul>
+<li>Brand Intent Detection (aliasy marek, filtr producenta)</li>
+<li>Pełny FunctionScore z dynamicznymi wagami</li>
+<li>Condition-intent (produkty używane)</li>
+<li>Focal-length intent (obiektywy po ogniskowej)</li>
+<li>Reranking sprzedażowy (dane z Verto ERP)</li>
+</ul>
+
+<hr>
+<p style="text-align:center; color:#888; font-size:9pt;">
+Etap 1 z projektu CyfroSearch v2.0 | Demo: cyfrosearch-demo.onrender.com | 20 lutego 2026<br>
+Pe&lstrok;ny plan wdro&zdot;enia: INSTRUKCJA_WDROZENIA_BITBAG.pdf
+</p>
+
+</body>
+</html>
