@@ -850,7 +850,65 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         }
 
     # ── Build function_score functions based on query type ──
-    if matched_subcategories:
+    if _mount_intent:
+        # Mount-intent scoring: "Canon EF", "Nikon F" — lens mount browsing
+        # Key difference from category-intent: strongly prefer NEW products over used
+        # because used items flood the results (many serial-numbered copies)
+        scoring_functions = [
+            # Popularity — strongest signal
+            {
+                "field_value_factor": {
+                    "field": "ga4.popularity_score",
+                    "factor": 1.0, "modifier": "sqrt", "missing": 0,
+                },
+                "weight": 40,
+            },
+            # Pageviews
+            {
+                "field_value_factor": {
+                    "field": "ga4.pageviews_30d",
+                    "factor": 1.0, "modifier": "sqrt", "missing": 0,
+                },
+                "weight": 30,
+            },
+            # Sales volume — very strong signal for mount browsing
+            {
+                "field_value_factor": {
+                    "field": "sales_30d",
+                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 50,
+            },
+            # Add-to-carts
+            {
+                "field_value_factor": {
+                    "field": "ga4.add_to_carts_30d",
+                    "factor": 1.0, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 40,
+            },
+            # Availability
+            {"filter": {"term": {"availability": "in_stock"}}, "weight": 30},
+            {"filter": {"term": {"availability": "na_zamowienie"}}, "weight": 15},
+            # Bestseller — very strong for mount browsing
+            {"filter": {"term": {"is_bestseller": True}}, "weight": 80},
+            # Image available
+            {"filter": {"term": {"has_image": True}}, "weight": 10},
+            # Promo
+            {"filter": {"term": {"is_promo": True}}, "weight": 20},
+            # CONDITION — strongly prefer NEW over used
+            # New products get +150, used get only +5
+            # This prevents 30+ used serial-numbered copies from flooding results
+            *(
+                [{"filter": {"term": {"condition": "used"}}, "weight": 200}]
+                if _used_intent else
+                [
+                    {"filter": {"term": {"condition": "new"}}, "weight": 150},
+                    {"filter": {"term": {"condition": "used"}}, "weight": 5},
+                ]
+            ),
+        ]
+    elif matched_subcategories:
         # Category-intent: user browses a category → rank by POPULARITY, not price
         # Use sqrt modifier (not log1p) so differences in pageviews actually matter:
         # sqrt(400)=20 vs sqrt(20)=4.5 → 4.4x difference (log1p would only give 2x)
