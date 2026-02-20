@@ -1792,6 +1792,24 @@ async def trending():
 
 
 # ──────────────────────────────────────────────────
+# DEBUG: product lookup by URL slug or name substring
+# ──────────────────────────────────────────────────
+@app.get("/api/debug/product")
+async def debug_product(q: str = Query(...)):
+    """Debug: find product by name substring and show ALL fields."""
+    es = await get_es()
+    resp = await es.search(
+        index=ES_INDEX,
+        body={
+            "size": 3,
+            "query": {"match_phrase": {"name": q}},
+            "_source": True,  # all fields
+        },
+    )
+    return [hit["_source"] for hit in resp["hits"]["hits"]]
+
+
+# ──────────────────────────────────────────────────
 # SERVE STATIC FILES (widget JS, etc.)
 # ──────────────────────────────────────────────────
 
