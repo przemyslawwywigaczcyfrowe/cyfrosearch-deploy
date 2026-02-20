@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>CyfroSearch — Instrukcja wdrożenia w BitBagSyliusElasticsearchPlugin</title>
+<style>
+  @page { margin: 2cm; size: A4; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #222;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  h1 { font-size: 20pt; color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 15pt; color: #283593; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { font-size: 12pt; color: #3949ab; margin-top: 20px; }
+  h4 { font-size: 11pt; color: #5c6bc0; margin-top: 15px; }
+  code { background: #f5f5f5; padding: 1px 4px; border-radius: 3px; font-size: 10pt; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; }
+  pre { background: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; padding: 12px; font-size: 9.5pt; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace; line-height: 1.4; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #e8eaf6; }
+  .phase { background: #e3f2fd; border-left: 4px solid #1565c0; padding: 8px 12px; margin: 15px 0; border-radius: 0 5px 5px 0; }
+  .phase-num { font-weight: bold; color: #1565c0; font-size: 13pt; }
+  .warning { background: #fff3e0; border-left: 4px solid #ef6c00; padding: 8px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+  .success { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 8px 12px; margin: 10px 0; border-radius: 0 5px 5px 0; }
+  .file-path { color: #6a1b9a; font-weight: bold; }
+  .check { color: #2e7d32; }
+  .no { color: #c62828; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  .toc { background: #fafafa; border: 1px solid #e0e0e0; padding: 15px 20px; border-radius: 5px; margin: 15px 0; }
+  .toc a { text-decoration: none; color: #1565c0; }
+  .toc a:hover { text-decoration: underline; }
+  .header-meta { color: #666; font-size: 10pt; margin-bottom: 5px; }
+  .page-break { page-break-before: always; }
+  @media print {
+    body { font-size: 10pt; }
+    pre { font-size: 8.5pt; }
+    .phase { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<p class="header-meta">Dokument techniczny | CyfroSearch &rarr; BitBag | Wersja 1.0 | 20 lutego 2026</p>
+
+<h1>Instrukcja wdrożenia CyfroSearch<br>w BitBagSyliusElasticsearchPlugin</h1>
+
+<p><strong>Dla kogo:</strong> PHP/Symfony developer pracujący z Sylius + BitBag ES Plugin<br>
+<strong>Cel:</strong> Osiągnięcie jakości wyszukiwania z prototypu CyfroSearch (98.9% success rate na top 100 zapytań GA4)<br>
+<strong>Szacowany czas:</strong> 12–16 dni roboczych (wszystkie fazy)<br>
+<strong>Wymagania:</strong> Elasticsearch 7.17+, pluginy <code>analysis-stempel</code> + <code>analysis-icu</code></p>
+
+<div class="toc">
+<strong>Spis treści</strong>
+<ol>
+<li><a href="#faza0">Faza 0 — Zmiana .env (0 zmian w kodzie, 15 min)</a></li>
+<li><a href="#faza1">Faza 1 — Pluginy ES + analiza polska (1 dzień)</a></li>
+<li><a href="#faza2">Faza 2 — Nowe pola w indeksie (1–2 dni)</a></li>
+<li><a href="#faza3">Faza 3 — Intent Detection (2–3 dni)</a></li>
+<li><a href="#faza4">Faza 4 — Nowy ProductsQueryBuilder (2–3 dni)</a></li>
+<li><a href="#faza5">Faza 5 — Nowy FunctionScore (1–2 dni)</a></li>
+<li><a href="#faza6">Faza 6 — Synonimy i analizery (1–2 dni)</a></li>
+<li><a href="#faza7">Faza 7 — Reranking sprzedażowy (1 dzień)</a></li>
+<li><a href="#faza8">Faza 8 — Testy i walidacja (1–2 dni)</a></li>
+<li><a href="#pliki">Mapa plików — co dodać, co zmienić</a></li>
+<li><a href="#testy">Zapytania testowe</a></li>
+<li><a href="#fos">Docelowa konfiguracja fos_elastica.yaml</a></li>
+</ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="faza0"><span class="phase-num">Faza 0</span> — Zmiana .env</h2>
+<div class="phase">Czas: 15 minut | Ryzyko: zerowe | Bez zmian w kodzie | Efekt natychmiastowy</div>
+
+<p>Obecne wartości boosterów w <code>.env</code> są domyślne (1). Zmiana na wartości przetestowane w prototypie daje natychmiastową poprawę.</p>
+
+<h3>Krok 1: Edytuj plik <code>.env</code></h3>
+<pre>
+# --- PRZED (domyślne) ---
+ELASTICSEARCH_NAME_BOOSTER=1
+ELASTICSEARCH_DESCRIPTION_BOOSTER=1
+ELASTICSEARCH_PRODUCER_BOOSTER=1
+ELASTICSEARCH_MAIN_CATEGORY_BOOSTER=300
+ELASTICSEARCH_SUB_CATEGORY_BOOSTER=200
+ELASTICSEARCH_CHILD_CATEGORY_BOOSTER=100
+ELASTICSEARCH_POPULARITY_WEIGHT=1
+ELASTICSEARCH_NEW_OR_PROMOTION_WEIGHT=1
+ELASTICSEARCH_RATING_WEIGHT=1
+ELASTICSEARCH_FEATURED_WEIGHT=100
+
+# --- PO (zalecane CyfroSearch) ---
+ELASTICSEARCH_NAME_BOOSTER=3
+ELASTICSEARCH_DESCRIPTION_BOOSTER=1
+ELASTICSEARCH_PRODUCER_BOOSTER=3
+ELASTICSEARCH_MAIN_CATEGORY_BOOSTER=300
+ELASTICSEARCH_SUB_CATEGORY_BOOSTER=200
+ELASTICSEARCH_CHILD_CATEGORY_BOOSTER=100
+ELASTICSEARCH_POPULARITY_WEIGHT=80
+ELASTICSEARCH_NEW_OR_PROMOTION_WEIGHT=20
+ELASTICSEARCH_RATING_WEIGHT=10
+ELASTICSEARCH_FEATURED_WEIGHT=100
+</pre>
+
+<h3>Krok 2: Test</h3>
+<p>Wyszukaj <code>canon</code> — aparaty Canon powinny być wyżej niż akcesoria.</p>
+
+<!-- ============================================================ -->
+<h2 id="faza1" class="page-break"><span class="phase-num">Faza 1</span> — Pluginy ES + analiza polska</h2>
+<div class="phase">Czas: 1 dzień | Wymaga restartu ES + pełny reindex</div>
+
+<h3>Krok 1: Zainstaluj pluginy Elasticsearch</h3>
+<pre>
+# Na serwerze ES:
+sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-stempel
+sudo /usr/share/elasticsearch/bin/elasticsearch-plugin install analysis-icu
+sudo systemctl restart elasticsearch
+</pre>
+
+<div class="warning"><strong>Uwaga:</strong> Jeśli używasz Dockera, dodaj do Dockerfile:
+<pre>
+FROM docker.elastic.co/elasticsearch/elasticsearch:7.17.5
+RUN bin/elasticsearch-plugin install analysis-stempel
+RUN bin/elasticsearch-plugin install analysis-icu
+</pre>
+</div>
+
+<h3>Krok 2: Zaktualizuj analyzery w <code>fos_elastica.yaml</code></h3>
+<p>W sekcji <code>settings.analysis</code> indeksu <code>bitbag_shop_product</code> zamień istniejącą konfigurację na:</p>
+<pre>
+settings:
+  analysis:
+    char_filter:
+      mark_normalizer:
+        type: pattern_replace
+        pattern: "\\bmark\\s+(i{1,4}v?|iv|v)\\b"
+        replacement: "mark$1"
+        flags: "CASE_INSENSITIVE"
+    filter:
+      polish_stem:
+        type: stemmer
+        language: polish
+      icu_folding_filter:
+        type: icu_folding
+      synonym_graph_filter:
+        type: synonym_graph
+        synonyms:
+          - "fuji, fujifilm, fuij, fuijfilm"
+          - "om system, olympus, olimpus"
+          - "smallrig, smallring"
+          - "canon, kannon, cannon, kanon"
+          - "karty pamięci, karta pamięci, karta SD, karty SD"
+          - "lustrzanka => aparat cyfrowy"
+          - "leika, lejka, lejca => leica"
+          - "szkło, obiektyw"
+          - "statyw, tripod, trójnóg"
+          - "lampa, flesz, flash, błysk"
+    analyzer:
+      polish_full:
+        type: custom
+        char_filter: [mark_normalizer]
+        tokenizer: standard
+        filter: [lowercase, polish_stem, icu_folding_filter, synonym_graph_filter]
+      polish_prefix:
+        type: custom
+        tokenizer: standard
+        filter: [lowercase, icu_folding_filter, edge_ngram_filter]
+      polish_folded:
+        type: custom
+        char_filter: [mark_normalizer]
+        tokenizer: standard
+        filter: [lowercase, icu_folding_filter]
+      edge_ngram_filter:
+        type: edge_ngram
+        min_gram: 2
+        max_gram: 15
+</pre>
+
+<h3>Krok 3: Pełny reindex</h3>
+<pre>
+bin/console fos:elastica:populate --env=prod
+</pre>
+
+<!-- ============================================================ -->
+<h2 id="faza2" class="page-break"><span class="phase-num">Faza 2</span> — Nowe pola w indeksie</h2>
+<div class="phase">Czas: 1–2 dni | Wymaga nowych PropertyBuilderów + reindex</div>
+
+<p>Prototyp CyfroSearch używa wielu pól, których brak w obecnym indeksie BitBag. Dodaj je:</p>
+
+<h3>Krok 1: Nowe pola w <code>fos_elastica.yaml</code> (sekcja properties)</h3>
+<pre>
+properties:
+  # --- Istniejące pola (zachowaj) ---
+  enabled: ~
+  name_pl_pl:
+    type: text
+    analyzer: polish_full
+    fields:
+      keyword: { type: keyword }
+      sort: { type: icu_collation_keyword, language: pl, country: PL }
+      prefix: { type: text, analyzer: polish_prefix }
+      folded: { type: text, analyzer: polish_folded }
+      morfologik: { type: text, analyzer: polish_full }
+
+  # --- Nowe pola do dodania ---
+  producer:
+    type: keyword       # brand name, exact match
+  ean:
+    type: keyword       # EAN barcode
+  product_code:
+    type: keyword       # manufacturer code / SKU
+  erp_id:
+    type: keyword       # Verto ERP ID
+  description_pl_pl:
+    type: text
+    analyzer: polish_full
+  subcategory:
+    type: keyword       # nazwa podkategorii (np. "bezlusterkowce")
+  brand:
+    type: keyword       # alias dla producer (do filtrowania)
+  availability:
+    type: keyword       # "in_stock", "na_zamowienie", "out_of_stock"
+  condition:
+    type: keyword       # "new" lub "used"
+  is_bestseller:
+    type: boolean
+  is_promo:
+    type: boolean
+  is_new:
+    type: boolean
+  has_image:
+    type: boolean
+  price:
+    type: float
+</pre>
+
+<h3>Krok 2: Nowe PropertyBuildery (pliki PHP)</h3>
+<p>Dla każdego nowego pola utwórz PropertyBuilder w katalogu <code>PropertyBuilder/</code>.
+Wzoruj się na istniejących (np. <code>ProducerBuilder.php</code>, <code>EanBuilder.php</code>).</p>
+
+<table>
+<tr><th>Pole ES</th><th>Źródło danych</th><th>PropertyBuilder</th></tr>
+<tr><td><code>producer</code></td><td>Sylius Product &rarr; producer name</td><td>Istnieje: <code>ProducerBuilder.php</code></td></tr>
+<tr><td><code>ean</code></td><td>Sylius Variant &rarr; EAN</td><td>Istnieje: <code>EanBuilder.php</code></td></tr>
+<tr><td><code>product_code</code></td><td>Wariant &rarr; code / manufacturer_code</td><td>Utwórz nowy lub rozszerz istniejący</td></tr>
+<tr><td><code>subcategory</code></td><td>Taxon główny &rarr; nazwa podkategorii</td><td>Rozszerz <code>ProductTaxonBuilder.php</code></td></tr>
+<tr><td><code>availability</code></td><td>Stan magazynowy wariantu</td><td>Rozszerz <code>InventoryAvailabilityBuilder.php</code></td></tr>
+<tr><td><code>condition</code></td><td>Atrybut "stan" (nowy/używany)</td><td>Rozszerz <code>ProductStateBuilder.php</code></td></tr>
+<tr><td><code>is_bestseller</code></td><td>Label produktu / atrybut</td><td>Utwórz nowy</td></tr>
+<tr><td><code>is_promo</code></td><td>Sylius Promotion</td><td>Rozszerz <code>NewPromotionBuilder.php</code></td></tr>
+<tr><td><code>has_image</code></td><td>Product &rarr; hasImages()</td><td>Utwórz nowy</td></tr>
+<tr><td><code>price</code></td><td>Sylius ChannelPricing</td><td>Utwórz nowy</td></tr>
+</table>
+
+<h3>Krok 3: Zarejestruj w services XML</h3>
+<p>Dodaj nowe PropertyBuildery do <code>Resources/services/property_builder.xml</code>.</p>
+
+<h3>Krok 4: Reindex</h3>
+<pre>bin/console fos:elastica:populate --env=prod</pre>
+
+<!-- ============================================================ -->
+<h2 id="faza3" class="page-break"><span class="phase-num">Faza 3</span> — System detekcji intencji (Intent Detection)</h2>
+<div class="phase">Czas: 2–3 dni | 6 nowych plików PHP | Serce logiki wyszukiwania</div>
+
+<p>System Intent Detection analizuje zapytanie użytkownika i wykrywa:</p>
+<ul>
+<li><strong>Brand intent</strong> — "fuji xt5" &rarr; marka Fujifilm, reszta "xt5"</li>
+<li><strong>Category intent</strong> — "lampa" &rarr; 7 podkategorii lamp</li>
+<li><strong>Condition intent</strong> — "używany canon r5" &rarr; filtr na stan "used"</li>
+<li><strong>Focal-length intent</strong> — "24-70" &rarr; filtr na obiektywy</li>
+<li><strong>Model normalization</strong> — "a7iv" &rarr; "a7 iv", "mark III" &rarr; "markIII"</li>
+</ul>
+
+<h3>Krok 1: Utwórz katalog <code>IntentDetector/</code></h3>
+<p>Lokalizacja: <code class="file-path">src/Component/Elasticsearch/IntentDetector/</code></p>
+
+<h3>Krok 2: Utwórz 6 plików</h3>
+
+<h4>Plik 1: <code>BrandIntent.php</code> — Value Object</h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class BrandIntent
+{
+    public function __construct(
+        public readonly string $brand,      // "Fujifilm"
+        public readonly string $remainder,  // "xt5"
+        public readonly bool $wasAlias,     // true jeśli "fuji" → "Fujifilm"
+    ) {}
+}
+</pre>
+
+<h4>Plik 2: <code>BrandIntentDetector.php</code></h4>
+<p>Wykrywa markę na początku zapytania. Ładuje listę marek z ES przy pierwszym użyciu.</p>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+use Elastica\Client;
+
+final class BrandIntentDetector
+{
+    private array $brandSet = [];        // ["nikon", "canon", ...]
+    private array $brandOriginal = [];   // ["nikon" => "Nikon", ...]
+
+    public const BRAND_ALIASES = [
+        'fuji' => 'Fujifilm', 'pana' => 'Panasonic',
+        'think tank' => 'ThinkTank',
+        'cannon' => 'Canon', 'kanon' => 'Canon',
+        'nikkon' => 'Nikon', 'olimpus' => 'Olympus',
+        'go pro' => 'GoPro', 'insta 360' => 'Insta360',
+        'fuji film' => 'Fujifilm', 'glare one' => 'GlareOne',
+        'peak desing' => 'Peak Design',
+    ];
+
+    public function __construct(private Client $esClient, private string $indexName) {}
+
+    public function detect(string $query): ?BrandIntent
+    {
+        $this->ensureBrandsLoaded();
+        $tokens = explode(' ', mb_strtolower(trim($query)));
+        if (empty($tokens)) return null;
+
+        // Sprawdź 2-wyrazowe marki, potem 1-wyrazowe
+        foreach ([2, 1] as $n) {
+            if ($n > count($tokens)) continue;
+            $prefix = implode(' ', array_slice($tokens, 0, $n));
+            $remainder = trim(implode(' ', array_slice($tokens, $n)));
+
+            // Dokładne dopasowanie
+            if (isset($this->brandOriginal[$prefix])) {
+                return new BrandIntent($this->brandOriginal[$prefix], $remainder, false);
+            }
+            // Alias
+            if (isset(self::BRAND_ALIASES[$prefix])) {
+                return new BrandIntent(self::BRAND_ALIASES[$prefix], $remainder, true);
+            }
+        }
+        return null;
+    }
+
+    public function rewriteQuery(string $query, BrandIntent $intent): string
+    {
+        // "fuji xt5" → "Fujifilm xt5"
+        if (!$intent->wasAlias) return $query;
+        foreach (self::BRAND_ALIASES as $alias => $canonical) {
+            if ($canonical === $intent->brand
+                && stripos($query, $alias) !== false) {
+                return str_ireplace($alias, $canonical, $query);
+            }
+        }
+        return $query;
+    }
+
+    private function ensureBrandsLoaded(): void
+    {
+        if (!empty($this->brandSet)) return;
+        $index = $this->esClient->getIndex($this->indexName);
+        $response = $index->search([
+            'size' => 0,
+            'aggs' => ['brands' => ['terms' => ['field' => 'producer', 'size' => 500]]]
+        ]);
+        foreach ($response->getAggregation('brands')['buckets'] as $b) {
+            $key = $b['key'];
+            $lower = mb_strtolower($key);
+            $this->brandSet[$lower] = true;
+            $this->brandOriginal[$lower] = $key;
+        }
+    }
+}
+</pre>
+
+<h4>Plik 3: <code>CategoryIntent.php</code> — Value Object</h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class CategoryIntent
+{
+    public function __construct(
+        public readonly array $subcategories,  // ["lampy LED", "lampy studyjne LED"]
+        public readonly string $remainder,      // "godox" (z "lampa godox")
+    ) {}
+
+    public function isSingleCategory(): bool
+    { return count($this->subcategories) === 1; }
+
+    public function hasRemainder(): bool
+    { return '' !== $this->remainder; }
+}
+</pre>
+
+<h4>Plik 4: <code>CategoryIntentDetector.php</code></h4>
+<p>Mapowanie słów kluczowych na podkategorie z ES. To jest najważniejsza tablica — musi pasować do Twojego drzewa kategorii w Sylius.</p>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class CategoryIntentDetector
+{
+    /**
+     * Mapa: słowo kluczowe → lista podkategorii w ES.
+     * DOSTOSUJ do swojego drzewa kategorii w Sylius!
+     */
+    public const CATEGORY_ALIASES = [
+        'lampa' => ['lampy LED', 'lampy studyjne LED', 'lampy panelowe LED',
+                     'miecze świetlne LED', 'lampy pierścieniowe LED',
+                     'lampy błyskowe', 'lampy reporterskie'],
+        'karta' => ['SD / SDHC / SDXC', 'CFexpress', 'microSD',
+                     'SD / SDHC', 'CompactFlash'],
+        'karta sd' => ['SD / SDHC / SDXC', 'SD / SDHC'],
+        'obiektyw' => ['obiektywy stałoogniskowe',
+                        'obiektywy zmiennoogniskowe (zoom)',
+                        'obiektywy do lustrzanek',
+                        'obiektywy do bezlusterkowców'],
+        'statyw' => ['statywy (trójnogi)', 'statywy do filmowania'],
+        'filtr' => ['filtry', 'połówkowe i szare'],
+        'akumulator' => ['akumulatory', 'baterie specjalistyczne'],
+        'bateria' => ['akumulatory', 'baterie specjalistyczne'],
+        'pasek' => ['paski', 'pasy biodrowe, szelki i kamizelki'],
+        'klatka' => ['klatki', 'zestawy do foto-video'],
+        'plecak' => ['plecaki fotograficzne'],
+        'torba' => ['torby fotograficzne', 'torby kufry i walizki'],
+        'softbox' => ['softboxy', 'softboxy oktagonalne', 'softboxy prostokątne'],
+        'gimbal' => ['gimbale', 'stabilizatory', 'systemy stabilizacji'],
+        'mikrofon' => ['mikrofony', 'mikrofony bezprzewodowe'],
+        'dron' => ['drony'], 'drony' => ['drony'],
+        'gopro' => ['kamery sportowe'],
+        'ring light' => ['lampy pierścieniowe LED'],
+        'miecz' => ['miecze świetlne LED'],
+        'led panel' => ['lampy panelowe LED'],
+        'tło' => ['tła kartonowe', 'tła składane', 'tła plastikowe',
+                   'tła materiałowe', 'tła winylowe'],
+        'instax' => ['kompakty z natychmiastowym wydrukiem'],
+        'lornetka' => ['uniwersalne', 'ornitologia i myślistwo dzienne',
+                        'turystyka', 'żeglarstwo', 'lornetki'],
+        // Dodaj więcej aliasów dopasowanych do TWOJEGO drzewa kategorii
+    ];
+
+    public function detect(string $query): ?CategoryIntent
+    {
+        $q = mb_strtolower(trim($query));
+        // Dokładne dopasowanie
+        if (isset(self::CATEGORY_ALIASES[$q])) {
+            return new CategoryIntent(self::CATEGORY_ALIASES[$q], '');
+        }
+
+        // Dopasowanie pierwszego/dwóch słów → reszta jako remainder
+        $tokens = explode(' ', $q);
+        foreach ([2, 1] as $n) {
+            if ($n >= count($tokens)) continue;
+            $prefix = implode(' ', array_slice($tokens, 0, $n));
+            if (isset(self::CATEGORY_ALIASES[$prefix])) {
+                $remainder = trim(implode(' ', array_slice($tokens, $n)));
+                return new CategoryIntent(self::CATEGORY_ALIASES[$prefix], $remainder);
+            }
+        }
+        return null;
+    }
+}
+</pre>
+
+<h4>Plik 5: <code>SearchIntent.php</code> — Kompozytowy Value Object</h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class SearchIntent
+{
+    public function __construct(
+        public readonly string $originalQuery,
+        public readonly string $normalizedQuery,
+        public readonly ?BrandIntent $brand,
+        public readonly ?CategoryIntent $category,
+        public readonly ?string $focalLength,
+        public readonly bool $usedCondition,
+    ) {}
+
+    public function hasBrandIntent(): bool { return null !== $this->brand; }
+    public function hasCategoryIntent(): bool { return null !== $this->category; }
+    public function hasFocalLengthIntent(): bool { return null !== $this->focalLength; }
+}
+</pre>
+
+<h4>Plik 6: <code>SearchIntentResolver.php</code> — Orkiestrator</h4>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\IntentDetector;
+
+final class SearchIntentResolver
+{
+    private const RE_DIGIT_TO_ALPHA = '/(\d)([a-zA-Z])/';
+    private const RE_MARK_ROMAN = '/\bmark\s+(i{1,4}v?|iv|v)\b/i';
+    private const RE_FOCAL_LENGTH = '/\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b/';
+    private const USED_PREFIXES = ['używan', 'uzywany', 'używany', 'uży', 'uzy'];
+
+    public const LENS_SUBCATS = [
+        'obiektywy stałoogniskowe', 'obiektywy zmiennoogniskowe (zoom)',
+        'obiektywy do lustrzanek', 'obiektywy do bezlusterkowców',
+    ];
+    public const MAIN_SUBCATS = [
+        'aparaty cyfrowe', 'bezlusterkowce', 'kompakty', 'lustrzanki',
+        'obiektywy stałoogniskowe', 'obiektywy zmiennoogniskowe (zoom)',
+        'obiektywy do lustrzanek', 'obiektywy do bezlusterkowców',
+        'kamery cyfrowe', 'kamery sportowe', 'drony',
+    ];
+
+    public function __construct(
+        private BrandIntentDetector $brandDetector,
+        private CategoryIntentDetector $categoryDetector,
+    ) {}
+
+    public function resolve(string $query): SearchIntent
+    {
+        $original = $query;
+
+        // 1. "a7iv" → "a7 iv"
+        $query = preg_replace(self::RE_DIGIT_TO_ALPHA, '$1 $2', $query) ?? $query;
+        // 2. "mark III" → "markIII"
+        $query = preg_replace_callback(self::RE_MARK_ROMAN,
+            fn($m) => 'mark' . $m[1], $query) ?? $query;
+
+        $qLower = mb_strtolower(trim($query));
+
+        // 3. Brand
+        $brand = $this->brandDetector->detect($query);
+        // 4. Alias rewrite
+        if ($brand?->wasAlias) {
+            $query = $this->brandDetector->rewriteQuery($query, $brand);
+        }
+
+        // 5. Condition (used)
+        $usedCondition = false;
+        $queryForEs = $query;
+        foreach (explode(' ', $qLower) as $word) {
+            foreach (self::USED_PREFIXES as $prefix) {
+                if (str_starts_with($word, $prefix)) {
+                    $usedCondition = true;
+                    break 2;
+                }
+            }
+        }
+        if ($usedCondition) {
+            $clean = [];
+            foreach (explode(' ', $query) as $w) {
+                $keep = true;
+                foreach (self::USED_PREFIXES as $p) {
+                    if (str_starts_with(mb_strtolower($w), $p)) { $keep = false; break; }
+                }
+                if ($keep) $clean[] = $w;
+            }
+            $queryForEs = trim(implode(' ', $clean)) ?: $query;
+        }
+
+        // 6. Category
+        $catCheck = $brand ? $brand->remainder : $qLower;
+        $category = !empty($catCheck) ? $this->categoryDetector->detect($catCheck) : null;
+
+        // 7. Focal length
+        $focal = null;
+        if (!$category && preg_match(self::RE_FOCAL_LENGTH, $qLower, $m)) {
+            $focal = $m[1] . '-' . $m[2];
+        }
+
+        return new SearchIntent($original, $queryForEs, $brand, $category, $focal, $usedCondition);
+    }
+}
+</pre>
+
+<h3>Krok 3: Zarejestruj serwisy</h3>
+<p>Utwórz plik <code class="file-path">Resources/services/intent_detection.xml</code>:</p>
+<pre>
+&lt;service id="app.elasticsearch.intent_detector.brand"
+         class="App\Component\Elasticsearch\IntentDetector\BrandIntentDetector"&gt;
+    &lt;argument type="service" id="fos_elastica.client" /&gt;
+    &lt;argument&gt;%bitbag_es_index_prefix%bitbag_shop_products_%kernel.environment%&lt;/argument&gt;
+&lt;/service&gt;
+
+&lt;service id="app.elasticsearch.intent_detector.category"
+         class="App\Component\Elasticsearch\IntentDetector\CategoryIntentDetector" /&gt;
+
+&lt;service id="app.elasticsearch.intent_detector.resolver"
+         class="App\Component\Elasticsearch\IntentDetector\SearchIntentResolver"&gt;
+    &lt;argument type="service" id="app.elasticsearch.intent_detector.brand" /&gt;
+    &lt;argument type="service" id="app.elasticsearch.intent_detector.category" /&gt;
+&lt;/service&gt;
+</pre>
+
+<!-- ============================================================ -->
+<h2 id="faza4" class="page-break"><span class="phase-num">Faza 4</span> — Nowy ProductsQueryBuilder</h2>
+<div class="phase">Czas: 2–3 dni | KLUCZOWA ZMIANA — zamiana prostego MultiMatch na intent-aware bool query</div>
+
+<p>Obecny <code>ProductsQueryBuilder</code> używa jednego <code>MultiMatch</code>. Nowy buduje 3 warianty query zależnie od intencji:</p>
+
+<h3>Wariant 1: Category-intent ("lampa", "karta sd")</h3>
+<ul>
+<li>Filter na podkategoriach (Terms filter)</li>
+<li>Jeśli remainder ("klatka sony a7 iv"): MultiMatch na remainder w ramach filtra</li>
+<li>Jeśli czyste ("lampa"): MatchAll (ranking przez function_score)</li>
+</ul>
+
+<h3>Wariant 2: Text-matching ("canon r8", "sony a7iv")</h3>
+<ul>
+<li><code>bool.should</code> z:
+  <ul>
+    <li>MultiMatch na name/description/producer/taxon (fuzziness + min_should_match 70%)</li>
+    <li><code>match_phrase</code> z slop=2 (boost=50, lub 10 gdy brand-intent)</li>
+    <li><code>match_phrase_prefix</code> (boost=5, lub 2 gdy brand-intent)</li>
+    <li>Term matches na ean.keyword, product_code.keyword (boost=100)</li>
+  </ul>
+</li>
+<li>Brand filter (gdy brand-intent)</li>
+<li>Focal-length filter na obiektywach (gdy wykryto ogniskową)</li>
+</ul>
+
+<h3>Wariant 3: Used-intent</h3>
+<ul>
+<li>Hard filter: <code>{"term": {"condition": "used"}}</code> wstrzyknięty do bool.filter</li>
+<li>Phrase boost +500 na oczyszczonym zapytaniu (bez słowa "używany")</li>
+</ul>
+
+<h3>Krok 1: Zamień <code>ProductsQueryBuilder.php</code></h3>
+<p>Plik gotowy jest w: <code class="file-path">src/Component/Elasticsearch/QueryBuilder/ProductsQueryBuilder.php</code></p>
+
+<div class="success"><strong>Kluczowe zmiany:</strong>
+<ul>
+<li>Nowa zależność: <code>SearchIntentResolver</code> (3. argument konstruktora)</li>
+<li>Metoda <code>getLastIntent()</code> — udostępnia SearchIntent dla FunctionScore</li>
+<li><code>buildCategoryIntentQuery()</code> — filter na podkategoriach</li>
+<li><code>buildTextMatchingQuery()</code> — bool.should z match_phrase + exact codes</li>
+</ul>
+</div>
+
+<h3>Krok 2: Zaktualizuj <code>query_builder.xml</code></h3>
+<pre>
+&lt;!-- Dodaj SearchIntentResolver jako 3. argument --&gt;
+&lt;service id="app.elasticsearch.query_builder.products"
+         class="App\Component\Elasticsearch\QueryBuilder\ProductsQueryBuilder"&gt;
+    &lt;argument type="service" id="bitbag_sylius_elasticsearch_plugin.query_builder.is_enabled" /&gt;
+    &lt;argument type="service" id="bitbag_sylius_elasticsearch_plugin.query_builder.has_channel" /&gt;
+    &lt;argument type="service" id="app.elasticsearch.intent_detector.resolver" /&gt;
+    &lt;argument&gt;%bitbag_es_fuziness%&lt;/argument&gt;
+    &lt;argument&gt;%bitbag_es_property_state%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_NAME_BOOSTER)%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_DESCRIPTION_BOOSTER)%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_PRODUCER_BOOSTER)%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_MAIN_CATEGORY_BOOSTER)%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_SUB_CATEGORY_BOOSTER)%&lt;/argument&gt;
+    &lt;argument&gt;%env(int:ELASTICSEARCH_CHILD_CATEGORY_BOOSTER)%&lt;/argument&gt;
+&lt;/service&gt;
+</pre>
+
+<!-- ============================================================ -->
+<h2 id="faza5" class="page-break"><span class="phase-num">Faza 5</span> — Nowy FunctionScoreProductsQueryBuilder</h2>
+<div class="phase">Czas: 1–2 dni | Dynamiczny scoring zależny od intencji</div>
+
+<h3>Było (5 functions, stałe):</h3>
+<table>
+<tr><th>Funkcja</th><th>Modifier</th><th>Weight</th></tr>
+<tr><td>popularity</td><td>log1p</td><td>1</td></tr>
+<tr><td>rating</td><td>none</td><td>1</td></tr>
+<tr><td>new_or_promotion</td><td>none</td><td>1</td></tr>
+<tr><td>featured</td><td>none</td><td>100</td></tr>
+<tr><td>realization_time_booster</td><td>none</td><td>1.0</td></tr>
+</table>
+
+<h3>Nowe — 2 warianty scoringu:</h3>
+
+<h4>Category-intent (ok. 8 functions):</h4>
+<table>
+<tr><th>Funkcja</th><th>Modifier</th><th>Weight</th></tr>
+<tr><td>popularity</td><td>sqrt</td><td>50</td></tr>
+<tr><td>rating</td><td>none</td><td>z .env</td></tr>
+<tr><td>availability (in_stock)</td><td>filter</td><td>+30</td></tr>
+<tr><td>bestseller</td><td>filter</td><td>+60</td></tr>
+<tr><td>featured</td><td>none</td><td>z .env</td></tr>
+<tr><td>new_or_promotion</td><td>none</td><td>+10</td></tr>
+<tr><td>condition (used/new)</td><td>filter</td><td>+200/+25</td></tr>
+<tr><td>realization_time_booster</td><td colspan="2">zachowany</td></tr>
+</table>
+
+<h4>Text-matching (ok. 13 functions):</h4>
+<table>
+<tr><th>Funkcja</th><th>Weight (brand)</th><th>Weight (bez brand)</th></tr>
+<tr><td>brand match</td><td>+300</td><td>—</td></tr>
+<tr><td>popularity (log1p)</td><td>80</td><td>80</td></tr>
+<tr><td>price (log1p * 0.001)</td><td>30</td><td>15</td></tr>
+<tr><td>availability (in_stock)</td><td>+50</td><td>+50</td></tr>
+<tr><td>bestseller</td><td>+60</td><td>+60</td></tr>
+<tr><td>main_subcats boost</td><td>+1000</td><td>+120</td></tr>
+<tr><td>featured</td><td>z .env</td><td>z .env</td></tr>
+<tr><td>new_or_promotion</td><td>z .env</td><td>z .env</td></tr>
+<tr><td>promo</td><td>+20</td><td>+20</td></tr>
+<tr><td>new products</td><td>+30</td><td>+30</td></tr>
+<tr><td>condition</td><td>+50/+200</td><td>+25/+200</td></tr>
+<tr><td>focal-length lens</td><td>+150</td><td>+150</td></tr>
+<tr><td>realization_time_booster</td><td colspan="2">zachowany</td></tr>
+</table>
+
+<h3>Krok: Zamień <code>FunctionScoreProductsQueryBuilder.php</code></h3>
+<p>Nowa metoda <code>buildIntentAwareQuery(SearchIntent)</code> jest wywoływana przez <code>SiteWideProductsQueryBuilder</code>.</p>
+<p>Dodaj argument <code>bestsellerProperty</code> (10. pozycja w konstruktorze) w services XML.</p>
+
+<!-- ============================================================ -->
+<h2 id="faza6" class="page-break"><span class="phase-num">Faza 6</span> — Synonimy i ekspansja zapytań</h2>
+<div class="phase">Czas: 1–2 dni | Rozszerzenie istniejących synonimów + query-time expansion</div>
+
+<h3>Poziom 1: Synonimy ES (w fos_elastica.yaml)</h3>
+<p>Rozszerz istniejącą listę synonimów o nowe wpisy:</p>
+<pre>
+synonym_graph_filter:
+  type: synonym_graph
+  synonyms:
+    # Dwukierunkowe
+    - "fuji, fujifilm, fuij, fuijfilm, fuji film"
+    - "om system, olympus, olimpus"
+    - "smallrig, smallring"
+    - "canon, kannon, cannon, kanon"
+    - "szkło, obiektyw"
+    - "statyw, tripod, trójnóg, trojnog"
+    - "lampa, flesz, flash, błysk"
+    - "karta pamięci, karta SD, karty SD, karty pamięci"
+    - "etui, pokrowiec, case, futerał"
+    - "dron, drone, quadcopter"
+    # Jednokierunkowe
+    - "lustrzanka => aparat cyfrowy"
+    - "szklanka, szklanki => obiektyw"
+    - "beczka => teleobiektyw"
+    - "body, ciało => korpus"
+    - "leika, lejka, lejca => leica"
+    - "cage => klatka"
+    - "strap => pasek"
+    - "strobe => lampa studyjna"
+</pre>
+
+<h3>Poziom 2: Query-time expansion (w PHP)</h3>
+<p>Dodaj do <code>SearchIntentResolver::resolve()</code> krok ekspansji synonimów:</p>
+<ol>
+<li><strong>TYPO_CORRECTIONS</strong> — popraw literówki: "obiektw" &rarr; "obiektyw"</li>
+<li><strong>SLANG_ALIASES</strong> — zamień slang: "szklanka" &rarr; "obiektyw"</li>
+<li><strong>EN_PL_ALIASES</strong> — dodaj polskie equivalenty: "cage" &rarr; dodaj "klatka" jako should</li>
+<li><strong>SYNONYM_EXPANSIONS</strong> — dwukierunkowe grupy: "dron" &harr; "drone" &harr; "quadcopter"</li>
+</ol>
+
+<div class="warning"><strong>Limit:</strong> Max 5 dodatkowych fraz z ekspansji, aby nie spowolnić zapytań.</div>
+
+<!-- ============================================================ -->
+<h2 id="faza7" class="page-break"><span class="phase-num">Faza 7</span> — Reranking sprzedażowy</h2>
+<div class="phase">Czas: 1 dzień | Post-ES reranking na podstawie danych sprzedażowych z ERP</div>
+
+<p>Prototyp CyfroSearch stosuje post-ES reranking na podstawie danych z Verto ERP. Wdrożenie w PHP:</p>
+
+<h3>Formuła:</h3>
+<pre>
+final_score = es_score * (1 + log1p(sales_30d) * 0.15 + log1p(sales_365d) * 0.05)
+</pre>
+
+<h3>Krok 1: Utwórz serwis SalesReranker</h3>
+<pre>
+&lt;?php
+declare(strict_types=1);
+namespace App\Component\Elasticsearch\Reranker;
+
+final class SalesReranker
+{
+    /** @var array&lt;string, array{s30: int, s365: int}&gt; */
+    private array $salesData = [];
+
+    public function __construct(private SalesDataProviderInterface $provider) {}
+
+    /**
+     * @param array&lt;int, array{id: int, score: float}&gt; $esResults
+     * @return array&lt;int, array{id: int, score: float}&gt;
+     */
+    public function rerank(array $esResults): array
+    {
+        if (empty($this->salesData)) {
+            $this->salesData = $this->provider->loadAll();
+        }
+
+        foreach ($esResults as &$result) {
+            $sku = (string) $result['id'];
+            $sales = $this->salesData[$sku] ?? ['s30' => 0, 's365' => 0];
+            $boost = 1 + log1p($sales['s30']) * 0.15
+                       + log1p($sales['s365']) * 0.05;
+            $result['score'] *= $boost;
+        }
+        unset($result);
+
+        usort($esResults, fn($a, $b) => $b['score'] <=> $a['score']);
+        return $esResults;
+    }
+}
+</pre>
+
+<h3>Krok 2: Dane sprzedażowe</h3>
+<p>Stwórz <code>SalesDataProviderInterface</code> z implementacją pobierającą dane z Verto ERP (lub z cache Redis/plik CSV).</p>
+
+<table>
+<tr><th>Źródło</th><th>Waga</th><th>Opis</th></tr>
+<tr><td>sales_30d</td><td>0.15</td><td>Sprzedaż ostatnich 30 dni (silniejszy sygnał)</td></tr>
+<tr><td>sales_365d</td><td>0.05</td><td>Sprzedaż roczna (stabilizacja)</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="faza8" class="page-break"><span class="phase-num">Faza 8</span> — Testy i walidacja</h2>
+<div class="phase">Czas: 1–2 dni | Sprawdź czy wszystko działa na danych produkcyjnych</div>
+
+<h3>Krok 1: Unit testy IntentDetector</h3>
+<pre>
+public function testBrandIntentFuji(): void
+{
+    $intent = $this->resolver->resolve('fuji xt5');
+    $this->assertNotNull($intent->brand);
+    $this->assertEquals('Fujifilm', $intent->brand->brand);
+    $this->assertEquals('xt5', $intent->brand->remainder);
+    $this->assertTrue($intent->brand->wasAlias);
+}
+
+public function testCategoryIntentLampa(): void
+{
+    $intent = $this->resolver->resolve('lampa');
+    $this->assertNotNull($intent->category);
+    $this->assertGreaterThan(3, count($intent->category->subcategories));
+    $this->assertEquals('', $intent->category->remainder);
+}
+
+public function testConditionIntentUsed(): void
+{
+    $intent = $this->resolver->resolve('używany canon r5');
+    $this->assertTrue($intent->usedCondition);
+    $this->assertStringNotContainsString('używany', $intent->normalizedQuery);
+}
+</pre>
+
+<h3>Krok 2: Testy integracyjne — kluczowe zapytania</h3>
+<p>Uruchom poniższe zapytania na indeksie produkcyjnym i sprawdź top 5 wyników:</p>
+
+<!-- ============================================================ -->
+<h2 id="testy"><span class="phase-num">Ref.</span> Zapytania testowe</h2>
+
+<table>
+<tr><th>#</th><th>Zapytanie</th><th>Oczekiwany wynik</th><th>Co rozwiązuje</th></tr>
+<tr><td>1</td><td><code>canon</code></td><td>Aparaty Canon na górze</td><td>Brand +300, main_cat +1000</td></tr>
+<tr><td>2</td><td><code>fuji xt5</code></td><td>Fujifilm X-T5 #1</td><td>Brand alias + match_phrase</td></tr>
+<tr><td>3</td><td><code>lampa</code></td><td>Wszystkie lampy LED/flash</td><td>Category-intent &rarr; 7 podkategorii</td></tr>
+<tr><td>4</td><td><code>karta sd</code></td><td>Karty SD/SDHC/SDXC</td><td>Category alias, NIE obiektywy SDM</td></tr>
+<tr><td>5</td><td><code>sony a7iv</code></td><td>Sony A7 IV #1</td><td>Model split: a7iv &rarr; a7 iv</td></tr>
+<tr><td>6</td><td><code>canon eos r8</code></td><td>Canon EOS R8 #1</td><td>match_phrase slop=2</td></tr>
+<tr><td>7</td><td><code>24-70</code></td><td>Obiektywy 24-70mm</td><td>Focal-length &rarr; lens filter</td></tr>
+<tr><td>8</td><td><code>używany canon r5</code></td><td>Używane Canon R5</td><td>Condition hard filter + phrase</td></tr>
+<tr><td>9</td><td><code>peak design paski</code></td><td>Paski Peak Design</td><td>Brand + category combo</td></tr>
+<tr><td>10</td><td><code>klatka sony a7 iv</code></td><td>Klatki do Sony A7 IV</td><td>Category + remainder</td></tr>
+<tr><td>11</td><td><code>obiektyw do canon r6</code></td><td>Obiektywy (RF mount, różne marki)</td><td>PATH A: keep cat, no brand filter</td></tr>
+<tr><td>12</td><td><code>akumulator do canon r6</code></td><td>Akumulatory LP-E6NH</td><td>PATH B: cancel cat, brand filter</td></tr>
+<tr><td>13</td><td><code>cage</code></td><td>Klatki operatorskie</td><td>EN&rarr;PL synonym</td></tr>
+<tr><td>14</td><td><code>szklanka</code></td><td>Obiektywy</td><td>Slang alias</td></tr>
+<tr><td>15</td><td><code>nikon z5 ii</code></td><td>Nikon Z5II #1</td><td>Roman merge: z5 ii &rarr; z5ii</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="pliki" class="page-break"><span class="phase-num">Ref.</span> Mapa plików — co dodać, co zmienić</h2>
+
+<h3>NOWE pliki (8):</h3>
+<table>
+<tr><th>Plik</th><th>Faza</th><th>Opis</th></tr>
+<tr><td><code>IntentDetector/BrandIntent.php</code></td><td>3</td><td>Value Object: brand, remainder, wasAlias</td></tr>
+<tr><td><code>IntentDetector/BrandIntentDetector.php</code></td><td>3</td><td>Detekcja marki + aliasy</td></tr>
+<tr><td><code>IntentDetector/CategoryIntent.php</code></td><td>3</td><td>Value Object: subcategories, remainder</td></tr>
+<tr><td><code>IntentDetector/CategoryIntentDetector.php</code></td><td>3</td><td>Mapa keyword &rarr; podkategorie</td></tr>
+<tr><td><code>IntentDetector/SearchIntent.php</code></td><td>3</td><td>Kompozytowy VO: brand + category + focal + used</td></tr>
+<tr><td><code>IntentDetector/SearchIntentResolver.php</code></td><td>3</td><td>Orkiestrator: normalize &rarr; detect &rarr; compose</td></tr>
+<tr><td><code>Resources/services/intent_detection.xml</code></td><td>3</td><td>Symfony DI definicje</td></tr>
+<tr><td><code>Reranker/SalesReranker.php</code></td><td>7</td><td>Post-ES reranking z danymi ERP</td></tr>
+</table>
+
+<h3>ZMIENIONE pliki (5):</h3>
+<table>
+<tr><th>Plik</th><th>Faza</th><th>Co się zmienia</th></tr>
+<tr><td><code>QueryBuilder/ProductsQueryBuilder.php</code></td><td>4</td><td>Intent-aware bool query (3 warianty)</td></tr>
+<tr><td><code>QueryBuilder/FunctionScoreProductsQueryBuilder.php</code></td><td>5</td><td>Nowa metoda <code>buildIntentAwareQuery()</code></td></tr>
+<tr><td><code>QueryBuilder/SiteWideProductsQueryBuilder.php</code></td><td>5</td><td>Wywołanie <code>buildIntentAwareQuery()</code></td></tr>
+<tr><td><code>Resources/services/query_builder.xml</code></td><td>4–5</td><td>Nowe argumenty DI</td></tr>
+<tr><td><code>Controller/Action/Api/ListProductsByPartialNameAction.php</code></td><td>4</td><td>Obsługa normalizedQuery z SearchIntent</td></tr>
+</table>
+
+<h3>NIEZMODYFIKOWANE pliki (zachowane):</h3>
+<ul>
+<li>Wszystkie PropertyBuildery (18 plików) — bez zmian</li>
+<li><code>TaxonProductsQueryBuilder</code> — strony kategorii, bez zmian</li>
+<li>Wszystkie Findery (10 plików) — bez zmian</li>
+<li>Facety, Fabryki — bez zmian</li>
+<li><code>SearchAction</code>, <code>SaleAction</code> — bez zmian</li>
+<li><code>realization_time_booster</code> — ZACHOWANY we wszystkich ścieżkach</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="fos" class="page-break"><span class="phase-num">Ref.</span> Docelowa konfiguracja fos_elastica.yaml</h2>
+<pre>
+fos_elastica:
+  clients:
+    default: { url: '%env(ELASTICSEARCH_URL)%' }
+  indexes:
+    bitbag_shop_product:
+      index_name: "%bitbag_es_index_prefix%bitbag_shop_products_%kernel.environment%"
+      settings:
+        analysis:
+          char_filter:
+            mark_normalizer:
+              type: pattern_replace
+              pattern: "\\bmark\\s+(i{1,4}v?|iv|v)\\b"
+              replacement: "mark$1"
+              flags: "CASE_INSENSITIVE"
+          filter:
+            polish_stem:
+              type: stemmer
+              language: polish
+            icu_folding_filter:
+              type: icu_folding
+            edge_ngram_filter:
+              type: edge_ngram
+              min_gram: 2
+              max_gram: 15
+            synonym_graph_filter:
+              type: synonym_graph
+              synonyms:
+                - "fuji, fujifilm, fuij, fuijfilm, fuji film"
+                - "om system, olympus, olimpus"
+                - "smallrig, smallring"
+                - "canon, kannon, cannon, kanon"
+                - "karty pamięci, karta pamięci, karta SD, karty SD"
+                - "szkło, obiektyw"
+                - "statyw, tripod, trójnóg"
+                - "lampa, flesz, flash, błysk"
+                - "etui, pokrowiec, case, futerał"
+                - "lustrzanka => aparat cyfrowy"
+                - "leika, lejka, lejca => leica"
+                - "szklanka, szklanki => obiektyw"
+                - "body => korpus"
+                - "cage => klatka"
+                - "strap => pasek"
+          analyzer:
+            polish_full:
+              type: custom
+              char_filter: [mark_normalizer]
+              tokenizer: standard
+              filter: [lowercase, polish_stem, icu_folding_filter, synonym_graph_filter]
+            polish_prefix:
+              type: custom
+              tokenizer: standard
+              filter: [lowercase, icu_folding_filter, edge_ngram_filter]
+            polish_folded:
+              type: custom
+              char_filter: [mark_normalizer]
+              tokenizer: standard
+              filter: [lowercase, icu_folding_filter]
+          index.mapping.total_fields.limit: 5000
+      properties:
+        enabled: ~
+        name_pl_pl:
+          type: text
+          analyzer: polish_full
+          fields:
+            keyword: { type: keyword }
+            sort: { type: icu_collation_keyword, language: pl, country: PL }
+            prefix: { type: text, analyzer: polish_prefix }
+            folded: { type: text, analyzer: polish_folded }
+            morfologik: { type: text, analyzer: polish_full }
+        description_pl_pl:
+          type: text
+          analyzer: polish_full
+        producer:
+          type: keyword
+        brand:
+          type: keyword
+        ean:
+          type: keyword
+        product_code:
+          type: keyword
+        erp_id:
+          type: keyword
+        subcategory:
+          type: keyword
+        availability:
+          type: keyword
+        condition:
+          type: keyword
+        is_bestseller:
+          type: boolean
+        is_promo:
+          type: boolean
+        is_new:
+          type: boolean
+        has_image:
+          type: boolean
+        price:
+          type: float
+</pre>
+
+<!-- ============================================================ -->
+<h2 class="page-break">Podsumowanie faz</h2>
+
+<table>
+<tr><th>Faza</th><th>Opis</th><th>Czas</th><th>Wymaga reindexu?</th></tr>
+<tr><td>0</td><td>Zmiana .env (boostery)</td><td>15 min</td><td class="no">NIE</td></tr>
+<tr><td>1</td><td>Pluginy ES + analizery polskie</td><td>1 dzień</td><td class="check">TAK</td></tr>
+<tr><td>2</td><td>Nowe pola w indeksie</td><td>1–2 dni</td><td class="check">TAK</td></tr>
+<tr><td>3</td><td>Intent Detection (6 plików PHP)</td><td>2–3 dni</td><td class="no">NIE</td></tr>
+<tr><td>4</td><td>Nowy ProductsQueryBuilder</td><td>2–3 dni</td><td class="no">NIE</td></tr>
+<tr><td>5</td><td>Nowy FunctionScore</td><td>1–2 dni</td><td class="no">NIE</td></tr>
+<tr><td>6</td><td>Synonimy + query expansion</td><td>1–2 dni</td><td class="check">TAK (synonimy ES)</td></tr>
+<tr><td>7</td><td>Reranking sprzedażowy</td><td>1 dzień</td><td class="no">NIE</td></tr>
+<tr><td>8</td><td>Testy i walidacja</td><td>1–2 dni</td><td class="no">NIE</td></tr>
+<tr><th colspan="2">RAZEM</th><th>12–16 dni</th><th></th></tr>
+</table>
+
+<div class="success">
+<strong>Rekomendowana kolejność wdrażania:</strong><br>
+Fazy 0 &rarr; 1+2 (razem, wymagają reindexu) &rarr; 3 &rarr; 4+5 (razem) &rarr; 6 &rarr; 7 &rarr; 8<br><br>
+<strong>Quick win:</strong> Faza 0 (15 min) + Faza 3+4+5 (bez reindexu) dają największy skok jakości.
+</div>
+
+<hr>
+<p style="text-align:center; color:#888; font-size:9pt;">
+Wygenerowano na podstawie prototypu CyfroSearch v2.0 | Demo: cyfrosearch-demo.onrender.com | 20 lutego 2026<br>
+Kod źródłowy prototypu: github.com/przemyslawwywigaczcyfrowe/cyfrosearch-deploy
+</p>
+
+</body>
+</html>
