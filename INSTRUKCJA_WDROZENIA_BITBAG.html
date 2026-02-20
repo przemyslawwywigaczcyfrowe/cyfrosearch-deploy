@@ -47,14 +47,17 @@
 </head>
 <body>
 
-<p class="header-meta">Dokument techniczny | CyfroSearch &rarr; BitBag | Wersja 1.0 | 20 lutego 2026</p>
+<p class="header-meta">Dokument techniczny | CyfroSearch &rarr; BitBag | Wersja 1.1 | 20 lutego 2026</p>
 
 <h1>Instrukcja wdrożenia CyfroSearch<br>w BitBagSyliusElasticsearchPlugin</h1>
 
 <p><strong>Dla kogo:</strong> PHP/Symfony developer pracujący z Sylius + BitBag ES Plugin<br>
 <strong>Cel:</strong> Osiągnięcie jakości wyszukiwania z prototypu CyfroSearch (98.9% success rate na top 100 zapytań GA4)<br>
+<strong>Zakres:</strong> Wyszukiwanie produktów + sugestie produktów i kategorii (bez sugestii fraz — w Syliusie wyświetlamy wyłącznie produkty i kategorie)<br>
 <strong>Szacowany czas:</strong> 12–16 dni roboczych (wszystkie fazy)<br>
 <strong>Wymagania:</strong> Elasticsearch 7.17+, pluginy <code>analysis-stempel</code> + <code>analysis-icu</code></p>
+
+<div class="warning"><strong>Uwaga:</strong> Dokument <strong>nie obejmuje</strong> sugestii popularnych fraz wyszukiwania (autosuggest query completions). W Syliusie okno podpowiedzi prezentuje wyłącznie <strong>sugestie produktów</strong> i <strong>sugestie kategorii (taxonów)</strong> — i dokładnie to jest przedmiotem tego dokumentu.</div>
 
 <div class="toc">
 <strong>Spis treści</strong>
@@ -893,7 +896,7 @@ public function testConditionIntentUsed(): void
 <tr><td><code>QueryBuilder/FunctionScoreProductsQueryBuilder.php</code></td><td>5</td><td>Nowa metoda <code>buildIntentAwareQuery()</code></td></tr>
 <tr><td><code>QueryBuilder/SiteWideProductsQueryBuilder.php</code></td><td>5</td><td>Wywołanie <code>buildIntentAwareQuery()</code></td></tr>
 <tr><td><code>Resources/services/query_builder.xml</code></td><td>4–5</td><td>Nowe argumenty DI</td></tr>
-<tr><td><code>Controller/Action/Api/ListProductsByPartialNameAction.php</code></td><td>4</td><td>Obsługa normalizedQuery z SearchIntent</td></tr>
+<tr><td><code>Controller/Action/Api/ListProductsByPartialNameAction.php</code></td><td>4</td><td>Sugestie produktów + kategorii — obsługa normalizedQuery z SearchIntent</td></tr>
 </table>
 
 <h3>NIEZMODYFIKOWANE pliki (zachowane):</h3>
