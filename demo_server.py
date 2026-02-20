@@ -899,6 +899,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     {"filter": {"term": {"condition": "used"}}, "weight": 5},
                 ]
             ),
+            # LENS SUBCATEGORIES — strongly boost actual lenses over adapters/accessories
+            # Mount-intent queries like "Canon EF" should show lenses first, not adapters
+            {"filter": {"terms": {"subcategory": [
+                "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
+                "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
+                "standardowe", "tele zoom", "tele", "wide zoom",
+            ]}}, "weight": 200},
+            # Price boost — prefer real lenses (expensive) over small accessories
+            {
+                "field_value_factor": {
+                    "field": "price",
+                    "factor": 0.002, "modifier": "log1p", "missing": 0,
+                },
+                "weight": 20,
+            },
         ]
     elif matched_subcategories:
         # Category-intent: user browses a category → rank by POPULARITY, not price
