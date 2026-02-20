@@ -900,12 +900,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 ]
             ),
             # LENS SUBCATEGORIES — strongly boost actual lenses over adapters/accessories
-            # Mount-intent queries like "Canon EF" should show lenses first, not adapters
+            # Mount-intent queries like "Canon EF" should show lenses first, not adapters.
+            # Very high weight (500) ensures even small/cheap lenses rank above expensive adapters.
             {"filter": {"terms": {"subcategory": [
                 "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
                 "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
-                "standardowe", "tele zoom", "tele", "wide zoom",
-            ]}}, "weight": 200},
+                "standardowe", "tele zoom", "tele", "wide zoom", "wide",
+            ]}}, "weight": 500},
             # Price boost — prefer real lenses (expensive) over small accessories
             {
                 "field_value_factor": {
