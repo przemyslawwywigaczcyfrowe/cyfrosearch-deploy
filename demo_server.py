@@ -1059,8 +1059,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _brand_intent else []
         )
 
+        # When focal-length intent is detected, REQUIRE the exact focal range
+        # in product name to prevent fuzzy matches like "35-150" for query "35-100"
+        _focal_must = (
+            [{"match_phrase": {"name": {"query": _focal_intent, "slop": 0}}}]
+            if _focal_intent else []
+        )
+
         product_bool_query = {
             "bool": {
+                "must": _focal_must if _focal_must else [],
                 "should": [
                     {
                         "multi_match": {
@@ -1095,14 +1103,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # Case-insensitive fallback (uppercase variant)
                     {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
-                    # Focal-length exact phrase boost — strongly prefer exact focal range match
-                    # "35-100 mm" should match "35-100" exactly, not "35-150" via fuzziness
-                    *(
-                        [{"match_phrase": {"name": {"query": _focal_intent, "boost": 200, "slop": 0}}}]
-                        if _focal_intent else []
-                    ),
                 ],
-                "minimum_should_match": 1,
+                "minimum_should_match": 0 if _focal_must else 1,
                 # Filters: brand-intent + focal-length intent (both optional)
                 "filter": _brand_filter + _focal_filter,
             }
