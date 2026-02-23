@@ -1059,18 +1059,8 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _brand_intent else []
         )
 
-        # When focal-length intent is detected, REQUIRE the exact focal range
-        # in product name to prevent fuzzy matches like "35-150" for query "35-100".
-        # Use name.folded (ascii_folding analyzer) for simpler tokenization that
-        # handles hyphens and numbers reliably.
-        _focal_must = (
-            [{"match_phrase": {"name.folded": {"query": _focal_intent, "slop": 0}}}]
-            if _focal_intent else []
-        )
-
         product_bool_query = {
             "bool": {
-                "must": _focal_must if _focal_must else [],
                 "should": [
                     {
                         "multi_match": {
@@ -1082,14 +1072,16 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                                 "brand^3", "sku^6", "ean^6",
                                 "manufacturer_code^8", "id_erp^8",
                             ],
-                            "fuzziness": "AUTO",
+                            # Disable fuzziness for focal-length queries:
+                            # prevents "100" matching "150" (edit distance 1)
+                            "fuzziness": 0 if _focal_intent else "AUTO",
                             "prefix_length": 2,
                             "minimum_should_match": "70%",
                         }
                     },
                     {
                         "match_phrase": {
-                            "name": {"query": q_for_es, "boost": _phrase_boost, "slop": 2}
+                            "name": {"query": q_for_es, "boost": 100 if _focal_intent else _phrase_boost, "slop": 1 if _focal_intent else 2}
                         }
                     },
                     {
@@ -1106,7 +1098,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
                 ],
-                "minimum_should_match": 0 if _focal_must else 1,
+                "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
                 "filter": _brand_filter + _focal_filter,
             }
