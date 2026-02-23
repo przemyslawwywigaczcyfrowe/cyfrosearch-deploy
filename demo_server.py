@@ -125,6 +125,7 @@ LENS_GENRE_MAP: dict[str, dict] = {
     "street": {
         "search_terms": None,  # uses focal_phrases OR logic
         "focal_phrases": ["24 mm", "28 mm", "35 mm", "40 mm"],
+        "subcategories": ["obiektywy stałoogniskowe"],  # primes only for street
         "label": "street (≤43mm)",
     },
 }
@@ -790,9 +791,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     for word in _genre_check_text.split():
         if word in LENS_GENRE_MAP:
             _lens_genre = LENS_GENRE_MAP[word]
-            if not matched_subcategories:
+            # Override subcategories if genre specifies them (e.g. street → primes only)
+            _genre_subcats = _lens_genre.get("subcategories")
+            if _genre_subcats:
+                matched_subcategories = _genre_subcats
+            elif not matched_subcategories:
                 matched_subcategories = LENS_SUBCATS[:]
-            _cat_remainder_text = _lens_genre["search_terms"]
+            _cat_remainder_text = _lens_genre.get("search_terms") or "__genre__"
             break
 
     # ── Waterproof + category interaction ──
@@ -960,19 +965,44 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             }
         elif _lens_genre and _cat_remainder_text:
             # Lens genre intent: "obiektyw portretowy" → 85mm, "obiektyw street" → 24/28/35/40mm
+            # Build a multi_match on the focal-length search terms within lens subcategories.
+            # For portrait: "85 mm" — match lenses with "85" and "mm" in name
+            # For street: multiple OR clauses for different focal lengths
             _focal_phrases = _lens_genre["focal_phrases"]
-            _focal_clauses = [
-                {"match_phrase": {"name": {"query": fp, "boost": 5}}}
-                for fp in _focal_phrases
-            ]
-            product_bool_query = {
-                "bool": {
-                    "must": [
-                        {"bool": {"should": _focal_clauses, "minimum_should_match": 1}},
-                    ],
-                    "filter": [_all_cat_filters],
+            if len(_focal_phrases) == 1:
+                # Single focal length (portrait) — use multi_match
+                product_bool_query = {
+                    "bool": {
+                        "must": [
+                            {"multi_match": {
+                                "query": _focal_phrases[0],
+                                "fields": ["name^3", "name.folded^2"],
+                                "minimum_should_match": "100%",
+                            }},
+                        ],
+                        "filter": [_all_cat_filters],
+                    }
                 }
-            }
+            else:
+                # Multiple focal lengths (street) — OR logic
+                # Each clause matches "XX mm" as individual word matches
+                _focal_clauses = []
+                for fp in _focal_phrases:
+                    _focal_clauses.append(
+                        {"multi_match": {
+                            "query": fp,
+                            "fields": ["name^3", "name.folded^2"],
+                            "minimum_should_match": "100%",
+                        }}
+                    )
+                product_bool_query = {
+                    "bool": {
+                        "must": [
+                            {"bool": {"should": _focal_clauses, "minimum_should_match": 1}},
+                        ],
+                        "filter": [_all_cat_filters],
+                    }
+                }
         elif _waterproof_intent and _cat_remainder_text:
             # Waterproof intent + category: search for "odporny" OR "TOUGH" OR "waterproof" in name
             # Products use "wyjątkowo odporny" or "TOUGH" instead of "wodoodporny"
