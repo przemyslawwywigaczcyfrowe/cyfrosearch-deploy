@@ -1060,9 +1060,11 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         )
 
         # When focal-length intent is detected, REQUIRE the exact focal range
-        # in product name to prevent fuzzy matches like "35-150" for query "35-100"
+        # in product name to prevent fuzzy matches like "35-150" for query "35-100".
+        # Use name.folded (ascii_folding analyzer) for simpler tokenization that
+        # handles hyphens and numbers reliably.
         _focal_must = (
-            [{"match_phrase": {"name": {"query": _focal_intent, "slop": 0}}}]
+            [{"match_phrase": {"name.folded": {"query": _focal_intent, "slop": 0}}}]
             if _focal_intent else []
         )
 
