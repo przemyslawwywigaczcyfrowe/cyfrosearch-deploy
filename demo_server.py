@@ -833,15 +833,34 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     elif matched_subcategories:
         # Category-intent query: filter to subcategories.
         # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
+
+        # When battery/charger categories are matched AND a brand is involved,
+        # also include brand-specific subcategory (e.g. "do Nikon", "do Canon")
+        # since Sylius uses brand-specific subcategories for accessories.
+        # Works with both brand-intent ("nikon bateria") and remainder-brand ("bateria nikon").
+        _BATTERY_SUBCATS = {"akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie", "ładowarki"}
+        _has_brand_subcat = False
+        _battery_brand: str | None = _brand_intent
+        # Also detect brand in remainder text: "bateria nikon" → remainder="nikon"
+        if not _battery_brand and _cat_remainder_text:
+            _remainder_brand = _detect_brand_intent(_cat_remainder_text)
+            if _remainder_brand:
+                _battery_brand = _remainder_brand
+        if _battery_brand and _BATTERY_SUBCATS & set(matched_subcategories):
+            _brand_subcat = f"do {_battery_brand}"
+            matched_subcategories = matched_subcategories + [_brand_subcat]
+            _has_brand_subcat = True
+
         subcat_filter = (
             {"term": {"subcategory": matched_subcategories[0]}}
             if len(matched_subcategories) == 1
             else {"terms": {"subcategory": matched_subcategories}}
         )
         # When both brand-intent and category-intent are active (e.g. "peak design paski"),
-        # combine both filters: brand + subcategory
+        # combine both filters: brand + subcategory.
+        # Skip brand filter if brand-specific subcategory was added (batteries).
         _combined_filters = [subcat_filter]
-        if _brand_intent:
+        if _brand_intent and not _has_brand_subcat:
             _combined_filters.append({"term": {"brand": _brand_intent}})
         _all_cat_filters = {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter
 
