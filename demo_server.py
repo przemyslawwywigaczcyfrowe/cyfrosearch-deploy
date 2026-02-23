@@ -125,15 +125,16 @@ STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
     "nie", "sie", "jest", "to", "ale", "jak", "sn", "body", "p",
     "mm", "wt", "ob", "szt",
-    "aparat", "obiektyw", "kabel", "tusz", "pokrywka",
+    "obiektyw", "kabel", "tusz", "pokrywka",
     "adapter", "pilot", "konwerter", "pasek", "torba", "futeralgx",
-    "plecak", "lampa", "ladowarka", "bateria", "akumulator",
+    "plecak", "lampa", "ladowarka",
     "osona", "oslona", "filtr", "statyw", "grip", "zasilacz",
     "outlet", "uzywany", "u\u017cywany", "demo", "nowy", "nowa",
     "promocja", "promo", "zestaw", "set", "kit",
     "za", "0", "1", "z\u0142", "pln", "cena", "tylko",
     "zbroje", "zbroja", "klatka", "operatorska",
 })
+# NOTE: "bateria", "akumulator", "aparat" removed from STOP — they are now CATEGORY_ALIASES
 
 MODEL_PATTERN = re.compile(
     r'^(?:'
@@ -187,6 +188,20 @@ BRAND_ALIASES: dict[str, str] = {
     "fuji": "fujifilm",
     "pana": "panasonic",
     "think tank": "thinktank",
+    # Polish declined forms (genitive/dative) — "do nikona", "85mm do canona"
+    "nikona": "nikon",
+    "canona": "canon",
+    "sony'ego": "sony",
+    "sonyego": "sony",
+    "panasonica": "panasonic",
+    "fujifilma": "fujifilm",
+    "olympusa": "olympus",
+    "sigmę": "sigma",
+    "sigmy": "sigma",
+    "samyanga": "samyang",
+    "tamrona": "tamron",
+    "leicę": "leica",
+    "leici": "leica",
 }
 
 # ── Mount-intent detection ──
@@ -336,6 +351,24 @@ CATEGORY_ALIASES: dict[str, list[str]] = {
     # torba fotograficzna
     "torba fotograficzna": ["torby fotograficzne", "torby kufry i walizki"],
     "torby fotograficzne": ["torby fotograficzne", "torby kufry i walizki"],
+    # bateria / akumulator → battery/charger subcategories
+    # (removed from STOP words so they can trigger category-intent)
+    "bateria": ["akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie",
+                "ładowarki"],
+    "baterie": ["akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie",
+                "ładowarki"],
+    "akumulator": ["akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie",
+                   "ładowarki"],
+    "akumulatory": ["akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie",
+                    "ładowarki"],
+    # aparat → camera subcategories
+    # (removed from STOP words so they can trigger category-intent)
+    "aparat": ["bezlusterkowce", "lustrzanki", "kompakty", "aparaty cyfrowe",
+               "kompakty z natychmiastowym wydrukiem"],
+    "aparaty": ["bezlusterkowce", "lustrzanki", "kompakty", "aparaty cyfrowe",
+                "kompakty z natychmiastowym wydrukiem"],
+    "aparat wodoodporny": ["kompakty"],
+    "aparat wodoszczelny": ["kompakty"],
 }
 
 # Brand cache — populated once from ES on first request
@@ -374,7 +407,7 @@ def _detect_brand_intent(q_lower: str) -> str | None:
         prefix = " ".join(tokens[:n])
         if prefix in _brand_set:
             return _brand_original[prefix]
-    # Check brand aliases ("fuji" → "fujifilm", "pana" → "panasonic")
+    # Check brand aliases ("fuji" → "fujifilm", "pana" → "panasonic", "nikona" → "nikon")
     for n in (2, 1):
         if n > len(tokens):
             continue
@@ -384,6 +417,43 @@ def _detect_brand_intent(q_lower: str) -> str | None:
             if alias_target in _brand_set:
                 return _brand_original[alias_target]
     return None
+
+
+def _detect_trailing_brand(q_lower: str) -> tuple[str | None, str]:
+    """Detect brand name at END of query after 'do'/'dla' preposition.
+    Returns (brand_original, remainder_before_preposition) or (None, "").
+    Examples:
+      "85 mm do nikona" → ("Nikon", "85 mm")
+      "bateria do canona" → ("Canon", "bateria")
+      "obiektywy do sony" → ("Sony", "obiektywy")
+    """
+    tokens = q_lower.split()
+    if len(tokens) < 3:
+        return None, ""
+    # Find "do" or "dla" in the query
+    for prep_idx in range(len(tokens)):
+        if tokens[prep_idx] not in ("do", "dla"):
+            continue
+        # Check what's after the preposition
+        after = tokens[prep_idx + 1:]
+        if not after:
+            continue
+        # Try 1-word and 2-word brand at end
+        for n in (1, 2):
+            if n > len(after):
+                continue
+            candidate = " ".join(after[:n])
+            # Check in brand set
+            if candidate in _brand_set:
+                before = " ".join(tokens[:prep_idx])
+                return _brand_original[candidate], before
+            # Check in brand aliases
+            if candidate in BRAND_ALIASES:
+                alias_target = BRAND_ALIASES[candidate]
+                if alias_target in _brand_set:
+                    before = " ".join(tokens[:prep_idx])
+                    return _brand_original[alias_target], before
+    return None, ""
 
 TOKEN_RE = re.compile(r'[A-Za-z0-9\u0080-\u024F]+')
 
@@ -482,6 +552,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
     # ── Brand-intent detection ──
     await _ensure_brands(es)
     _brand_intent = _detect_brand_intent(q_lower)
+    _trailing_brand_remainder = ""  # text BEFORE "do <brand>" (e.g. "85 mm" from "85 mm do nikona")
 
     # If brand alias matched (e.g. "fuji"→"Fujifilm"), also rewrite the ES query
     # so text matching finds products with the canonical brand name
@@ -499,6 +570,19 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 q_lower = q.lower().strip()
                 q_words = set(q_lower.split())
                 break
+
+    # Trailing brand detection: "85 mm do nikona", "bateria do canona"
+    # Detects brand at END of query after "do"/"dla" preposition.
+    # Only if standard brand-intent didn't fire (brand is not at the start).
+    if not _brand_intent:
+        _trailing_brand, _trailing_remainder = _detect_trailing_brand(q_lower)
+        if _trailing_brand:
+            _brand_intent = _trailing_brand
+            _trailing_brand_remainder = _trailing_remainder
+            # Rewrite query: "85 mm do nikona" → "Nikon 85 mm" for ES text matching
+            q = f"{_trailing_brand} {_trailing_remainder}".strip()
+            q_lower = q.lower().strip()
+            q_words = set(q_lower.split())
 
     # ── Condition-intent detection ──
     # If query contains "używany"/"uzywany" (or prefix like "uży"/"uzy"),
@@ -518,6 +602,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         q_for_es = " ".join(q_clean_words).strip() or q
     else:
         q_for_es = q
+
+    # ── Waterproof-intent detection ──
+    # Queries like "aparat wodoodporny", "aparat wodoszczelny" → camera subcategories
+    # + text match on "odporny" or "TOUGH" (since products don't have "wodoodporny" in name)
+    _waterproof_intent = False
+    _waterproof_keywords = ("wodoodporny", "wodoszczelny", "wodoodporna", "wodoszczelna",
+                            "waterproof", "underwater")
+    if any(kw in q_lower for kw in _waterproof_keywords):
+        _waterproof_intent = True
+        # Strip waterproof keyword from ES query — products use "odporny"/"TOUGH" not "wodoodporny"
+        q_for_es = q_for_es
+        for kw in _waterproof_keywords:
+            q_for_es = q_for_es.lower().replace(kw, "").strip()
+        # Rebuild with search terms that actually match product names
+        q_for_es = (q_for_es + " odporny TOUGH").strip() if q_for_es else "odporny TOUGH"
 
     # ── Mount-intent detection ──
     # Detects lens mount system queries like "Canon EF", "Nikon F", "Canon EF-S"
@@ -649,6 +748,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         if focal_match:
             _focal_intent = f"{focal_match.group(1)}-{focal_match.group(2)}"
 
+    # ── Waterproof + category interaction ──
+    # When waterproof-intent is active AND category-intent matched (e.g. "aparat wodoodporny"),
+    # use waterproof search terms as remainder text so products are filtered by "odporny TOUGH"
+    # instead of showing ALL kompakty via pure category browse.
+    if _waterproof_intent and matched_subcategories and not _cat_remainder_text:
+        _cat_remainder_text = "TOUGH"
+
     # ── Build all queries, execute as single msearch ──
     # Query 1: Products — hybrid scoring: relevance × (popularity + business signals)
     # Key insight: use boost_mode="sum" so popularity is ADDED to BM25 (not multiplied)
@@ -739,7 +845,27 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             _combined_filters.append({"term": {"brand": _brand_intent}})
         _all_cat_filters = {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter
 
-        if _cat_remainder_text:
+        if _waterproof_intent and _cat_remainder_text:
+            # Waterproof intent + category: search for "odporny" OR "TOUGH" OR "waterproof" in name
+            # Products use "wyjątkowo odporny" or "TOUGH" instead of "wodoodporny"
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "bool": {
+                                "should": [
+                                    {"match": {"name": {"query": "odporny", "boost": 3}}},
+                                    {"match": {"name": {"query": "TOUGH", "boost": 5}}},
+                                    {"match": {"name": {"query": "waterproof", "boost": 3}}},
+                                ],
+                                "minimum_should_match": 1,
+                            }
+                        }
+                    ],
+                    "filter": [_all_cat_filters],
+                }
+            }
+        elif _cat_remainder_text:
             # Category + additional text (e.g. "klatka sony a7 iv" → cat=klatki, text="sony a7 iv")
             # Use text matching within the category filter so results are relevant to remainder.
             # Also add match_phrase boost so exact sequences (e.g. "64 GB Extreme Pro") rank higher.
