@@ -94,7 +94,40 @@ def _fold_polish(text: str) -> str:
 
 # ── Focal-length pattern ──
 # Detects zoom ranges like "24-70", "70-200", "100-400" in queries
-_RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})\b')
+# Also handles "35-100mm" (mm directly attached) via lookahead for mm/\b
+_RE_FOCAL_LENGTH = re.compile(r'\b(\d{2,3})\s*[-–]\s*(\d{2,3})(?=mm|\b)', re.IGNORECASE)
+
+# ── Lens genre intent ──
+# Maps photography genre keywords to focal-length search terms.
+# "obiektyw portretowy" → search for 85mm lenses
+# "obiektyw street" → search for lenses ≤43mm (28mm, 35mm, 40mm)
+LENS_GENRE_MAP: dict[str, dict] = {
+    "portret": {
+        "search_terms": "85 mm",
+        "focal_phrases": ["85 mm"],
+        "label": "portretowy (~85mm)",
+    },
+    "portretowy": {
+        "search_terms": "85 mm",
+        "focal_phrases": ["85 mm"],
+        "label": "portretowy (~85mm)",
+    },
+    "portretowa": {
+        "search_terms": "85 mm",
+        "focal_phrases": ["85 mm"],
+        "label": "portretowy (~85mm)",
+    },
+    "portrait": {
+        "search_terms": "85 mm",
+        "focal_phrases": ["85 mm"],
+        "label": "portrait (~85mm)",
+    },
+    "street": {
+        "search_terms": None,  # uses focal_phrases OR logic
+        "focal_phrases": ["24 mm", "28 mm", "35 mm", "40 mm"],
+        "label": "street (≤43mm)",
+    },
+}
 
 # ── Model number normalization ──
 # Splits tokens on digit→letter boundaries so "a7iv" → "a7 iv", "r6iii" → "r6 iii"
@@ -124,7 +157,7 @@ def _merge_mark_roman(q: str) -> str:
 STOP = frozenset({
     "do", "na", "w", "z", "i", "s", "n", "ze", "od", "po", "dla", "za",
     "nie", "sie", "jest", "to", "ale", "jak", "sn", "body", "p",
-    "mm", "wt", "ob", "szt",
+    "wt", "ob", "szt",
     "obiektyw", "kabel", "tusz", "pokrywka",
     "adapter", "pilot", "konwerter", "pasek", "torba", "futeralgx",
     "plecak", "lampa", "ladowarka",
@@ -748,6 +781,20 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         if focal_match:
             _focal_intent = f"{focal_match.group(1)}-{focal_match.group(2)}"
 
+    # ── Lens genre intent detection ──
+    # "obiektyw portretowy" → lens subcategories + search "85 mm"
+    # "obiektyw street" → lens subcategories + search "28 35 40 mm"
+    # Works with both standalone ("portretowy") and with category prefix ("obiektyw portretowy")
+    _lens_genre: dict | None = None
+    _genre_check_text = _cat_remainder_text if matched_subcategories else q_lower
+    for word in _genre_check_text.split():
+        if word in LENS_GENRE_MAP:
+            _lens_genre = LENS_GENRE_MAP[word]
+            if not matched_subcategories:
+                matched_subcategories = LENS_SUBCATS[:]
+            _cat_remainder_text = _lens_genre["search_terms"]
+            break
+
     # ── Waterproof + category interaction ──
     # When waterproof-intent is active AND category-intent matched (e.g. "aparat wodoodporny"),
     # use waterproof search terms as remainder text so products are filtered by "odporny TOUGH"
@@ -911,6 +958,21 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     "minimum_should_match": 1,
                 }
             }
+        elif _lens_genre and _cat_remainder_text:
+            # Lens genre intent: "obiektyw portretowy" → 85mm, "obiektyw street" → 24/28/35/40mm
+            _focal_phrases = _lens_genre["focal_phrases"]
+            _focal_clauses = [
+                {"match_phrase": {"name": {"query": fp, "boost": 5}}}
+                for fp in _focal_phrases
+            ]
+            product_bool_query = {
+                "bool": {
+                    "must": [
+                        {"bool": {"should": _focal_clauses, "minimum_should_match": 1}},
+                    ],
+                    "filter": [_all_cat_filters],
+                }
+            }
         elif _waterproof_intent and _cat_remainder_text:
             # Waterproof intent + category: search for "odporny" OR "TOUGH" OR "waterproof" in name
             # Products use "wyjątkowo odporny" or "TOUGH" instead of "wodoodporny"
@@ -972,8 +1034,15 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # When brand-intent detected, reduce phrase match boosts so that
         # function_score signals (brand +300, main_cat +1000, price) can outweigh
         # lucky text matches (e.g. "Canon R-F-3 zaślepka" matching "canon r")
-        _phrase_boost = 10 if _brand_intent else 50
-        _phrase_prefix_boost = 2 if _brand_intent else 5
+        # EXCEPTION: if query has 2+ non-brand tokens (e.g. "dji rs 5"),
+        # phrase matching is highly discriminating → use higher boost.
+        if _brand_intent:
+            _non_brand_tokens = len(q_for_es.lower().replace(_brand_intent.lower(), "").split())
+            _phrase_boost = 30 if _non_brand_tokens >= 2 else 10
+            _phrase_prefix_boost = 4 if _non_brand_tokens >= 2 else 2
+        else:
+            _phrase_boost = 50
+            _phrase_prefix_boost = 5
 
         # Focal-length intent: filter to lens subcategories and require phrase match
         _focal_filter = (
@@ -1026,6 +1095,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                     # Case-insensitive fallback (uppercase variant)
                     {"term": {"manufacturer_code": {"value": q_upper, "boost": 90}}},
                     {"term": {"id_erp": {"value": q_upper, "boost": 90}}},
+                    # Focal-length exact phrase boost — strongly prefer exact focal range match
+                    # "35-100 mm" should match "35-100" exactly, not "35-150" via fuzziness
+                    *(
+                        [{"match_phrase": {"name": {"query": _focal_intent, "boost": 200, "slop": 0}}}]
+                        if _focal_intent else []
+                    ),
                 ],
                 "minimum_should_match": 1,
                 # Filters: brand-intent + focal-length intent (both optional)
@@ -1223,6 +1298,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                 "obiektywy stałoogniskowe", "obiektywy zmiennoogniskowe (zoom)",
                 "obiektywy do lustrzanek", "obiektywy do bezlusterkowców",
                 "kamery cyfrowe", "kamery sportowe", "drony",
+                "gimbale", "stabilizatory",
             ]}}, "weight": _main_cat_weight},
             # Image available
             {"filter": {"term": {"has_image": True}}, "weight": 10},
