@@ -835,11 +835,13 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         # Supports multiple subcategories via CATEGORY_ALIASES (e.g. "lampa" → lampy LED + błyskowe + ...)
 
         # When battery/charger categories are matched AND a brand is involved,
-        # also include brand-specific subcategory (e.g. "do Nikon", "do Canon")
-        # since Sylius uses brand-specific subcategories for accessories.
-        # Works with both brand-intent ("nikon bateria") and remainder-brand ("bateria nikon").
+        # Sylius stores batteries in brand-specific subcategories ("do Nikon", "do Canon")
+        # which also contain non-battery products (lenses, adapters etc.).
+        # Strategy: build a composite query that ORs two paths:
+        #   1. Generic battery subcats + text match on brand name
+        #   2. "do {Brand}" subcategory + text match on battery terms (akumulator, bateria, ładowarka, EN-EL, LP-E, etc.)
         _BATTERY_SUBCATS = {"akumulatory i ładowarki", "akumulatory i baterie", "Zasilanie", "ładowarki"}
-        _has_brand_subcat = False
+        _has_brand_battery = False
         _battery_brand: str | None = _brand_intent
         # Also detect brand in remainder text: "bateria nikon" → remainder="nikon"
         if not _battery_brand and _cat_remainder_text:
@@ -847,9 +849,7 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
             if _remainder_brand:
                 _battery_brand = _remainder_brand
         if _battery_brand and _BATTERY_SUBCATS & set(matched_subcategories):
-            _brand_subcat = f"do {_battery_brand}"
-            matched_subcategories = matched_subcategories + [_brand_subcat]
-            _has_brand_subcat = True
+            _has_brand_battery = True
 
         subcat_filter = (
             {"term": {"subcategory": matched_subcategories[0]}}
@@ -858,13 +858,46 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         )
         # When both brand-intent and category-intent are active (e.g. "peak design paski"),
         # combine both filters: brand + subcategory.
-        # Skip brand filter if brand-specific subcategory was added (batteries).
         _combined_filters = [subcat_filter]
-        if _brand_intent and not _has_brand_subcat:
+        if _brand_intent and not _has_brand_battery:
             _combined_filters.append({"term": {"brand": _brand_intent}})
         _all_cat_filters = {"bool": {"must": _combined_filters}} if len(_combined_filters) > 1 else subcat_filter
 
-        if _waterproof_intent and _cat_remainder_text:
+        if _has_brand_battery and _cat_remainder_text:
+            # Battery + brand: composite query
+            # Path A: generic battery subcategories + match brand name in product name
+            # Path B: "do {Brand}" subcategory + match battery-related terms
+            _battery_terms = "akumulator bateria ładowarka charger battery EN-EL LP-E NP-F NP-W NP-BX BLX DMW"
+            product_bool_query = {
+                "bool": {
+                    "should": [
+                        # Path A: generic battery subcats + brand in name
+                        {
+                            "bool": {
+                                "must": [{"multi_match": {
+                                    "query": _cat_remainder_text,
+                                    "fields": ["name^3", "name.prefix^2", "name.morfologik^2", "name.folded^2", "brand^3"],
+                                    "fuzziness": "AUTO", "prefix_length": 2, "minimum_should_match": "70%",
+                                }}],
+                                "filter": [subcat_filter],
+                            }
+                        },
+                        # Path B: brand-specific subcat + battery terms in name
+                        {
+                            "bool": {
+                                "must": [{"multi_match": {
+                                    "query": _battery_terms,
+                                    "fields": ["name^2", "name.morfologik"],
+                                    "minimum_should_match": 1,
+                                }}],
+                                "filter": [{"term": {"subcategory": f"do {_battery_brand}"}}],
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }
+        elif _waterproof_intent and _cat_remainder_text:
             # Waterproof intent + category: search for "odporny" OR "TOUGH" OR "waterproof" in name
             # Products use "wyjątkowo odporny" or "TOUGH" instead of "wodoodporny"
             product_bool_query = {
