@@ -866,8 +866,24 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
         if _has_brand_battery and _cat_remainder_text:
             # Battery + brand: composite query
             # Path A: generic battery subcategories + match brand name in product name
-            # Path B: "do {Brand}" subcategory + match battery-related terms
-            _battery_terms = "akumulator bateria ładowarka charger battery EN-EL LP-E NP-F NP-W NP-BX BLX DMW"
+            # Path B: "do {Brand}" subcategory + require battery-related keywords
+            #   Use match_phrase for model codes (EN-EL, LP-E) to avoid false positives
+            _battery_keyword_clauses = [
+                {"match": {"name": {"query": "akumulator", "operator": "and"}}},
+                {"match": {"name": {"query": "bateria", "operator": "and"}}},
+                {"match": {"name": {"query": "ładowarka", "operator": "and"}}},
+                {"match": {"name": {"query": "charger", "operator": "and"}}},
+                {"match": {"name": {"query": "battery", "operator": "and"}}},
+                {"match": {"name": {"query": "zamiennik", "operator": "and"}}},
+                {"match_phrase": {"name": "EN-EL"}},
+                {"match_phrase": {"name": "LP-E"}},
+                {"match_phrase": {"name": "NP-F"}},
+                {"match_phrase": {"name": "NP-W"}},
+                {"match_phrase": {"name": "NP-BX"}},
+                {"match_phrase": {"name": "DMW-BL"}},
+                {"match_phrase": {"name": "Battery Pack"}},
+                {"match_phrase": {"name": "Power Pack"}},
+            ]
             product_bool_query = {
                 "bool": {
                     "should": [
@@ -882,14 +898,12 @@ async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
                                 "filter": [subcat_filter],
                             }
                         },
-                        # Path B: brand-specific subcat + battery terms in name
+                        # Path B: brand-specific subcat + battery keyword in name
                         {
                             "bool": {
-                                "must": [{"multi_match": {
-                                    "query": _battery_terms,
-                                    "fields": ["name^2", "name.morfologik"],
-                                    "minimum_should_match": 1,
-                                }}],
+                                "must": [
+                                    {"bool": {"should": _battery_keyword_clauses, "minimum_should_match": 1}},
+                                ],
                                 "filter": [{"term": {"subcategory": f"do {_battery_brand}"}}],
                             }
                         },
