@@ -1,0 +1,40 @@
+name: Search regression tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'search_engine.py'
+      - 'es_mapping.py'
+      - 'brand_aliases.json'
+      - 'taxon_aliases.json'
+      - 'regression_tests.json'
+      - 'requirements.txt'
+      - '.github/workflows/regression.yml'
+  workflow_dispatch:
+  # Daily 04:30 UTC — runs 30 min after the daily reindex so the index
+  # is already fresh with the latest GA4 popularity scores.
+  schedule:
+    - cron: "30 4 * * *"
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run regression tests against live index
+        env:
+          ELASTIC_URL: ${{ secrets.ES_HOST }}
+          ELASTIC_API_KEY: ${{ secrets.ES_API_KEY }}
+        run: python run_regression.py
