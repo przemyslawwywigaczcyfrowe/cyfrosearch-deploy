@@ -57,7 +57,7 @@ INDEX_SETTINGS = {
                     "stopwords": "_polish_",
                 },
                 "polish_stem_filter": {
-                    "type": "stempel_stem",
+                    "type": "polish_stem",
                 },
                 "edge_ngram_filter": {
                     "type": "edge_ngram",
