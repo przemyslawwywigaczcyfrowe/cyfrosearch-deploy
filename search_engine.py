@@ -537,6 +537,10 @@ def build_search_query(
     joined_query = _join_model_codes(query)
     # Generate compact mm variant: "100 mm" → "100mm" (matches unsplit index tokens)
     compact_mm = _compact_mm_variant(query)
+    # Generate soft-split variant: "a7v" → "a7 v", "a7iv" → "a7 iv"
+    # Only splits at digit→letter boundary (keeps letter+digit together)
+    # Critical for phrase matches: "a7 v" slop phrase finds "Sony A7 V body"
+    soft_split = _soft_split_model_codes(query)
 
     # When query tokens are all short (≤3 chars each), they're likely fragments of a
     # model code (e.g., "ml 087", "220 C", "rs 5"). Short tokens cause noise by matching
@@ -667,6 +671,23 @@ def build_search_query(
                                 if nospace_query
                                 else []
                             ),
+                            # Soft-split variant: "a7v"→"a7 v" for model codes
+                            # Avoids over-splitting: "a7iv"→"a7 iv" (not "a 7 iv")
+                            {
+                                "match": {
+                                    "searchable_text": {
+                                        "query": soft_split,
+                                        "operator": "or",
+                                        "fuzziness": "AUTO",
+                                        "prefix_length": 1,
+                                    }
+                                }
+                            },
+                            # Exact autocomplete term — "a7v" matches products with
+                            # that exact edge-ngram in name. Critically does NOT match
+                            # "a7rv" or "a7iv" (different grams) — eliminates fuzz false positives
+                            # where accessories with "A7RV/A7IV" outrank the actual A7V camera.
+                            {"term": {"name.autocomplete": {"value": query.lower(), "boost": 60}}},
                             # EAN exact match (raw query — no lens normalization)
                             {"term": {"ean": {"value": raw_query.strip(), "boost": 50}}},
                             # EAN prefix match (partial barcodes)
@@ -784,6 +805,43 @@ def build_search_query(
                         "name.exact": {
                             "query": query,
                             "boost": 25,
+                        }
+                    }
+                },
+                # Soft-split phrase match with slop: "a7v"→"a7 v" finds "Sony A7 V body"
+                # where tokens "a7" and "v" are adjacent. Accessories with "A7RV/A7IV"
+                # don't match because their tokens are "a7rv"/"a7iv" (not "a7"+"v" adjacent).
+                # slop=1 allows one intervening token (e.g. "A7 Mark V" → "a7","mark","v")
+                {
+                    "match_phrase": {
+                        "name.exact": {
+                            "query": soft_split,
+                            "slop": 1,
+                            "boost": 35,
+                        }
+                    }
+                },
+                # Soft-split phrase prefix: "a7 v" prefix matches for partial model codes
+                {
+                    "match_phrase_prefix": {
+                        "name.exact": {
+                            "query": soft_split,
+                            "boost": 25,
+                        }
+                    }
+                },
+                # Exact autocomplete term boost — CRITICAL for model code queries.
+                # "a7v" matches products with "a7v" as edge-ngram in name.
+                # "a7rv" and "a7iv" do NOT have "a7v" as a gram → no boost.
+                # Breaks the fuzz-match tie between the actual A7V and accessories.
+                {"term": {"name.autocomplete": {"value": query.lower(), "boost": 80}}},
+                # Soft-split AND match in searchable_text
+                {
+                    "match": {
+                        "searchable_text": {
+                            "query": soft_split,
+                            "operator": "and",
+                            "boost": 20,
                         }
                     }
                 },
@@ -932,6 +990,14 @@ def build_search_query(
                     "source": "1 + doc['popularity_score'].value * 0.15"
                 }
             }
+        },
+        # In-stock availability boost — universal, 2× multiplier for in-stock products.
+        # With no GA data, BM25 alone cannot distinguish in-stock from out-of-stock.
+        # Multiplicative: irrelevant products still score 0 (0 * 2.0 = 0).
+        # Non-matching filter = weight 1.0 (no penalty for out-of-stock).
+        {
+            "filter": {"term": {"availability": "in stock"}},
+            "weight": 2.0,
         },
     ]
 
@@ -1283,6 +1349,19 @@ def suggest(query: str, size: int = 7) -> dict:
                     }
                 }
             },
+            # Exact autocomplete term boost for suggest — same logic as full search:
+            # "a7v" edge-ngram matches A7V but NOT A7RV/A7IV → breaks fuzz-match ties
+            {"term": {"name.autocomplete": {"value": query_text.lower(), "boost": 80}}},
+            # Soft-split AND in searchable_text
+            {
+                "match": {
+                    "searchable_text": {
+                        "query": soft_split,
+                        "operator": "and",
+                        "boost": 20,
+                    }
+                }
+            },
             # Brand keyword match
             {
                 "term": {
@@ -1416,6 +1495,10 @@ def suggest(query: str, size: int = 7) -> dict:
                                 "source": "1 + doc['popularity_score'].value * 0.15"
                             }
                         }
+                    },
+                    {
+                        "filter": {"term": {"availability": "in stock"}},
+                        "weight": 2.0,
                     },
                 ],
                 "score_mode": "multiply",
