@@ -1341,6 +1341,17 @@ async def _suggest_internal(es: AsyncOpenSearch, q: str, limit: int) -> dict:
             ),
         ]
 
+    # Hard filter: when user explicitly types "używany"/"uzywany" they want
+    # exclusively used products, not a boost. New-product BM25 + popularity easily
+    # overpowers the +200 used boost otherwise.
+    if _used_intent:
+        product_bool_query = {
+            "bool": {
+                "must": [product_bool_query],
+                "filter": [{"term": {"condition": "used"}}],
+            }
+        }
+
     product_body = {
         "size": limit,
         "query": {
@@ -1369,15 +1380,23 @@ async def _suggest_internal(es: AsyncOpenSearch, q: str, limit: int) -> dict:
     }
 
     # Query 2: Categories + Brands (combined into ONE query with multiple aggs)
+    _agg_query: dict[str, Any] = {
+        "multi_match": {
+            "query": q_for_es,
+            "fields": ["name^3", "name.prefix^2", "brand^2", "subcategory"],
+            "fuzziness": "AUTO",
+        }
+    }
+    if _used_intent:
+        _agg_query = {
+            "bool": {
+                "must": [_agg_query],
+                "filter": [{"term": {"condition": "used"}}],
+            }
+        }
     agg_body = {
         "size": 0,
-        "query": {
-            "multi_match": {
-                "query": q,
-                "fields": ["name^3", "name.prefix^2", "brand^2", "subcategory"],
-                "fuzziness": "AUTO",
-            }
-        },
+        "query": _agg_query,
         "aggs": {
             "subcategories": {"terms": {"field": "subcategory", "size": 6}},
             "categories": {"terms": {"field": "category_path", "size": 5}},
@@ -1386,17 +1405,25 @@ async def _suggest_internal(es: AsyncOpenSearch, q: str, limit: int) -> dict:
     }
 
     # Query 3: Suggestion source (top 20 popular products for name extraction)
+    _suggest_match: dict[str, Any] = {
+        "multi_match": {
+            "query": q_for_es,
+            "fields": ["name^3", "name.prefix^2", "brand^3"],
+            "fuzziness": "AUTO",
+        }
+    }
+    if _used_intent:
+        _suggest_match = {
+            "bool": {
+                "must": [_suggest_match],
+                "filter": [{"term": {"condition": "used"}}],
+            }
+        }
     suggest_source_body = {
         "size": 20,
         "query": {
             "function_score": {
-                "query": {
-                    "multi_match": {
-                        "query": q,
-                        "fields": ["name^3", "name.prefix^2", "brand^3"],
-                        "fuzziness": "AUTO",
-                    }
-                },
+                "query": _suggest_match,
                 "functions": [
                     {
                         "field_value_factor": {
