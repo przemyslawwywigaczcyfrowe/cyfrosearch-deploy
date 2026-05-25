@@ -6,11 +6,15 @@ services:
     region: frankfurt
     plan: free
     envVars:
+      # Bonsai: paste the full URL with credentials embedded (https://user:pass@xxx.bonsaisearch.net)
+      # then leave ES_USER / ES_PASSWORD / ES_API_KEY empty.
       - key: ES_HOST
         sync: false
       - key: ES_USER
         sync: false
       - key: ES_PASSWORD
+        sync: false
+      - key: ES_API_KEY
         sync: false
       - key: ES_INDEX
         value: products
