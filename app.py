@@ -81,6 +81,24 @@ async def api_suggest(
     return JSONResponse(content=results)
 
 
+@app.get("/api/health")
+async def api_health():
+    """Liveness probe used by Render. Reports doc count if ES reachable."""
+    try:
+        from es_client import get_es_client
+        from config import INDEX_NAME
+        es = get_es_client()
+        info = es.info()
+        count = es.count(index=INDEX_NAME).get("count", 0)
+        return JSONResponse(content={
+            "status": "ok",
+            "version": info.get("version", {}).get("number", "?"),
+            "doc_count": count,
+        })
+    except Exception as e:
+        return JSONResponse(status_code=503, content={"status": "error", "detail": str(e)})
+
+
 # === HTML UI ===
 
 HTML_TEMPLATE = """<!DOCTYPE html>

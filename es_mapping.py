@@ -182,9 +182,15 @@ def get_index_settings() -> dict:
                 },
 
                 # === Brand ===
+                # fielddata=true enables aggregations / script access on the
+                # analyzed text variant. Most code paths use brand.keyword,
+                # but a few match clauses in search_engine.py touch the
+                # analyzed `brand` field, which on Bonsai/OpenSearch fails
+                # without fielddata enabled.
                 "brand": {
                     "type": "text",
                     "analyzer": "standard",
+                    "fielddata": True,
                     "fields": {
                         "keyword": {"type": "keyword"},
                     },
