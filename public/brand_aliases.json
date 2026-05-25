@@ -1,0 +1,1687 @@
+[
+  {
+    "brand": "Canon",
+    "aliases": [
+      "cannon",
+      "kanon",
+      "conon",
+      "connon",
+      "cano",
+      "canoon"
+    ]
+  },
+  {
+    "brand": "Sony",
+    "aliases": [
+      "soni",
+      "sonny",
+      "soniy",
+      "snoy",
+      "soony"
+    ]
+  },
+  {
+    "brand": "Nikon",
+    "aliases": [
+      "nikkon",
+      "ncon",
+      "nikion",
+      "niikon",
+      "nokon",
+      "nkon",
+      "nikkion",
+      "nikon.",
+      "nkion"
+    ]
+  },
+  {
+    "brand": "FujiFilm",
+    "aliases": [
+      "fuji film",
+      "fuji",
+      "fujfilm",
+      "fudżi",
+      "fudzi",
+      "fujiflm",
+      "fujifim",
+      "fuji-film",
+      "fujilfilm",
+      "fujiflim",
+      "fujiifilm",
+      "fijufilm",
+      "fujfiilm"
+    ]
+  },
+  {
+    "brand": "Panasonic",
+    "aliases": [
+      "panasonik",
+      "panasonicc",
+      "lumix",
+      "panasoic",
+      "panasonc",
+      "panasoinc",
+      "pannasonic",
+      "panasnic"
+    ]
+  },
+  {
+    "brand": "Sigma",
+    "aliases": [
+      "simga",
+      "sigam",
+      "sgima",
+      "singma",
+      "siigma",
+      "sygma",
+      "Sygma"
+    ]
+  },
+  {
+    "brand": "Tamron",
+    "aliases": [
+      "tamrn",
+      "tamnon",
+      "tamaron",
+      "tamrron",
+      "tamrom",
+      "tamran",
+      "tarmron"
+    ]
+  },
+  {
+    "brand": "DJI",
+    "aliases": [
+      "dżi",
+      "djl",
+      "dji.",
+      "dij",
+      "dgi"
+    ]
+  },
+  {
+    "brand": "Olympus",
+    "aliases": [
+      "olimpus",
+      "olympos",
+      "olypmus",
+      "olumpus",
+      "olimpos",
+      "olymups"
+    ]
+  },
+  {
+    "brand": "OM System",
+    "aliases": [
+      "omsystem",
+      "om-system",
+      "om",
+      "om-system."
+    ]
+  },
+  {
+    "brand": "Leica",
+    "aliases": [
+      "lejka",
+      "laica",
+      "leika",
+      "lejca",
+      "lijka"
+    ]
+  },
+  {
+    "brand": "Hasselblad",
+    "aliases": [
+      "haselblad",
+      "hasselbad",
+      "hasselblatt",
+      "hasselbald",
+      "hasselblat",
+      "haselblatt",
+      "hassel blad",
+      "hassleblad",
+      "haselbald"
+    ]
+  },
+  {
+    "brand": "Ricoh",
+    "aliases": [
+      "richo",
+      "riko",
+      "rikoh",
+      "richoh",
+      "rycoh"
+    ]
+  },
+  {
+    "brand": "Samyang",
+    "aliases": [
+      "samjang",
+      "samjan",
+      "samyng",
+      "samyamg",
+      "samyan"
+    ]
+  },
+  {
+    "brand": "Viltrox",
+    "aliases": [
+      "viltox",
+      "viltroks",
+      "vitrox",
+      "vlitrox",
+      "viltrx",
+      "viltorx"
+    ]
+  },
+  {
+    "brand": "Carl Zeiss",
+    "aliases": [
+      "carlzeiss",
+      "zeiss",
+      "zaiss",
+      "carzeiss",
+      "carl-zeiss",
+      "carl zeis",
+      "zeis",
+      "carl zajss"
+    ]
+  },
+  {
+    "brand": "Venus Optics",
+    "aliases": [
+      "venusoptics",
+      "laowa",
+      "venus",
+      "venus-optics",
+      "lawa",
+      "laova"
+    ]
+  },
+  {
+    "brand": "Voigtlander",
+    "aliases": [
+      "voigtländer",
+      "fojtlender",
+      "foigtlander",
+      "voightlander",
+      "voightlänger",
+      "voigtlnder",
+      "voighlander",
+      "voigtalnder",
+      "voigländer",
+      "voigtlaner",
+      "voighländer"
+    ]
+  },
+  {
+    "brand": "7ARTISANS",
+    "aliases": [
+      "7 artisans",
+      "seven artisans",
+      "7artisan",
+      "7 artisan",
+      "7artizans"
+    ]
+  },
+  {
+    "brand": "TTartisan",
+    "aliases": [
+      "tt artisan",
+      "ttartisans",
+      "tt artisans",
+      "tt-artisan",
+      "t.t.artisan",
+      "tt arisan"
+    ]
+  },
+  {
+    "brand": "Tokina",
+    "aliases": [
+      "toknia",
+      "tokinna",
+      "tokin"
+    ]
+  },
+  {
+    "brand": "Lensbaby",
+    "aliases": [
+      "lens baby",
+      "lens-baby",
+      "lenzbaby"
+    ]
+  },
+  {
+    "brand": "AstrHori",
+    "aliases": [
+      "astr hori",
+      "astr-hori"
+    ]
+  },
+  {
+    "brand": "GoPro",
+    "aliases": [
+      "go pro",
+      "goproo",
+      "go-pro",
+      "goppro"
+    ]
+  },
+  {
+    "brand": "Insta360",
+    "aliases": [
+      "insta 360",
+      "insta",
+      "innsta360",
+      "insta-360"
+    ]
+  },
+  {
+    "brand": "Blackmagic",
+    "aliases": [
+      "blackmagic design",
+      "bmd",
+      "blackmajic",
+      "blacmagic",
+      "blackmagick",
+      "black magic",
+      "blackmagic design"
+    ]
+  },
+  {
+    "brand": "Godox",
+    "aliases": [
+      "godoks",
+      "goddox",
+      "gobox",
+      "godos"
+    ]
+  },
+  {
+    "brand": "Profoto",
+    "aliases": [
+      "pro foto",
+      "proffoto",
+      "pro-foto",
+      "proffotto"
+    ]
+  },
+  {
+    "brand": "NANLITE",
+    "aliases": [
+      "nan lite",
+      "nanlajt",
+      "nan-lite",
+      "nanlght",
+      "nanlit"
+    ]
+  },
+  {
+    "brand": "NANLUX",
+    "aliases": [
+      "nan lux",
+      "nan-lux"
+    ]
+  },
+  {
+    "brand": "Aputure",
+    "aliases": [
+      "apputure",
+      "aputyre"
+    ]
+  },
+  {
+    "brand": "Amaran",
+    "aliases": [
+      "ammaran"
+    ]
+  },
+  {
+    "brand": "Quadralite",
+    "aliases": [
+      "kwadralite",
+      "quadralight",
+      "quadralait",
+      "quadralit",
+      "kwadralight"
+    ]
+  },
+  {
+    "brand": "GLAREONE",
+    "aliases": [
+      "glare one",
+      "glare-one"
+    ]
+  },
+  {
+    "brand": "Elinchrom",
+    "aliases": [
+      "elinchrome",
+      "ellinchrom",
+      "elinchrome",
+      "elincrom"
+    ]
+  },
+  {
+    "brand": "Newell",
+    "aliases": [
+      "newel",
+      "newall",
+      "newll"
+    ]
+  },
+  {
+    "brand": "FreePower",
+    "aliases": [
+      "free power",
+      "free-power"
+    ]
+  },
+  {
+    "brand": "Dedolight",
+    "aliases": [
+      "dedo light",
+      "dedo-light"
+    ]
+  },
+  {
+    "brand": "Rotolight",
+    "aliases": [
+      "roto light",
+      "roto-light"
+    ]
+  },
+  {
+    "brand": "WEEYLITE",
+    "aliases": [
+      "weey lite",
+      "weey-lite",
+      "weelite"
+    ]
+  },
+  {
+    "brand": "AKURATLLIGHTING",
+    "aliases": [
+      "akurat lighting",
+      "akurat",
+      "akuratlighting",
+      "akurat-lighting"
+    ]
+  },
+  {
+    "brand": "Manfrotto",
+    "aliases": [
+      "manfroto",
+      "manfotto",
+      "mafrotto",
+      "manfroto",
+      "manfroto",
+      "manfrrotto",
+      "manfroto",
+      "manffrotto",
+      "manfroto",
+      "manfrott"
+    ]
+  },
+  {
+    "brand": "Benro",
+    "aliases": [
+      "berno",
+      "bennro"
+    ]
+  },
+  {
+    "brand": "Sirui",
+    "aliases": [
+      "siru",
+      "siruii",
+      "siruy"
+    ]
+  },
+  {
+    "brand": "Peak Design",
+    "aliases": [
+      "peakdesign",
+      "peak desing",
+      "peak dizajn",
+      "peak-design",
+      "peakdesing",
+      "peak desingn",
+      "paek design"
+    ]
+  },
+  {
+    "brand": "Smallrig",
+    "aliases": [
+      "small rig",
+      "smalrig",
+      "smollrig",
+      "small-rig",
+      "smal rig"
+    ]
+  },
+  {
+    "brand": "Leofoto",
+    "aliases": [
+      "leo foto",
+      "leo-foto"
+    ]
+  },
+  {
+    "brand": "Camrock",
+    "aliases": [
+      "cam rock",
+      "cam-rock"
+    ]
+  },
+  {
+    "brand": "Fotopro",
+    "aliases": [
+      "foto pro",
+      "foto-pro"
+    ]
+  },
+  {
+    "brand": "Zhiyun",
+    "aliases": [
+      "żijun",
+      "zhiun",
+      "zhiyun tech",
+      "żiyun",
+      "zhiyun-tech",
+      "zhiyn",
+      "zhyiun",
+      "ziyun",
+      "zhijun"
+    ]
+  },
+  {
+    "brand": "FeiyuTech",
+    "aliases": [
+      "feiyu tech",
+      "feiyu",
+      "fejyu",
+      "feiyu-tech",
+      "feiyutec"
+    ]
+  },
+  {
+    "brand": "Rode",
+    "aliases": [
+      "roode",
+      "rohde",
+      "rod"
+    ]
+  },
+  {
+    "brand": "Sennheiser",
+    "aliases": [
+      "senheiser",
+      "sennheizer",
+      "sennhaiser",
+      "zenhaizer",
+      "senheizer",
+      "senheizar",
+      "sennhiser",
+      "sennheiser.",
+      "senhiser",
+      "sennheser"
+    ]
+  },
+  {
+    "brand": "Saramonic",
+    "aliases": [
+      "sarramonic",
+      "saramoni",
+      "saramonic.",
+      "sarammonic",
+      "saromic"
+    ]
+  },
+  {
+    "brand": "BOYA",
+    "aliases": [
+      "boja",
+      "boia"
+    ]
+  },
+  {
+    "brand": "Shure",
+    "aliases": [
+      "szur",
+      "schure",
+      "shur"
+    ]
+  },
+  {
+    "brand": "Audio Technica",
+    "aliases": [
+      "audio-technica",
+      "audiotechnica",
+      "audio technika",
+      "audio-technika",
+      "audiotech"
+    ]
+  },
+  {
+    "brand": "Deity",
+    "aliases": [
+      "deiti"
+    ]
+  },
+  {
+    "brand": "Comica",
+    "aliases": [
+      "komica",
+      "commica"
+    ]
+  },
+  {
+    "brand": "Synco",
+    "aliases": [
+      "sinco",
+      "synko"
+    ]
+  },
+  {
+    "brand": "Beyerdynamic",
+    "aliases": [
+      "beyer dynamic",
+      "beyer",
+      "bayerdynamic",
+      "beyerdinamic",
+      "beyer-dynamic"
+    ]
+  },
+  {
+    "brand": "Zoom",
+    "aliases": [
+      "zum",
+      "zoom.",
+      "zom"
+    ]
+  },
+  {
+    "brand": "Tascam",
+    "aliases": [
+      "taskam",
+      "tacam"
+    ]
+  },
+  {
+    "brand": "Sandisk",
+    "aliases": [
+      "san disk",
+      "sandysk",
+      "san disc",
+      "sandisc",
+      "sandisck",
+      "sand disk",
+      "sandik",
+      "sandikk"
+    ]
+  },
+  {
+    "brand": "Lexar",
+    "aliases": [
+      "leksar",
+      "lexarr",
+      "lxar"
+    ]
+  },
+  {
+    "brand": "Samsung",
+    "aliases": [
+      "samung",
+      "samsumg",
+      "smasung",
+      "samsug",
+      "samsung.",
+      "sasmung",
+      "sansung"
+    ]
+  },
+  {
+    "brand": "AngelBird",
+    "aliases": [
+      "angel bird",
+      "angel-bird"
+    ]
+  },
+  {
+    "brand": "Transcend",
+    "aliases": [
+      "trascend",
+      "transend",
+      "transcent"
+    ]
+  },
+  {
+    "brand": "LaCie",
+    "aliases": [
+      "la cie",
+      "la-cie",
+      "laci"
+    ]
+  },
+  {
+    "brand": "Exascend",
+    "aliases": [
+      "exacend",
+      "exascand"
+    ]
+  },
+  {
+    "brand": "Lowepro",
+    "aliases": [
+      "lowe pro",
+      "lovepro",
+      "lowpro",
+      "lowe-pro",
+      "loweprow",
+      "lowerpro"
+    ]
+  },
+  {
+    "brand": "ThinkTank",
+    "aliases": [
+      "think tank",
+      "think thank",
+      "think-tank",
+      "thinktank.",
+      "thinktankt"
+    ]
+  },
+  {
+    "brand": "Wandrd",
+    "aliases": [
+      "wander d",
+      "wandered",
+      "wandr",
+      "wanrd"
+    ]
+  },
+  {
+    "brand": "F-Stop",
+    "aliases": [
+      "fstop",
+      "f stop"
+    ]
+  },
+  {
+    "brand": "Shimoda",
+    "aliases": [
+      "szimoda",
+      "shimoda."
+    ]
+  },
+  {
+    "brand": "Case Logic",
+    "aliases": [
+      "caselogic",
+      "case-logic"
+    ]
+  },
+  {
+    "brand": "BlackRapid",
+    "aliases": [
+      "black rapid",
+      "black-rapid",
+      "blackrappid"
+    ]
+  },
+  {
+    "brand": "Porta Brace",
+    "aliases": [
+      "portabrace",
+      "porta-brace"
+    ]
+  },
+  {
+    "brand": "CottonCarrier",
+    "aliases": [
+      "cotton carrier",
+      "cotton-carrier"
+    ]
+  },
+  {
+    "brand": "Hoya",
+    "aliases": [
+      "hoja",
+      "hoia"
+    ]
+  },
+  {
+    "brand": "B+W",
+    "aliases": [
+      "b&w",
+      "b w",
+      "bw"
+    ]
+  },
+  {
+    "brand": "B&W",
+    "aliases": [
+      "b+w",
+      "bplusw",
+      "b plus w"
+    ]
+  },
+  {
+    "brand": "NISI",
+    "aliases": [
+      "nissi",
+      "nis i",
+      "nisi.",
+      "nishi"
+    ]
+  },
+  {
+    "brand": "K&F",
+    "aliases": [
+      "k&f concept",
+      "kf concept",
+      "k and f",
+      "kf",
+      "k-f concept",
+      "k&fconcept"
+    ]
+  },
+  {
+    "brand": "Freewell",
+    "aliases": [
+      "free well",
+      "free-well"
+    ]
+  },
+  {
+    "brand": "Feelworld",
+    "aliases": [
+      "feel world",
+      "feel-world",
+      "feelworl"
+    ]
+  },
+  {
+    "brand": "Tilta",
+    "aliases": [
+      "tiltka",
+      "tillta"
+    ]
+  },
+  {
+    "brand": "8sinn",
+    "aliases": [
+      "8 sinn",
+      "eightsinn",
+      "8sin",
+      "8-sinn"
+    ]
+  },
+  {
+    "brand": "Edelkrone",
+    "aliases": [
+      "edelkron",
+      "edel krone",
+      "edel-krone"
+    ]
+  },
+  {
+    "brand": "ZEAPON",
+    "aliases": [
+      "zapon",
+      "zeapn"
+    ]
+  },
+  {
+    "brand": "Datavideo",
+    "aliases": [
+      "data video",
+      "data-video"
+    ]
+  },
+  {
+    "brand": "AVerMedia",
+    "aliases": [
+      "avermidia",
+      "aver media"
+    ]
+  },
+  {
+    "brand": "AVMATRIX",
+    "aliases": [
+      "av matrix",
+      "av-matrix"
+    ]
+  },
+  {
+    "brand": "RGBlink",
+    "aliases": [
+      "rgb link",
+      "rgb-link"
+    ]
+  },
+  {
+    "brand": "Magewell",
+    "aliases": [
+      "mage well",
+      "mage-well"
+    ]
+  },
+  {
+    "brand": "LiveU",
+    "aliases": [
+      "live u",
+      "live-u"
+    ]
+  },
+  {
+    "brand": "Epson",
+    "aliases": [
+      "epsone",
+      "epsson",
+      "epsn"
+    ]
+  },
+  {
+    "brand": "EIZO",
+    "aliases": [
+      "eyzo",
+      "eiso"
+    ]
+  },
+  {
+    "brand": "Wacom",
+    "aliases": [
+      "wakon",
+      "vacom",
+      "wacon",
+      "wakom"
+    ]
+  },
+  {
+    "brand": "Datacolor",
+    "aliases": [
+      "data color",
+      "data-color",
+      "datacolour"
+    ]
+  },
+  {
+    "brand": "Hahnel",
+    "aliases": [
+      "hähnel",
+      "hanel",
+      "hannel",
+      "haehnel",
+      "hänel"
+    ]
+  },
+  {
+    "brand": "Nitecore",
+    "aliases": [
+      "nite core",
+      "nite-core"
+    ]
+  },
+  {
+    "brand": "EcoFlow",
+    "aliases": [
+      "eco flow",
+      "eco-flow",
+      "ecoflw"
+    ]
+  },
+  {
+    "brand": "Baseus",
+    "aliases": [
+      "bazeus",
+      "basues"
+    ]
+  },
+  {
+    "brand": "Celestron",
+    "aliases": [
+      "celstron",
+      "cellestron",
+      "celestrn",
+      "selestron"
+    ]
+  },
+  {
+    "brand": "Delta Optical",
+    "aliases": [
+      "deltaoptical",
+      "delta-optical"
+    ]
+  },
+  {
+    "brand": "Sky-Watcher",
+    "aliases": [
+      "sky watcher",
+      "skywatcher",
+      "skywalcher",
+      "sky wacher",
+      "skywacher"
+    ]
+  },
+  {
+    "brand": "Ilford",
+    "aliases": [
+      "illford",
+      "ilfrod",
+      "ilfor"
+    ]
+  },
+  {
+    "brand": "Polaroid",
+    "aliases": [
+      "polarojd",
+      "polariod",
+      "polarid",
+      "pollaroid"
+    ]
+  },
+  {
+    "brand": "Agfaphoto",
+    "aliases": [
+      "agfa photo",
+      "agfa",
+      "agfafoto"
+    ]
+  },
+  {
+    "brand": "Kentmere",
+    "aliases": [
+      "kent mere",
+      "kent-mere"
+    ]
+  },
+  {
+    "brand": "Hahnemuhle",
+    "aliases": [
+      "hahnemühle",
+      "hanemule",
+      "hahnemuehle",
+      "hahnemule",
+      "hahne muhle",
+      "hahne-muhle"
+    ]
+  },
+  {
+    "brand": "Loupedeck",
+    "aliases": [
+      "loupe deck",
+      "loupe-deck",
+      "loupdeck"
+    ]
+  },
+  {
+    "brand": "MagMod",
+    "aliases": [
+      "mag mod",
+      "mag-mod"
+    ]
+  },
+  {
+    "brand": "Lastolite",
+    "aliases": [
+      "lastolait",
+      "lastollite",
+      "lastolyte"
+    ]
+  },
+  {
+    "brand": "PocketWizard",
+    "aliases": [
+      "pocket wizard",
+      "pocket-wizard",
+      "pockeywizard"
+    ]
+  },
+  {
+    "brand": "MeiKe",
+    "aliases": [
+      "mejke",
+      "mekie",
+      "mei ke"
+    ]
+  },
+  {
+    "brand": "Metabones",
+    "aliases": [
+      "meta bones",
+      "meta-bones"
+    ]
+  },
+  {
+    "brand": "Techart",
+    "aliases": [
+      "tec hart",
+      "tec-hart"
+    ]
+  },
+  {
+    "brand": "COMMLITE",
+    "aliases": [
+      "commlight",
+      "com lite",
+      "comm lite"
+    ]
+  },
+  {
+    "brand": "Accsoon",
+    "aliases": [
+      "acsoon",
+      "acsson",
+      "accson"
+    ]
+  },
+  {
+    "brand": "Shimbol",
+    "aliases": [
+      "shimball",
+      "shimboll"
+    ]
+  },
+  {
+    "brand": "PGYTECH",
+    "aliases": [
+      "pgy tech",
+      "pgy",
+      "pgy-tech",
+      "pgytec"
+    ]
+  },
+  {
+    "brand": "3 Legged Thing",
+    "aliases": [
+      "3legged thing",
+      "3-legged thing",
+      "three legged thing",
+      "3 legged",
+      "3legged",
+      "3leggedthing"
+    ]
+  },
+  {
+    "brand": "Ugreen",
+    "aliases": [
+      "u green",
+      "u-green"
+    ]
+  },
+  {
+    "brand": "ULANZI",
+    "aliases": [
+      "ulnazi",
+      "ulanzii",
+      "ualnzi",
+      "u-lanzi"
+    ]
+  },
+  {
+    "brand": "Metz",
+    "aliases": [
+      "mec"
+    ]
+  },
+  {
+    "brand": "Nissin",
+    "aliases": [
+      "nisin",
+      "nissn",
+      "nisin",
+      "nissin.",
+      "niisin"
+    ]
+  },
+  {
+    "brand": "Raynox",
+    "aliases": [
+      "ray nox",
+      "ray-nox"
+    ]
+  },
+  {
+    "brand": "Novoflex",
+    "aliases": [
+      "novo flex",
+      "novo-flex"
+    ]
+  },
+  {
+    "brand": "IK Multimedia",
+    "aliases": [
+      "ikmultimedia",
+      "ik-multimedia"
+    ]
+  },
+  {
+    "brand": "Yongnuo",
+    "aliases": [
+      "youngnou",
+      "yongnuoo",
+      "youngnuo",
+      "jongno",
+      "yongnuoe",
+      "yongnue",
+      "yongnou",
+      "yongnno"
+    ]
+  },
+  {
+    "brand": "Kimafun",
+    "aliases": [
+      "kima fun",
+      "kima-fun"
+    ]
+  },
+  {
+    "brand": "LENSGO",
+    "aliases": [
+      "lens go",
+      "lens-go"
+    ]
+  },
+  {
+    "brand": "Lenspen",
+    "aliases": [
+      "lens pen",
+      "lens-pen"
+    ]
+  },
+  {
+    "brand": "LensCoat",
+    "aliases": [
+      "lens coat",
+      "lens-coat"
+    ]
+  },
+  {
+    "brand": "77PRESS",
+    "aliases": [
+      "77 press"
+    ]
+  },
+  {
+    "brand": "HOVER AIR",
+    "aliases": [
+      "hoverair",
+      "hover-air"
+    ]
+  },
+  {
+    "brand": "LABPANO",
+    "aliases": [
+      "lab pano",
+      "lab-pano"
+    ]
+  },
+  {
+    "brand": "ARRI",
+    "aliases": [
+      "ari"
+    ]
+  },
+  {
+    "brand": "Atmosphere Aerosol",
+    "aliases": [
+      "atmospherearesol",
+      "atmosphere-aerosol"
+    ]
+  },
+  {
+    "brand": "AVENGER",
+    "aliases": [
+      "aveneger",
+      "avanger"
+    ]
+  },
+  {
+    "brand": "Beillen",
+    "aliases": [
+      "beilen"
+    ]
+  },
+  {
+    "brand": "BEZDROŻA",
+    "aliases": [
+      "bezdroza",
+      "bez droża"
+    ]
+  },
+  {
+    "brand": "BladeCine",
+    "aliases": [
+      "blade cine",
+      "blade-cine"
+    ]
+  },
+  {
+    "brand": "BoxCase",
+    "aliases": [
+      "box case",
+      "box-case"
+    ]
+  },
+  {
+    "brand": "CALIBRATE",
+    "aliases": [
+      "kalibrate",
+      "calibrait"
+    ]
+  },
+  {
+    "brand": "Camgloss",
+    "aliases": [
+      "cam gloss",
+      "cam-gloss"
+    ]
+  },
+  {
+    "brand": "CAPTUREONE",
+    "aliases": [
+      "capture one",
+      "capture 1",
+      "capture-one",
+      "captur one"
+    ]
+  },
+  {
+    "brand": "Chasing Innovation",
+    "aliases": [
+      "chasing",
+      "chasing-innovation"
+    ]
+  },
+  {
+    "brand": "Colour Confidence",
+    "aliases": [
+      "color confidence",
+      "colourconfidence",
+      "colorconfidence"
+    ]
+  },
+  {
+    "brand": "Cyfrowepl",
+    "aliases": [
+      "cyfrowe.pl",
+      "cyfrowe pl",
+      "cyfrowe"
+    ]
+  },
+  {
+    "brand": "Desview",
+    "aliases": [
+      "des view",
+      "des-view"
+    ]
+  },
+  {
+    "brand": "Digipower",
+    "aliases": [
+      "digi power",
+      "digi-power"
+    ]
+  },
+  {
+    "brand": "Dorr",
+    "aliases": [
+      "dörr",
+      "doerr",
+      "derr"
+    ]
+  },
+  {
+    "brand": "Duracell",
+    "aliases": [
+      "durasell",
+      "durassell",
+      "durascel"
+    ]
+  },
+  {
+    "brand": "EasyCover",
+    "aliases": [
+      "easy cover",
+      "easy-cover",
+      "easycovar"
+    ]
+  },
+  {
+    "brand": "F&V",
+    "aliases": [
+      "fv",
+      "f v",
+      "f-v",
+      "f and v"
+    ]
+  },
+  {
+    "brand": "Falcon Eyes",
+    "aliases": [
+      "falconeyes",
+      "falcon",
+      "falconeye",
+      "falcon-eyes"
+    ]
+  },
+  {
+    "brand": "FieldCast",
+    "aliases": [
+      "field cast",
+      "field-cast"
+    ]
+  },
+  {
+    "brand": "FOCUS NORDIC",
+    "aliases": [
+      "focusnordic",
+      "focus-nordic"
+    ]
+  },
+  {
+    "brand": "Gator Frameworks",
+    "aliases": [
+      "gator",
+      "gatorframeworks",
+      "gator-frameworks"
+    ]
+  },
+  {
+    "brand": "Genesis Gear",
+    "aliases": [
+      "genesis",
+      "genesisgear",
+      "genesis-gear"
+    ]
+  },
+  {
+    "brand": "Globstory",
+    "aliases": [
+      "glob story",
+      "glob-story"
+    ]
+  },
+  {
+    "brand": "Green Clean",
+    "aliases": [
+      "greenclean",
+      "green-clean"
+    ]
+  },
+  {
+    "brand": "HOVER AIR",
+    "aliases": [
+      "hoverair",
+      "hover-air"
+    ]
+  },
+  {
+    "brand": "ideaPIX",
+    "aliases": [
+      "idea pix",
+      "idea-pix"
+    ]
+  },
+  {
+    "brand": "iOttie",
+    "aliases": [
+      "i ottie",
+      "i-ottie"
+    ]
+  },
+  {
+    "brand": "Irix",
+    "aliases": [
+      "iriks",
+      "iryx"
+    ]
+  },
+  {
+    "brand": "JVC",
+    "aliases": [
+      "jwc",
+      "jcv"
+    ]
+  },
+  {
+    "brand": "Kaiser",
+    "aliases": [
+      "kaizer",
+      "keiser"
+    ]
+  },
+  {
+    "brand": "Kenko",
+    "aliases": [
+      "kenco",
+      "kencko"
+    ]
+  },
+  {
+    "brand": "Konrad Bąk",
+    "aliases": [
+      "konrad bak"
+    ]
+  },
+  {
+    "brand": "KÖNIG & MEYER",
+    "aliases": [
+      "koenig meyer",
+      "konig meyer",
+      "k&m",
+      "konig und meyer",
+      "koenig und meyer",
+      "konig&meyer"
+    ]
+  },
+  {
+    "brand": "LABPANO",
+    "aliases": [
+      "lab pano",
+      "lab-pano"
+    ]
+  },
+  {
+    "brand": "LanParte",
+    "aliases": [
+      "lan parte",
+      "lan-parte"
+    ]
+  },
+  {
+    "brand": "Ltl Acorn",
+    "aliases": [
+      "ltlacorn",
+      "ltl-acorn"
+    ]
+  },
+  {
+    "brand": "Marantz Professional",
+    "aliases": [
+      "marantz",
+      "marantz-professional",
+      "marants"
+    ]
+  },
+  {
+    "brand": "Megadap",
+    "aliases": [
+      "mega dap",
+      "mega-dap"
+    ]
+  },
+  {
+    "brand": "MODULE8",
+    "aliases": [
+      "module 8",
+      "module-8"
+    ]
+  },
+  {
+    "brand": "National Geographic",
+    "aliases": [
+      "natgeo",
+      "nat geo",
+      "nat-geo",
+      "nationalgeographic",
+      "national-geographic"
+    ]
+  },
+  {
+    "brand": "OP/TECH",
+    "aliases": [
+      "op tech",
+      "optech",
+      "op-tech"
+    ]
+  },
+  {
+    "brand": "OrangeMonkie",
+    "aliases": [
+      "orange monkie",
+      "orange-monkie"
+    ]
+  },
+  {
+    "brand": "PACIFIC IMAGE ELECTRONICS",
+    "aliases": [
+      "pacific image",
+      "pacificimage"
+    ]
+  },
+  {
+    "brand": "Polar Pro",
+    "aliases": [
+      "polarpro",
+      "polar-pro"
+    ]
+  },
+  {
+    "brand": "PORTKEYS",
+    "aliases": [
+      "port keys",
+      "port-keys"
+    ]
+  },
+  {
+    "brand": "PreSonus",
+    "aliases": [
+      "pre sonus",
+      "pre-sonus"
+    ]
+  },
+  {
+    "brand": "Sekonic",
+    "aliases": [
+      "sekonik",
+      "seconic",
+      "sekonick"
+    ]
+  },
+  {
+    "brand": "Stealth Gear",
+    "aliases": [
+      "stealthgear",
+      "stealth-gear"
+    ]
+  },
+  {
+    "brand": "Sunnylife",
+    "aliases": [
+      "sunny life",
+      "sunny-life"
+    ]
+  },
+  {
+    "brand": "Superlux",
+    "aliases": [
+      "super lux",
+      "super-lux"
+    ]
+  },
+  {
+    "brand": "Tethertools",
+    "aliases": [
+      "tether tools",
+      "tether-tools",
+      "tetertools"
+    ]
+  },
+  {
+    "brand": "Tookapic",
+    "aliases": [
+      "tooka pic",
+      "tooka-pic"
+    ]
+  },
+  {
+    "brand": "Unistellar",
+    "aliases": [
+      "uni stellar",
+      "uni-stellar"
+    ]
+  },
+  {
+    "brand": "V-Flat World",
+    "aliases": [
+      "v-flat",
+      "v flat world",
+      "vflat",
+      "v flat"
+    ]
+  },
+  {
+    "brand": "Vallerret",
+    "aliases": [
+      "valerret",
+      "valeret",
+      "vallerrett"
+    ]
+  },
+  {
+    "brand": "vMix",
+    "aliases": [
+      "v mix",
+      "v-mix"
+    ]
+  },
+  {
+    "brand": "Xtorm",
+    "aliases": [
+      "x torm",
+      "x-torm"
+    ]
+  },
+  {
+    "brand": "Yololiv",
+    "aliases": [
+      "yolo liv",
+      "yolo-liv",
+      "yolloliv"
+    ]
+  },
+  {
+    "brand": "Z-CAM",
+    "aliases": [
+      "z cam",
+      "zcam",
+      "z-cam."
+    ]
+  },
+  {
+    "brand": "ZIENIU",
+    "aliases": [
+      "zięniu"
+    ]
+  },
+  {
+    "brand": "ZOOM ALTRA",
+    "aliases": [
+      "zoomaltra",
+      "zoom-altra"
+    ]
+  }
+]

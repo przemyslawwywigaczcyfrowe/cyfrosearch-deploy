@@ -1,21 +1,17 @@
 services:
   - type: web
-    name: cyfrosearch-demo
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    region: frankfurt
-    plan: free
+    name: cyfrowe-search-engine
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
-      # Bonsai: paste the full URL with credentials embedded (https://user:pass@xxx.bonsaisearch.net)
-      # then leave ES_USER / ES_PASSWORD / ES_API_KEY empty.
-      - key: ES_HOST
+      - key: ELASTIC_URL
         sync: false
-      - key: ES_USER
+      - key: ELASTIC_API_KEY
         sync: false
-      - key: ES_PASSWORD
+      - key: GA4_PROPERTY_ID
         sync: false
-      - key: ES_API_KEY
+      - key: GA4_SERVICE_ACCOUNT_JSON
         sync: false
-      - key: ES_INDEX
-        value: products
-    healthCheckPath: /api/health
+      - key: PYTHON_VERSION
+        value: 3.11.11

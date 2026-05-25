@@ -1,0 +1,1667 @@
+[
+  {
+    "category": "Aparaty cyfrowe",
+    "aliases": [
+      "aparat",
+      "aparaty",
+      "aparat cyfrowy",
+      "aparat fotograficzny",
+      "aparaty fotograficzne"
+    ]
+  },
+  {
+    "category": "Aparaty cyfrowe > Bezlusterkowce",
+    "aliases": [
+      "bezlusterkowiec",
+      "aparat bezlusterkowy",
+      "aparaty bezlusterkowe",
+      "mirrorless"
+    ]
+  },
+  {
+    "category": "Aparaty cyfrowe > Lustrzanki",
+    "aliases": [
+      "lustrzanka",
+      "lustrzanka cyfrowa",
+      "lustrzanki cyfrowe",
+      "dslr"
+    ]
+  },
+  {
+    "category": "Aparaty cyfrowe > Kompakty",
+    "aliases": [
+      "kompakt",
+      "aparat kompaktowy",
+      "aparaty kompaktowe"
+    ]
+  },
+  {
+    "category": "Aparaty cyfrowe > Kompakty z natychmiastowym wydrukiem",
+    "aliases": [
+      "aparat natychmiastowy",
+      "aparaty natychmiastowe",
+      "aparat z natychmiastowym wydrukiem",
+      "aparaty z natychmiastowym wydrukiem",
+      "instant camera"
+    ]
+  },
+  {
+    "category": "Aparaty analogowe",
+    "aliases": [
+      "aparat analogowy",
+      "aparat na kliszę",
+      "aparaty na kliszę",
+      "aparat na film",
+      "aparaty na film"
+    ]
+  },
+  {
+    "category": "Aparaty analogowe > Aparaty wielokrotnego użytku",
+    "aliases": [
+      "aparat analogowy wielokrotnego użytku",
+      "aparaty analogowe wielokrotnego użytku"
+    ]
+  },
+  {
+    "category": "Obiektywy do bezlusterkowców",
+    "aliases": [
+      "obiektyw do bezlusterkowca"
+    ]
+  },
+  {
+    "category": "Obiektywy do bezlusterkowców > Obiektywy stałoogniskowe",
+    "aliases": [
+      "obiektyw stałoogniskowy"
+    ]
+  },
+  {
+    "category": "Obiektywy do bezlusterkowców > Obiektywy zmiennoogniskowe (zoom)",
+    "aliases": [
+      "obiektyw zmiennoogniskowy",
+      "obiektywy zmiennoogniskowe"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek",
+    "aliases": [
+      "obiektyw do lustrzanki"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Macro",
+    "aliases": [
+      "obiektyw makro",
+      "obiektywy makro",
+      "obiektyw macro",
+      "obiektywy macro"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Szerokokątne",
+    "aliases": [
+      "obiektyw szerokokątny",
+      "obiektywy szerokokątne",
+      "obiektyw szeroki kąt"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Szerokokątne zoom",
+    "aliases": [
+      "obiektyw szerokokątny zoom",
+      "obiektywy szerokokątne zoom"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Tele i supertele",
+    "aliases": [
+      "teleobiektyw",
+      "teleobiektywy",
+      "tele obiektyw",
+      "tele obiektywy"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Tele zoom",
+    "aliases": [
+      "obiektyw tele zoom",
+      "obiektywy tele zoom"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Standardowe zoom",
+    "aliases": [
+      "obiektyw standardowy zoom",
+      "obiektywy standardowe zoom"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Uniwersalny zoom",
+    "aliases": [
+      "obiektyw uniwersalny zoom",
+      "obiektywy uniwersalne zoom"
+    ]
+  },
+  {
+    "category": "Obiektywy do lustrzanek > Tilt i shift",
+    "aliases": [
+      "obiektyw tilt-shift",
+      "obiektywy tilt-shift",
+      "obiektyw shift",
+      "obiektywy shift"
+    ]
+  },
+  {
+    "category": "Obiektywy do filmowania",
+    "aliases": [
+      "obiektyw filmowy",
+      "obiektywy filmowe",
+      "obiektyw do filmowania",
+      "obiektyw cine"
+    ]
+  },
+  {
+    "category": "Obiektywy do filmowania > Do kamer Cine",
+    "aliases": [
+      "obiektyw do kamer cine",
+      "obiektywy do kamer cine"
+    ]
+  },
+  {
+    "category": "Adaptery bagnetowe",
+    "aliases": [
+      "adapter bagnetowy",
+      "przejściówka na obiektyw",
+      "przejściówki na obiektyw"
+    ]
+  },
+  {
+    "category": "Konwertery > Tele",
+    "aliases": [
+      "telekonwerter",
+      "telekonwertery"
+    ]
+  },
+  {
+    "category": "Konwertery > Makro",
+    "aliases": [
+      "konwerter makro",
+      "konwertery makro",
+      "soczewka makro doczepiana",
+      "soczewki makro doczepiane"
+    ]
+  },
+  {
+    "category": "Konwertery > Szerokokątne",
+    "aliases": [
+      "konwerter szerokokątny",
+      "konwertery szerokokątne"
+    ]
+  },
+  {
+    "category": "Tulejki, pierścienie",
+    "aliases": [
+      "tulejka makro",
+      "tulejki makro",
+      "pierścień pośredni",
+      "pierścienie pośrednie"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe",
+    "aliases": [
+      "kamera",
+      "kamery",
+      "kamera cyfrowa",
+      "kamera wideo",
+      "kamery wideo",
+      "kamera video",
+      "kamery video"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe > Profesjonalne",
+    "aliases": [
+      "kamera profesjonalna",
+      "kamery profesjonalne"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe > Zaawansowane",
+    "aliases": [
+      "kamera zaawansowana",
+      "kamery zaawansowane"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe > Amatorskie",
+    "aliases": [
+      "kamera amatorska",
+      "kamery amatorskie"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe > PTZ",
+    "aliases": [
+      "kamera ptz",
+      "kamery ptz"
+    ]
+  },
+  {
+    "category": "Kamery cyfrowe > Wideorejestratory",
+    "aliases": [
+      "wideorejestrator"
+    ]
+  },
+  {
+    "category": "Kamery sportowe",
+    "aliases": [
+      "kamera sportowa",
+      "kamerka sportowa",
+      "kamerki sportowe",
+      "action cam"
+    ]
+  },
+  {
+    "category": "Kamery sportowe > Kamery 360",
+    "aliases": [
+      "kamera 360"
+    ]
+  },
+  {
+    "category": "Kamery internetowe",
+    "aliases": [
+      "kamera internetowa",
+      "kamerka internetowa",
+      "kamerki internetowe",
+      "webcam"
+    ]
+  },
+  {
+    "category": "Wideokonferencje > Kamery wideokonferencyjne",
+    "aliases": [
+      "kamera wideokonferencyjna"
+    ]
+  },
+  {
+    "category": "Astrofotografia > Kamery",
+    "aliases": [
+      "kamera do astrofotografii",
+      "kamery do astrofotografii"
+    ]
+  },
+  {
+    "category": "Drony",
+    "aliases": [
+      "dron",
+      "drone"
+    ]
+  },
+  {
+    "category": "Drony > Foto-video",
+    "aliases": [
+      "dron foto-video",
+      "drony foto-video",
+      "dron z kamerą",
+      "drony z kamerą",
+      "dron fotograficzny",
+      "drony fotograficzne"
+    ]
+  },
+  {
+    "category": "Drony > Rekreacyjne",
+    "aliases": [
+      "dron rekreacyjny",
+      "drony rekreacyjne"
+    ]
+  },
+  {
+    "category": "Drony > Amatorskie",
+    "aliases": [
+      "dron amatorski",
+      "drony amatorskie"
+    ]
+  },
+  {
+    "category": "Drony > Przemysłowe",
+    "aliases": [
+      "dron przemysłowy",
+      "drony przemysłowe"
+    ]
+  },
+  {
+    "category": "Drony > Podwodne",
+    "aliases": [
+      "dron podwodny",
+      "drony podwodne"
+    ]
+  },
+  {
+    "category": "Akcesoria do dronów",
+    "aliases": [
+      "akcesoria do drona"
+    ]
+  },
+  {
+    "category": "Akcesoria do dronów > Śmigła",
+    "aliases": [
+      "śmigło do drona",
+      "śmigła do drona",
+      "śmigła do dronów"
+    ]
+  },
+  {
+    "category": "Akcesoria do dronów > Gogle",
+    "aliases": [
+      "gogle do drona",
+      "gogle do dronów",
+      "gogle fpv"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe studyjne",
+    "aliases": [
+      "lampa błyskowa studyjna"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe studyjne > Lampy studyjne",
+    "aliases": [
+      "lampa studyjna"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe studyjne > Lampy plenerowe (akumulatorowe)",
+    "aliases": [
+      "lampa plenerowa",
+      "lampy plenerowe",
+      "lampa akumulatorowa",
+      "lampy akumulatorowe"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe studyjne > Zestawy lamp studyjnych",
+    "aliases": [
+      "zestaw lamp studyjnych"
+    ]
+  },
+  {
+    "category": "Lampy światła ciągłego",
+    "aliases": [
+      "lampa światła ciągłego",
+      "światło ciągłe"
+    ]
+  },
+  {
+    "category": "Lampy światła ciągłego > Lampy panelowe LED",
+    "aliases": [
+      "lampa panelowa led",
+      "panel led",
+      "panele led"
+    ]
+  },
+  {
+    "category": "Lampy światła ciągłego > Lampy pierścieniowe LED",
+    "aliases": [
+      "lampa pierścieniowa led",
+      "ring light"
+    ]
+  },
+  {
+    "category": "Lampy światła ciągłego > Lampy studyjne LED",
+    "aliases": [
+      "lampa studyjna led"
+    ]
+  },
+  {
+    "category": "Lampy światła ciągłego > Miecze świetlne LED",
+    "aliases": [
+      "miecz świetlny led",
+      "tube light",
+      "tube lights"
+    ]
+  },
+  {
+    "category": "Lampy wideo",
+    "aliases": [
+      "lampa wideo"
+    ]
+  },
+  {
+    "category": "Lampy wideo > Lampy LED",
+    "aliases": [
+      "lampa led wideo",
+      "lampy led wideo",
+      "lampa led do filmowania",
+      "lampy led do filmowania"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria",
+    "aliases": [
+      "softbox",
+      "softboxy"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Softboxy oktagonalne",
+    "aliases": [
+      "softbox oktagonalny",
+      "oktabox"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Softboxy prostokątne",
+    "aliases": [
+      "softbox prostokątny"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Softboxy paraboliczne",
+    "aliases": [
+      "softbox paraboliczny"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Softboxy heksagonalne",
+    "aliases": [
+      "softbox heksagonalny",
+      "lantern"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Stripboxy",
+    "aliases": [
+      "stripbox"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Softboxy wideo",
+    "aliases": [
+      "softbox wideo"
+    ]
+  },
+  {
+    "category": "Softboxy i akcesoria > Gridy do softboxów",
+    "aliases": [
+      "grid do softboxa"
+    ]
+  },
+  {
+    "category": "Czasze modelujące",
+    "aliases": [
+      "czasza modelująca"
+    ]
+  },
+  {
+    "category": "Czasze modelujące > Strumienice",
+    "aliases": [
+      "strumienica"
+    ]
+  },
+  {
+    "category": "Blendy i panele",
+    "aliases": [
+      "blenda",
+      "blendy",
+      "blenda fotograficzna",
+      "blendy fotograficzne"
+    ]
+  },
+  {
+    "category": "Parasole",
+    "aliases": [
+      "parasol fotograficzny",
+      "parasole fotograficzne"
+    ]
+  },
+  {
+    "category": "Parasole > Parasole transparentne",
+    "aliases": [
+      "parasol transparentny"
+    ]
+  },
+  {
+    "category": "Parasole > Parasole odbijające",
+    "aliases": [
+      "parasol odbijający"
+    ]
+  },
+  {
+    "category": "Parasole > Parasole paraboliczne",
+    "aliases": [
+      "parasol paraboliczny"
+    ]
+  },
+  {
+    "category": "Parasole > Parasole typu softbox",
+    "aliases": [
+      "parasol typu softbox"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania",
+    "aliases": [
+      "tło fotograficzne",
+      "tła fotograficzne",
+      "tło studyjne"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła kartonowe",
+    "aliases": [
+      "tło kartonowe"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła materiałowe",
+    "aliases": [
+      "tło materiałowe"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła winylowe",
+    "aliases": [
+      "tło winylowe"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła składane",
+    "aliases": [
+      "tło składane"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła plastikowe",
+    "aliases": [
+      "tło plastikowe"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Tła podświetlane",
+    "aliases": [
+      "tło podświetlane"
+    ]
+  },
+  {
+    "category": "Tła i systemy zawieszania > Systemy zawieszania teł",
+    "aliases": [
+      "system zawieszania teł",
+      "stelaż do tła",
+      "stelaże do teł"
+    ]
+  },
+  {
+    "category": "Sufitowe systemy zawieszania",
+    "aliases": [
+      "sufitowy system zawieszania",
+      "system sufitowy",
+      "systemy sufitowe",
+      "szyny sufitowe"
+    ]
+  },
+  {
+    "category": "Sufitowe systemy zawieszania > Pantografy",
+    "aliases": [
+      "pantograf"
+    ]
+  },
+  {
+    "category": "Wyzwalanie lamp studyjnych",
+    "aliases": [
+      "wyzwalacz lamp",
+      "wyzwalacze lamp",
+      "wyzwalacz lamp studyjnych",
+      "wyzwalacze lamp studyjnych",
+      "wyzwalacz radiowy",
+      "wyzwalacze radiowe"
+    ]
+  },
+  {
+    "category": "Wyzwalanie lamp studyjnych > Nadajniki (wyzwalacze)",
+    "aliases": [
+      "nadajnik do lamp",
+      "nadajniki do lamp",
+      "wyzwalacz",
+      "wyzwalacze"
+    ]
+  },
+  {
+    "category": "Wyzwalanie lamp studyjnych > Odbiorniki",
+    "aliases": [
+      "odbiornik do lamp",
+      "odbiorniki do lamp"
+    ]
+  },
+  {
+    "category": "Wyzwalanie lamp studyjnych > Przewody i kostki synchro",
+    "aliases": [
+      "kostka synchro",
+      "kostki synchro",
+      "przewód synchro",
+      "przewody synchro"
+    ]
+  },
+  {
+    "category": "Generatory i głowice > Generatory",
+    "aliases": [
+      "generator błysku",
+      "generatory błysku"
+    ]
+  },
+  {
+    "category": "Generatory i głowice > Głowice",
+    "aliases": [
+      "głowica studyjna",
+      "głowice studyjne"
+    ]
+  },
+  {
+    "category": "Fotografia produktowa",
+    "aliases": [
+      "zdjęcia produktowe",
+      "zdjęcie produktowe"
+    ]
+  },
+  {
+    "category": "Fotografia produktowa > Namioty bezcieniowe",
+    "aliases": [
+      "namiot bezcieniowy",
+      "lightbox",
+      "lightboxy"
+    ]
+  },
+  {
+    "category": "Fotografia produktowa > Stoły bezcieniowe",
+    "aliases": [
+      "stół bezcieniowy"
+    ]
+  },
+  {
+    "category": "Pomiar światła",
+    "aliases": [
+      "światłomierz",
+      "światłomierze",
+      "ekspozymierz",
+      "ekspozymierze"
+    ]
+  },
+  {
+    "category": "Pomiar światła > Światłomierze cyfrowe",
+    "aliases": [
+      "światłomierz cyfrowy"
+    ]
+  },
+  {
+    "category": "Statywy studyjne i akcesoria",
+    "aliases": [
+      "statyw studyjny",
+      "statywy studyjne",
+      "statyw oświetleniowy",
+      "statywy oświetleniowe",
+      "light stand",
+      "light standy"
+    ]
+  },
+  {
+    "category": "Statywy studyjne i akcesoria > Statywy studyjne mobilne",
+    "aliases": [
+      "statyw studyjny mobilny"
+    ]
+  },
+  {
+    "category": "Statywy studyjne i akcesoria > Statywy typu boom",
+    "aliases": [
+      "statyw typu boom",
+      "boom"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe",
+    "aliases": [
+      "lampa błyskowa",
+      "flesz",
+      "flesze",
+      "flash",
+      "speedlight",
+      "speedlite"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe > Lampy reporterskie",
+    "aliases": [
+      "lampa reporterska"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe > Lampy pierścieniowe",
+    "aliases": [
+      "lampa pierścieniowa"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe > Dyfuzory, softboxy i gridy",
+    "aliases": [
+      "dyfuzor do lampy błyskowej",
+      "dyfuzory do lamp błyskowych"
+    ]
+  },
+  {
+    "category": "Lampy błyskowe > Wyzwalacze",
+    "aliases": [
+      "wyzwalacz do lampy błyskowej",
+      "wyzwalacze do lamp błyskowych"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki",
+    "aliases": [
+      "filtr",
+      "filtry",
+      "filtr fotograficzny",
+      "filtry fotograficzne",
+      "filtr na obiektyw",
+      "filtry na obiektyw"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > UV",
+    "aliases": [
+      "filtr uv",
+      "filtry uv"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Polaryzacyjne",
+    "aliases": [
+      "filtr polaryzacyjny",
+      "filtry polaryzacyjne",
+      "filtr cpl",
+      "filtry cpl"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Ochronne",
+    "aliases": [
+      "filtr ochronny",
+      "filtry ochronne"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Połówkowe i szare",
+    "aliases": [
+      "filtr szary",
+      "filtry szare",
+      "filtr nd",
+      "filtry nd"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Skylight",
+    "aliases": [
+      "filtr skylight",
+      "filtry skylight"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Soczewki makro",
+    "aliases": [
+      "soczewka makro"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Pokrywki",
+    "aliases": [
+      "pokrywka",
+      "dekielek",
+      "dekielki"
+    ]
+  },
+  {
+    "category": "Filtry, pokrywki > Zestawy filtrów",
+    "aliases": [
+      "zestaw filtrów"
+    ]
+  },
+  {
+    "category": "Filtry prostokątne",
+    "aliases": [
+      "filtr prostokątny"
+    ]
+  },
+  {
+    "category": "Karty pamięci",
+    "aliases": [
+      "karta pamięci"
+    ]
+  },
+  {
+    "category": "Karty pamięci > SD / SDHC / SDXC",
+    "aliases": [
+      "karta sd",
+      "karty sd",
+      "karta sdhc",
+      "karty sdhc",
+      "karta sdxc",
+      "karty sdxc"
+    ]
+  },
+  {
+    "category": "Karty pamięci > MicroSD",
+    "aliases": [
+      "karta microsd",
+      "karty microsd",
+      "karta micro sd",
+      "karty micro sd"
+    ]
+  },
+  {
+    "category": "Karty pamięci > CompactFlash",
+    "aliases": [
+      "compact flash",
+      "karta cf",
+      "karty cf"
+    ]
+  },
+  {
+    "category": "Karty pamięci > CFexpress",
+    "aliases": [
+      "karta cfexpress",
+      "karty cfexpress"
+    ]
+  },
+  {
+    "category": "Karty pamięci > XQD",
+    "aliases": [
+      "karta xqd",
+      "karty xqd"
+    ]
+  },
+  {
+    "category": "Karty pamięci > CFast",
+    "aliases": [
+      "karta cfast",
+      "karty cfast"
+    ]
+  },
+  {
+    "category": "Czytniki",
+    "aliases": [
+      "czytnik kart",
+      "czytniki kart",
+      "czytnik kart pamięci",
+      "czytniki kart pamięci"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Statywy (trójnogi)",
+    "aliases": [
+      "statyw",
+      "statywy",
+      "statyw fotograficzny",
+      "statywy fotograficzne",
+      "tripod",
+      "trójnóg",
+      "trójnogi"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Statywy mini",
+    "aliases": [
+      "ministatyw",
+      "ministatywy",
+      "mini statyw",
+      "mini statywy",
+      "statyw stołowy",
+      "statywy stołowe"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Statywy monopody",
+    "aliases": [
+      "monopod",
+      "monopody",
+      "jednonóg",
+      "jednonogi"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Głowice",
+    "aliases": [
+      "głowica statywowa",
+      "głowice statywowe",
+      "głowica do statywu",
+      "głowice do statywów"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Szybkozłączki",
+    "aliases": [
+      "szybkozłączka",
+      "płytka statywowa",
+      "płytki statywowe"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Łączniki statywowe",
+    "aliases": [
+      "łącznik statywowy"
+    ]
+  },
+  {
+    "category": "Statywy i akcesoria > Statywy do filmowania",
+    "aliases": [
+      "statyw do filmowania",
+      "statyw filmowy",
+      "statywy filmowe"
+    ]
+  },
+  {
+    "category": "Slidery",
+    "aliases": [
+      "slider"
+    ]
+  },
+  {
+    "category": "Statywy i mocowania > Kijki do selfie",
+    "aliases": [
+      "kijek do selfie",
+      "selfie stick",
+      "selfie sticki"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Torby fotograficzne",
+    "aliases": [
+      "torba fotograficzna",
+      "torba na aparat",
+      "torby na aparat"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Plecaki fotograficzne",
+    "aliases": [
+      "plecak fotograficzny",
+      "plecak na aparat",
+      "plecaki na aparat"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Walizki",
+    "aliases": [
+      "walizka fotograficzna",
+      "walizki fotograficzne"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Kufry i skrzynie",
+    "aliases": [
+      "kufer fotograficzny",
+      "kufry fotograficzne",
+      "skrzynia transportowa",
+      "skrzynie transportowe"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Futerały, kabury, pokrowce na aparaty",
+    "aliases": [
+      "futerał na aparat",
+      "futerały na aparat",
+      "pokrowiec na aparat",
+      "pokrowce na aparat",
+      "kabura na aparat",
+      "kabury na aparat"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Pokrowce na obiektywy",
+    "aliases": [
+      "pokrowiec na obiektyw"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Pokrowce na statywy",
+    "aliases": [
+      "pokrowiec na statyw"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Osłony przeciwdeszczowe",
+    "aliases": [
+      "osłona przeciwdeszczowa"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Organizery na karty pamięci",
+    "aliases": [
+      "organizer na karty pamięci"
+    ]
+  },
+  {
+    "category": "Torby, plecaki, walizki > Torby biodrowe",
+    "aliases": [
+      "torba biodrowa"
+    ]
+  },
+  {
+    "category": "Systemy stabilizacji > Gimbale",
+    "aliases": [
+      "gimbal"
+    ]
+  },
+  {
+    "category": "Systemy stabilizacji > Stabilizatory",
+    "aliases": [
+      "stabilizator"
+    ]
+  },
+  {
+    "category": "Systemy stabilizacji > Akcesoria do stabilizatorów",
+    "aliases": [
+      "akcesoria do gimbala"
+    ]
+  },
+  {
+    "category": "Audio > Mikrofony",
+    "aliases": [
+      "mikrofon"
+    ]
+  },
+  {
+    "category": "Audio > Mikrofony bezprzewodowe",
+    "aliases": [
+      "mikrofon bezprzewodowy"
+    ]
+  },
+  {
+    "category": "Audio > Rejestratory dźwięku",
+    "aliases": [
+      "rejestrator dźwięku"
+    ]
+  },
+  {
+    "category": "Audio > Miksery/adaptery audio",
+    "aliases": [
+      "mikser audio",
+      "miksery audio",
+      "adapter audio",
+      "adaptery audio"
+    ]
+  },
+  {
+    "category": "Audio > Systemy bezprzewodowe",
+    "aliases": [
+      "system bezprzewodowy audio"
+    ]
+  },
+  {
+    "category": "Audio > Dyktafony",
+    "aliases": [
+      "dyktafon"
+    ]
+  },
+  {
+    "category": "Rigi i akcesoria",
+    "aliases": [
+      "rig",
+      "rigi",
+      "rig filmowy",
+      "rigi filmowe"
+    ]
+  },
+  {
+    "category": "Rigi i akcesoria > Klatki",
+    "aliases": [
+      "klatka do aparatu",
+      "klatki do aparatu",
+      "klatka do kamery",
+      "klatki do kamery",
+      "cage"
+    ]
+  },
+  {
+    "category": "Rigi i akcesoria > Mattebox",
+    "aliases": [
+      "matte box"
+    ]
+  },
+  {
+    "category": "Monitory podglądowe",
+    "aliases": [
+      "monitor podglądowy",
+      "field monitor",
+      "field monitory"
+    ]
+  },
+  {
+    "category": "Rekordery dyskowe",
+    "aliases": [
+      "rekorder dyskowy"
+    ]
+  },
+  {
+    "category": "Akumulatory",
+    "aliases": [
+      "akumulator"
+    ]
+  },
+  {
+    "category": "Akumulatory > Battery gripy",
+    "aliases": [
+      "battery grip",
+      "grip bateryjny",
+      "gripy bateryjne"
+    ]
+  },
+  {
+    "category": "Ładowarki",
+    "aliases": [
+      "ładowarka"
+    ]
+  },
+  {
+    "category": "Zasilacze",
+    "aliases": [
+      "zasilacz"
+    ]
+  },
+  {
+    "category": "Zasilanie mobilne > Powerbanki",
+    "aliases": [
+      "powerbank"
+    ]
+  },
+  {
+    "category": "Zasilanie mobilne > Ładowarki sieciowe",
+    "aliases": [
+      "ładowarka sieciowa"
+    ]
+  },
+  {
+    "category": "Zasilanie mobilne > Ładowarki indukcyjne Qi",
+    "aliases": [
+      "ładowarka indukcyjna",
+      "ładowarki indukcyjne",
+      "ładowarka qi"
+    ]
+  },
+  {
+    "category": "Zasilanie mobilne > Ładowarki samochodowe",
+    "aliases": [
+      "ładowarka samochodowa"
+    ]
+  },
+  {
+    "category": "Zasilanie mobilne > Stacje zasilania",
+    "aliases": [
+      "stacja zasilania"
+    ]
+  },
+  {
+    "category": "Paski i szelki > Paski",
+    "aliases": [
+      "pasek do aparatu",
+      "paski do aparatu",
+      "pasek fotograficzny",
+      "paski fotograficzne"
+    ]
+  },
+  {
+    "category": "Paski i szelki > Szelki",
+    "aliases": [
+      "szelki do aparatu",
+      "szelki fotograficzne"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Osłony przeciwsłoneczne",
+    "aliases": [
+      "osłona przeciwsłoneczna"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Piloty / wężyki",
+    "aliases": [
+      "pilot do aparatu",
+      "piloty do aparatu",
+      "wężyk spustowy",
+      "wężyki spustowe"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Osłony na LCD",
+    "aliases": [
+      "osłona na lcd"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Klapsy filmowe",
+    "aliases": [
+      "klaps filmowy"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Wizjery do filmowania",
+    "aliases": [
+      "wizjer do filmowania"
+    ]
+  },
+  {
+    "category": "Akcesoria drobne > Poziomice",
+    "aliases": [
+      "poziomnica"
+    ]
+  },
+  {
+    "category": "Akcesoria podwodne > Obudowy podwodne do aparatów",
+    "aliases": [
+      "obudowa podwodna do aparatu"
+    ]
+  },
+  {
+    "category": "Akcesoria podwodne > Obudowy do kamer",
+    "aliases": [
+      "obudowa podwodna do kamery"
+    ]
+  },
+  {
+    "category": "Monitory",
+    "aliases": [
+      "monitor"
+    ]
+  },
+  {
+    "category": "Projektory",
+    "aliases": [
+      "projektor"
+    ]
+  },
+  {
+    "category": "Tablety graficzne",
+    "aliases": [
+      "tablet graficzny"
+    ]
+  },
+  {
+    "category": "Kalibratory kolorów",
+    "aliases": [
+      "kalibrator kolorów",
+      "kalibrator monitora",
+      "kalibratory monitorów"
+    ]
+  },
+  {
+    "category": "Kalibratory kolorów > Szare karty",
+    "aliases": [
+      "szara karta"
+    ]
+  },
+  {
+    "category": "Drukarki",
+    "aliases": [
+      "drukarka",
+      "drukarka fotograficzna",
+      "drukarki fotograficzne"
+    ]
+  },
+  {
+    "category": "Papier fotograficzny",
+    "aliases": [
+      "papiery fotograficzne"
+    ]
+  },
+  {
+    "category": "Tusze",
+    "aliases": [
+      "tusz do drukarki"
+    ]
+  },
+  {
+    "category": "Skanery",
+    "aliases": [
+      "skaner"
+    ]
+  },
+  {
+    "category": "Skanery > Do slajdów i negatywów",
+    "aliases": [
+      "skaner do slajdów",
+      "skanery do slajdów",
+      "skaner do negatywów",
+      "skanery do negatywów"
+    ]
+  },
+  {
+    "category": "Skanery > Płaskie",
+    "aliases": [
+      "skaner płaski",
+      "skanery płaskie"
+    ]
+  },
+  {
+    "category": "Dyski twarde",
+    "aliases": [
+      "dysk twardy",
+      "dysk zewnętrzny",
+      "dyski zewnętrzne"
+    ]
+  },
+  {
+    "category": "Dyski twarde > Dyski zewnętrzne SSD",
+    "aliases": [
+      "dysk ssd",
+      "dyski ssd",
+      "dysk zewnętrzny ssd"
+    ]
+  },
+  {
+    "category": "Dyski twarde > Dyski zewnętrzne HDD",
+    "aliases": [
+      "dysk hdd",
+      "dyski hdd",
+      "dysk zewnętrzny hdd"
+    ]
+  },
+  {
+    "category": "Pamięci USB",
+    "aliases": [
+      "pendrive",
+      "pendrivy",
+      "pamięć usb"
+    ]
+  },
+  {
+    "category": "Kable > HDMI",
+    "aliases": [
+      "kabel hdmi",
+      "kable hdmi"
+    ]
+  },
+  {
+    "category": "Kable > USB do aparatów",
+    "aliases": [
+      "kabel usb do aparatu",
+      "kable usb do aparatów"
+    ]
+  },
+  {
+    "category": "Lornetki",
+    "aliases": [
+      "lornetka"
+    ]
+  },
+  {
+    "category": "Lunety",
+    "aliases": [
+      "luneta",
+      "luneta obserwacyjna",
+      "lunety obserwacyjne"
+    ]
+  },
+  {
+    "category": "Teleskopy",
+    "aliases": [
+      "teleskop"
+    ]
+  },
+  {
+    "category": "Monokulary",
+    "aliases": [
+      "monokular"
+    ]
+  },
+  {
+    "category": "Mikroskopy",
+    "aliases": [
+      "mikroskop"
+    ]
+  },
+  {
+    "category": "Dalmierze laserowe",
+    "aliases": [
+      "dalmierz laserowy"
+    ]
+  },
+  {
+    "category": "Lupy",
+    "aliases": [
+      "lupa"
+    ]
+  },
+  {
+    "category": "Transmisja Video",
+    "aliases": [
+      "transmisja wideo"
+    ]
+  },
+  {
+    "category": "Transmisja Video > Miksery wizyjne",
+    "aliases": [
+      "mikser wizyjny"
+    ]
+  },
+  {
+    "category": "Transmisja Video > Promptery",
+    "aliases": [
+      "prompter"
+    ]
+  },
+  {
+    "category": "Albumy fotograficzne",
+    "aliases": [
+      "album fotograficzny",
+      "album na zdjęcia",
+      "albumy na zdjęcia"
+    ]
+  },
+  {
+    "category": "Ramki > Ramki cyfrowe",
+    "aliases": [
+      "ramka cyfrowa"
+    ]
+  },
+  {
+    "category": "Filmy czarno-białe",
+    "aliases": [
+      "film czarno-biały",
+      "klisza czarno-biała",
+      "klisze czarno-białe"
+    ]
+  },
+  {
+    "category": "Filmy kolorowe",
+    "aliases": [
+      "film kolorowy",
+      "klisza kolorowa",
+      "klisze kolorowe"
+    ]
+  },
+  {
+    "category": "Materiały natychmiastowe",
+    "aliases": [
+      "wkład natychmiastowy",
+      "wkłady natychmiastowe",
+      "wkłady instax"
+    ]
+  },
+  {
+    "category": "Chemia czarno-biała",
+    "aliases": [
+      "chemia do ciemni"
+    ]
+  },
+  {
+    "category": "Chemia czarno-biała > Wywoływacze negatywowe",
+    "aliases": [
+      "wywoływacz negatywowy"
+    ]
+  },
+  {
+    "category": "Chemia czarno-biała > Wywoływacze pozytywowe",
+    "aliases": [
+      "wywoływacz pozytywowy"
+    ]
+  },
+  {
+    "category": "Chemia czarno-biała > Utrwalacze",
+    "aliases": [
+      "utrwalacz"
+    ]
+  },
+  {
+    "category": "Papier czarno-biały",
+    "aliases": [
+      "papiery czarno-białe"
+    ]
+  },
+  {
+    "category": "Wyposażenie ciemni",
+    "aliases": [
+      "ciemnia"
+    ]
+  },
+  {
+    "category": "Wyposażenie ciemni > Kuwety",
+    "aliases": [
+      "kuweta"
+    ]
+  },
+  {
+    "category": "Wyposażenie ciemni > Lampy ciemniowe",
+    "aliases": [
+      "lampa ciemniowa"
+    ]
+  },
+  {
+    "category": "Fotografia i filmowanie smartfonem",
+    "aliases": [
+      "fotografia smartfonem",
+      "filmowanie smartfonem"
+    ]
+  },
+  {
+    "category": "Fotografowanie przyrody > Fotopułapki",
+    "aliases": [
+      "fotopułapka"
+    ]
+  },
+  {
+    "category": "Fotografowanie przyrody > Namioty i czatownie",
+    "aliases": [
+      "namiot maskujący",
+      "namioty maskujące",
+      "czatownia",
+      "czatownie",
+      "hide fotograficzny"
+    ]
+  },
+  {
+    "category": "Oprogramowanie",
+    "aliases": [
+      "oprogramowanie fotograficzne"
+    ]
+  },
+  {
+    "category": "Oprogramowanie > Do edycji zdjęć",
+    "aliases": [
+      "oprogramowanie do edycji zdjęć"
+    ]
+  },
+  {
+    "category": "Oprogramowanie > Do edycji video",
+    "aliases": [
+      "oprogramowanie do edycji video"
+    ]
+  },
+  {
+    "category": "Kursy i szkolenia",
+    "aliases": [
+      "kurs fotografii",
+      "kursy fotografii",
+      "warsztaty fotograficzne",
+      "szkolenie fotograficzne",
+      "szkolenia fotograficzne"
+    ]
+  },
+  {
+    "category": "Gwarancja > Ubezpieczenie",
+    "aliases": [
+      "ubezpieczenie sprzętu",
+      "ubezpieczenia sprzętu",
+      "ubezpieczenie aparatu",
+      "ubezpieczenia aparatów"
+    ]
+  },
+  {
+    "category": "Gwarancja > Rozszerzenia gwarancji",
+    "aliases": [
+      "rozszerzenie gwarancji",
+      "przedłużona gwarancja",
+      "przedłużone gwarancje"
+    ]
+  },
+  {
+    "category": "Używane aparaty cyfrowe",
+    "aliases": [
+      "używany aparat",
+      "używane aparaty"
+    ]
+  },
+  {
+    "category": "Używane obiektywy",
+    "aliases": [
+      "używany obiektyw"
+    ]
+  },
+  {
+    "category": "Używane kamery i akcesoria",
+    "aliases": [
+      "używana kamera",
+      "używane kamery"
+    ]
+  },
+  {
+    "category": "Używane akcesoria fotograficzne",
+    "aliases": [
+      "używane akcesoria"
+    ]
+  },
+  {
+    "category": "Etui > Etui do filtrów",
+    "aliases": [
+      "etui na filtry"
+    ]
+  },
+  {
+    "category": "Etui do smartfonów",
+    "aliases": [
+      "etui do smartfona",
+      "etui do telefonu",
+      "etui do telefonów"
+    ]
+  },
+  {
+    "category": "Folie i szkła ochronne",
+    "aliases": [
+      "folia ochronna",
+      "folie ochronne",
+      "szkło ochronne",
+      "szkła ochronne"
+    ]
+  },
+  {
+    "category": "Karty podarunkowe > Karty podarunkowe Cyfrowe.pl",
+    "aliases": [
+      "karta podarunkowa",
+      "voucher",
+      "vouchery"
+    ]
+  },
+  {
+    "category": "Literatura",
+    "aliases": [
+      "literatura fotograficzna",
+      "książka o fotografii",
+      "książki o fotografii"
+    ]
+  }
+]

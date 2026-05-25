@@ -1,0 +1,3484 @@
+{
+  "_comment": "Search quality judgments — edit expected_products to define ideal rankings. weight: 3=critical (top result), 2=important (top 3), 1=nice-to-have (top 5). ideal_position: where this product should appear (1=first).",
+  "generated": "2026-04-16T03:05:52.181621",
+  "judgments": [
+    {
+      "id": "brand_canon",
+      "query": "Canon",
+      "description": "Searching for a brand should return that brand's products",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSC400",
+          "name": "Canon EOS C400 Body Full Frame 6K",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR3",
+          "name": "Canon EOS R3",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR1",
+          "name": "Canon EOS R1",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_nikon",
+      "query": "Nikon",
+      "description": "Searching for Nikon should return Nikon products",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ6III2470",
+          "name": "Nikon Z6 III + 24-70 mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ6III24200",
+          "name": "Nikon Z6 III + 24-200 mm",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6III24120",
+          "name": "Nikon Z6 III + 24-120 mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6II2470",
+          "name": "Nikon Z6 II + ob. 24-70 mm f/4S",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFNIKZ6II24200",
+          "name": "Nikon Z6 II + ob. 24-200 mm",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_exclusive_sony",
+      "query": "Sony",
+      "description": "Brand name alone returns exclusively that brand's products",
+      "expected_products": [
+        {
+          "id": "ACFSONA9M3",
+          "name": "Sony A9 III body (ILCE-9M3)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCE7SM3",
+          "name": "Sony A7S III body (ILCE-7SM3)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA1",
+          "name": "Sony A1 body (ILCE1B.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSPMRX1RIIIB",
+          "name": "Sony DSC-RX1R III (DSC-RX1RM3)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFSONILCE7RV",
+          "name": "Sony A7R V body ILCE7RM5B.CEC",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_exclusive_dji",
+      "query": "DJI",
+      "description": "DJI brand returns only DJI products",
+      "expected_products": [
+        {
+          "id": "DRODJIMAV4PRORC2",
+          "name": "DJI Mavic 4 Pro Fly More Combo (DJI RC2)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "DRODJIMAV4PRORCP2",
+          "name": "DJI Mavic 4 Pro 512GB Creator Combo (DJI RC PRO 2)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "DRODJIMAV3PROFMCRCPR",
+          "name": "DJI Mavic 3 Pro Fly More Combo (DJI RC PRO)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "DRODJIAGRASMG1",
+          "name": "DJI Agras MG-1",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "DRODJI4TC2",
+          "name": "DJI Matrice 4T C2 + DJI CARE PLUS 1 ROK",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_typo_cannon",
+      "query": "cannon",
+      "description": "Common Canon misspelling 'cannon' resolves to Canon",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSC400",
+          "name": "Canon EOS C400 Body Full Frame 6K",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR3",
+          "name": "Canon EOS R3",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR1",
+          "name": "Canon EOS R1",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_typo_nikkon",
+      "query": "nikkon z8",
+      "description": "Nikon misspelling 'nikkon' resolves and finds Z8",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ8",
+          "name": "Nikon Z8 body",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ824120",
+          "name": "Nikon Z8 + 24-120 mm f/4 S",
+          "ideal_position": 2,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "brand_typo_soni",
+      "query": "soni a7 IV",
+      "description": "Sony misspelling 'soni' resolves correctly",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7IV24105",
+          "name": "Sony A7 IV + 24-105 mm f/4 (ILCE7M4GBDI.EU)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCEA7IV",
+          "name": "Sony A7 IV body (ILCE7M4B.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7IV2870",
+          "name": "Sony A7 IV + 28-70 mm f/3.5-5.6 (ILCE7M4KB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCE7RIV",
+          "name": "Sony A7R IV body ( ILCE7RM4AB.CEC )",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "BAGSONVGC4EM",
+          "name": "Sony VG-C4EM do A7R IV",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_alias_lumix",
+      "query": "lumix",
+      "description": "'lumix' is alias for Panasonic — must resolve to Panasonic brand",
+      "expected_products": [
+        {
+          "id": "ACFPANDCS1RM2",
+          "name": "Panasonic Lumix S1RII body",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACPANDCS1M2E",
+          "name": "Panasonic Lumix S1M2 body",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACPANDCS1M2ME",
+          "name": "Panasonic Lumix S1M2 + R24105",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACPANDCS1M2ESME",
+          "name": "Panasonic Lumix S1M2ES + R24105",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFPANDCGH7",
+          "name": "Panasonic Lumix DC-GH7 body",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_alias_fuji",
+      "query": "fuji aparat",
+      "description": "'fuji' is alias for FujiFilm",
+      "expected_products": [
+        {
+          "id": "ACFFJIGFXRFS",
+          "name": "FujiFilm GFX 100RF srebrny",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFFJIGFX100SII",
+          "name": "FujiFilm GFX 100S II",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIGFX100II",
+          "name": "FujiFilm GFX 100II",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIGFX100SIIGF3570",
+          "name": "FujiFilm GFX 100S II + GF 35-70mm",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFFJIGFXRFB",
+          "name": "FujiFilm GFX 100RF czarny",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_typo_simga",
+      "query": "simga 24-70",
+      "description": "Sigma misspelling 'simga' resolves to Sigma",
+      "expected_products": [
+        {
+          "id": "OBISIGA2470F28DGDNIISOE",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art Sony E",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISIG2470F28DGDNIILM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art L-Mount",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-CAN",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-NIK",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Nikon F",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBISIG2470F28DGDN-LM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN Art L-Mount",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "brand_typo_godoks",
+      "query": "godoks",
+      "description": "Godox misspelling 'godoks' resolves to Godox",
+      "expected_products": [
+        {
+          "id": "LAMGDXAD100PTK",
+          "name": "Godox AD100 PRO TTL z plecakiem",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMGDXAD300PRO3HKIT",
+          "name": "Godox AD300Pro + AD100Pro 3 heads Kit",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXAD600BII",
+          "name": "Godox AD600BM II mocowanie Bowens",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXAD400PROII",
+          "name": "Godox AD400 PRO II TTL",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LAMGDXLEDSL300R",
+          "name": "Godox LED SL300R RGB, Bowens",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "category_obiektyw",
+      "query": "obiektyw",
+      "description": "Searching for 'obiektyw' should return lenses across all brands",
+      "expected_products": [
+        {
+          "id": "OBIVEOLAOVO4003",
+          "name": "Venus Optics Zestaw obiektywów Laowa Pro2be 24 mm T8 Macro 2:1 do Arri PL",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORTENSFLENS9X48",
+          "name": "Tenba Pokrowiec na obiektyw Tools Soft Lens Pouch 9x4.8",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3842",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Arri PL / Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3602",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Sony E",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBIVEOLAOVO3601",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Blue do Arri PL / Canon EF",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "category_statyw",
+      "query": "statyw",
+      "description": "Searching for 'statyw' should return tripods",
+      "expected_products": [
+        {
+          "id": "AKCCANMOCCWII",
+          "name": "Canon Mocowanie statywowe C (WII)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "AKCCANMOCDB",
+          "name": "Canon Mocowanie statywowe D (B)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "AKCCANMOCAIIW",
+          "name": "Canon Mocowanie statywowe A II (W)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "AKCTAMUCHWYT100400",
+          "name": "Tamron Uchwyt statywowy do 100-400 Arca Swiss",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "TORGDXCB14",
+          "name": "Godox CB-14 do statywów oświetleniowych",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "category_gimbal",
+      "query": "gimbal",
+      "description": "Gimbal search returns stabilizers",
+      "expected_products": [
+        {
+          "id": "STTDJIRONINRS5",
+          "name": "DJI Gimbal RS 5 stablilizator obrazu",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "AKCDJIOSGIM",
+          "name": "DJI Osłona gimbala w dronie FPV",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "AKCDJIOSGIA2S",
+          "name": "DJI Osłona gimbala Mavic Air 2S",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "STTDJIRONIN4MINI",
+          "name": "DJI Gimbal RS 4 Mini (Ronin-S4 Mini)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMA4525",
+          "name": "Smallrig Pokrętła sterujące gimbalem do serii DJI RS",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "category_dron",
+      "query": "dron",
+      "description": "Polish 'dron' finds drones",
+      "expected_products": [
+        {
+          "id": "DROCHOSDODPM2",
+          "name": "Chasing Innovation Oświetlenie do Drona Podwodnego Chasing M2",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORLOWDGBP250",
+          "name": "Lowepro DRONEGUARD BP 250",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "DRODJINEO",
+          "name": "DJI Dron Neo",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "DRODJINEOFMC",
+          "name": "DJI Dron Neo Fly More Combo",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "DROCHBAT200WH",
+          "name": "Chasing Innovation Dodatkowa bateria 200WH dla drona M2",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "category_plecak",
+      "query": "plecak fotograficzny",
+      "description": "Backpack search",
+      "expected_products": [
+        {
+          "id": "TORTHTSPTOPCRO15",
+          "name": "ThinkTank SpeedTop Crossbody 15",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORTHTSPTOPCRO10",
+          "name": "ThinkTank SpeedTop Crossbody 10",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "TORFSTSHIN-ANT",
+          "name": "F-Stop Shinn antracyt",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "TORBNRSH800",
+          "name": "Benro Sherpa 800N",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "TORLOWPHSBP15-G",
+          "name": "Lowepro PhotoSport BP 15L AW III szary",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_canon_r5",
+      "query": "Canon EOS R5",
+      "description": "Canon EOS R5 — exact camera model, must be first result",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR5MKII",
+          "name": "Canon EOS R5 Mark II",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSR5C",
+          "name": "Canon EOS R5 C Body - Zestaw R5 C + RF VCM; 500 zł taniej",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR5MKIIRF24105L",
+          "name": "Canon EOS R5 Mark II + RF 24-105 mm f/4 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR50V",
+          "name": "Canon EOS R50 V",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_sony_a7c",
+      "query": "Sony A7C II",
+      "description": "Sony A7C II — specific camera body",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7CM2B2860",
+          "name": "Sony A7C II + 28-60 mm f/4-5.6 czarne (ILCE7CM2LB.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCEA7CM2B",
+          "name": "Sony A7C II body czarne (ILCE7CM2B.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7CM2S2860",
+          "name": "Sony A7C II+ 28-60 mm f/4-5.6 srebrne (ILCE7CM2LS.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7CM2S",
+          "name": "Sony A7C II body srebrne (ILCE7CM2S.CEC)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFSONA9M3",
+          "name": "Sony A9 III body (ILCE-9M3)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_nikon_z8",
+      "query": "Nikon Z8",
+      "description": "Nikon Z8 — flagship camera body",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ8",
+          "name": "Nikon Z8 body",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ824120",
+          "name": "Nikon Z8 + 24-120 mm f/4 S",
+          "ideal_position": 2,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "specific_sigma_art",
+      "query": "Sigma 35mm f/1.4 Art",
+      "description": "Sigma Art lens search — specific lens line",
+      "expected_products": [
+        {
+          "id": "OBISMYAF35F14FE",
+          "name": "Samyang AF 35mm F/1.4 P Sony FE",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBINIKZ3512S",
+          "name": "Nikon Nikkor Z 35mm f/1.2 S",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBINIKZDXMC35F17",
+          "name": "Nikon Nikkor Z DX MC 35mm f/1.7",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBISMY3518PSONY",
+          "name": "Samyang AF 35mm f/1.8 P Sony FE",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "AKCSMYFZ7ZZZZZ036",
+          "name": "Samyang Osłona przeciwsłoneczna do AF 135mm f/1.8 Sony FE (SH-12)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_tamron_lens",
+      "query": "Tamron 28-75 f/2.8",
+      "description": "Tamron zoom lens",
+      "expected_products": [
+        {
+          "id": "OBITAM28752V8-SONE",
+          "name": "Tamron 28-75 mm f/2.8 DI III VXD G2 Sony E",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBITAM28752V8NIKZ",
+          "name": "Tamron 28-75 mm f/2.8 DI III VXD G2 Nikon Z",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBITAM163028-NZ",
+          "name": "Tamron 16-30 mm f/2.8 G2 Nikon Z",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBITAM163028-SONE",
+          "name": "Tamron 16-30 mm f/2.8 G2 Sony E",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBITAM2040F28DIVXDSONE",
+          "name": "Tamron 20-40 mm f/2.8 Di III VXD Sony E",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_product_sony_a7",
+      "query": "Sony A7 IV",
+      "description": "Camera body search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7IV24105",
+          "name": "Sony A7 IV + 24-105 mm f/4 (ILCE7M4GBDI.EU)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCEA7IV",
+          "name": "Sony A7 IV body (ILCE7M4B.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7IV2870",
+          "name": "Sony A7 IV + 28-70 mm f/3.5-5.6 (ILCE7M4KB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCE7RIV",
+          "name": "Sony A7R IV body ( ILCE7RM4AB.CEC )",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "BAGSONVGC4EM",
+          "name": "Sony VG-C4EM do A7R IV",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_rode_videomic",
+      "query": "Rode VideoMic",
+      "description": "Rode VideoMic microphone",
+      "expected_products": [
+        {
+          "id": "MIKRODVIDEOMICPROPLUS",
+          "name": "Rode VideoMic Pro+",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "MIKRODVIDEOMICPRORYC",
+          "name": "Rode VideoMic Pro Rycote",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "AKTRODVIDEOMICNTG",
+          "name": "Rode VideoMic NTG",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "MIKRODSVIDEOMICPRORYCOTE",
+          "name": "Rode Stereo Videomic Pro Rycote",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "MIKRODVIDEOMICRYC",
+          "name": "Rode VideoMic Rycote",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "filter_filtr_uv",
+      "query": "filtr UV",
+      "description": "UV filter search should return filters, not cameras",
+      "expected_products": [
+        {
+          "id": "FILNISIJMP95UV_IR",
+          "name": "NISI JetMag Pro 95 Filtr UV/IR Cut",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "FILNISIJETMAGUV_IRCUT",
+          "name": "NISI JetMag Pro Filtr UV/IR Cut",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "FILNSIUVPRAIR67",
+          "name": "NISI Filtr UV Pro Nano Air 67 mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "FILNSIUVPRHU67",
+          "name": "NISI  Filtr UV Pro Nano Huc 67mm",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG5392",
+          "name": "Smallrig Magnetyczny filtr UV do FUJIFILM X half, srebrny [5392]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "filter_by_size",
+      "query": "filtr 77mm",
+      "description": "Filter search with size spec (77mm)",
+      "expected_products": [
+        {
+          "id": "DROPL135131067",
+          "name": "Polar Pro 135 Series Gold Mist Filter 77mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "DROPLCHR135131059",
+          "name": "Polar Pro PolarPro 135 Series Chroma CPL Filter 77mm",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "DROPLPZND69ME77",
+          "name": "Polar Pro Filtr ND 6-9 stopni PolarPro Variable Peter McKinnon Mist Edition II do obiektywów 77mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "DROPLPZND25PMII",
+          "name": "Polar Pro Filtr ND 2-5 stopni PolarPro Variable Peter McKinnon Signature Edition II do obiektywów 77",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "FILCAZTPOL77",
+          "name": "Carl Zeiss T* POL 77mm",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mikrofon_rode",
+      "query": "mikrofon Rode",
+      "description": "Brand + category search",
+      "expected_products": [
+        {
+          "id": "MIKRODNTG5",
+          "name": "Rode Mikrofon NTG-5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "MIKRODVIDNTG8",
+          "name": "Rode NTG-8 mikrofon kierunkowy",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "MIKRODNTG3B",
+          "name": "Rode Mikrofon NTG-3B",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "MIKRODNT4",
+          "name": "Rode Mikrofon NT4",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "MIKRODLAVALIERGO",
+          "name": "Rode LAVALIER GO mikrofon krawatory TRS",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lampa_godox",
+      "query": "lampa Godox",
+      "description": "Flash/light search by brand",
+      "expected_products": [
+        {
+          "id": "LAMGDXAD300PROX2",
+          "name": "Godox Zestaw AD300PRO zestaw 2 lamp z plecakiem",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMGDXAD100PRO-2",
+          "name": "Godox Zestaw AD100 PRO TTL zestaw 2 lamp z plecakiem",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "BATGDXVB30",
+          "name": "Godox VB-30 do lamp V1 Pro",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ZARGDXE27W150",
+          "name": "Godox Żarówka modelująca 150W do lamp studyjnych E27",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ZARGDXGLASSAD300PRO",
+          "name": "Godox Osłona szklana do lamp do lamp AD300Pro",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "tusz_canon",
+      "query": "tusz Canon",
+      "description": "Ink search — should work for non-photo categories too",
+      "expected_products": [
+        {
+          "id": "EKSCANCLI581XLPB",
+          "name": "Canon TUSZ CANON CLI-581 XL Photo Blue",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "EKSCANCLI581XLB",
+          "name": "Canon TUSZ CANON CLI-581 XL Black",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "EKSCANPGI580PGBKXXL",
+          "name": "Canon TUSZ CANON PGI-580 XXL PGBK",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "EKSCANPGI29ZES2",
+          "name": "Canon PGI-29 C/M/Y/PC/PM/R Multipack",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "EKSCANPFI1000_ZES",
+          "name": "Canon zestaw PFI-1000 do drukarki Canon Pro-1000",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ean_search",
+      "query": "4012240045006",
+      "description": "EAN code search should return exact product",
+      "expected_products": [
+        {
+          "id": "FILBIW1100136",
+          "name": "B+W  UV Basic 010 MRC 1100136 49 mm",
+          "ideal_position": 1,
+          "weight": 3
+        }
+      ]
+    },
+    {
+      "id": "lens_ean_not_broken",
+      "query": "4012240045006",
+      "description": "EAN exact match still works after lens normalization (raw_query used for term match)",
+      "expected_products": [
+        {
+          "id": "FILBIW1100136",
+          "name": "B+W  UV Basic 010 MRC 1100136 49 mm",
+          "ideal_position": 1,
+          "weight": 3
+        }
+      ]
+    },
+    {
+      "id": "availability_instock",
+      "query": "Canon",
+      "description": "In-stock products should rank higher than out-of-stock for same query",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSC400",
+          "name": "Canon EOS C400 Body Full Frame 6K",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR3",
+          "name": "Canon EOS R3",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR1",
+          "name": "Canon EOS R1",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "used_condition_filter",
+      "query": "Canon używany",
+      "description": "Keyword 'używany' must exclusively filter to used products only",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5_OUTLET_21603029000356",
+          "name": "Canon Outlet EOS R5 s.n. 21603029000356",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR3_WYPO_21043031000213",
+          "name": "Canon EOS R3 s.n. 21043031000213",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "UZYACFCANEOSR1_145303100291",
+          "name": "Canon EOS R1 s.n. 145303100291",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "UZYACFCANEOSR3_153033000224",
+          "name": "Canon EOS R3 s.n. 153033000224",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "UZYACFCANEOSR3_133033000827",
+          "name": "Canon EOS R3 s.n. 133033000827",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "used_condition_no_brand",
+      "query": "używane",
+      "description": "Just 'używane' returns all used products across brands",
+      "expected_products": [
+        {
+          "id": "ACFSONILCE7SM3_OUTLET",
+          "name": "Sony Outlet A7S III body (ILCE-7SM3)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFFJIGFX100S_OUTLET",
+          "name": "FujiFilm Outlet GFX 100S s.n. 21000462",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR5_OUTLET_21603029000356",
+          "name": "Canon Outlet EOS R5 s.n. 21603029000356",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR3_WYPO_21043031000213",
+          "name": "Canon EOS R3 s.n. 21043031000213",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "UZYACFCANEOSR1_145303100291",
+          "name": "Canon EOS R1 s.n. 145303100291",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "used_obiektyw",
+      "query": "używany obiektyw",
+      "description": "'używany obiektyw' should find used lenses (500+ via prefix matching), not just 7",
+      "expected_products": [
+        {
+          "id": "UZYOBISONFE40F25_1823227",
+          "name": "Sony Obiektyw Sony FE 40 mm f2.5 G s.n. 1823227",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "UZYOBITOK23ATXPLUSFUJIX_X540994",
+          "name": "Tokina Używany Obiektyw Tokina 23 mm f1.4 ATX-M do Fuji X s.n. X540994",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "POBNIKLC58_OUTLET",
+          "name": "Nikon Outlet LC-58 pokrywka na obiektyw",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "UZYACKNIKFTZII_20475550",
+          "name": "Nikon FTZ II adapter do obiektywów Nikon F dla systemu Nikon Z s.n. 20475550",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "UZYAKCSIGSTDOCK-NIK_56428942",
+          "name": "Sigma USB Dock - stacja kalibrująca do obiektywów/Nikon s.n. 56428942",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "compatibility_do_canon",
+      "query": "obiektyw do Canon",
+      "description": "'obiektyw do Canon' is compatibility query — NOT restricted to Canon brand (>1200 proves no brand filter vs ~1035 Canon-only)",
+      "expected_products": [
+        {
+          "id": "OBIVEOLAOVO4003",
+          "name": "Venus Optics Zestaw obiektywów Laowa Pro2be 24 mm T8 Macro 2:1 do Arri PL",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORTENSFLENS9X48",
+          "name": "Tenba Pokrowiec na obiektyw Tools Soft Lens Pouch 9x4.8",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3842",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Arri PL / Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3602",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Sony E",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBIVEOLAOVO3601",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Blue do Arri PL / Canon EF",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "compatibility_dla_nikon",
+      "query": "lampa dla Nikon",
+      "description": "'lampa dla Nikon' is compatibility — shows multiple brands",
+      "expected_products": [
+        {
+          "id": "SMRG5818",
+          "name": "Smallrig lampa błyskowa RS20 mini Speedlite srebrny [5818]",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMFOMPROK2",
+          "name": "Fomei Professional Kit- 2 zestaw lamp",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "TORNIKSS700",
+          "name": "Nikon pokrowiec na lampę SS-700",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LAMPRFD21000AIRTTLKIT",
+          "name": "Profoto D2 1000/1000 AirTTL kit - zestaw 2 lamp",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LAMNANCOMPAC1002KITTLED",
+          "name": "NANLITE Lampa Compac 100 2KIT + T LED",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "compatibility_adapter",
+      "query": "adapter do Sony E",
+      "description": "'adapter do Sony E' — compatibility query for mount adapter",
+      "expected_products": [
+        {
+          "id": "AKCNANASMBAE27",
+          "name": "NANLITE adapter E27 z magnetyczną podstawą",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "AKCCANPZE2B",
+          "name": "Canon PZ-E2B adapter",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KABTRTCUCA415ORG",
+          "name": "Tethertools TetherPro USB-C USB-A Adapter",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "AKCCANPZE2",
+          "name": "Canon PZ-E2 adapter",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "AKCFJIEVFTL1",
+          "name": "FujiFilm Adapter EVF-TL1",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "two_brands_no_filter",
+      "query": "Sigma 24-70 Canon",
+      "description": "Two brands in query (Sigma Canon) — no brand filter, ambiguous intent",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ6III2470",
+          "name": "Nikon Z6 III + 24-70 mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACPENK1MIIDFA2470KIT",
+          "name": "Pentax K-1 MKII + 24-70 mm f/2.8",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ5II2470",
+          "name": "Nikon Z5II + 24-70 mm f/4",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF2470F28LISUSM",
+          "name": "Canon RF 24-70 mm f/2.8 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBINIKZ2470F2_8SII",
+          "name": "Nikon NIKKOR Z 24-70 mm f/2.8 S II",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lens_mm_nospace",
+      "query": "85mm f/1.4",
+      "description": "85mm (no space) must match same products as '85 mm' (lens notation normalization)",
+      "expected_products": [
+        {
+          "id": "OBIVILFE85M18M2FE",
+          "name": "Viltrox AF 85mm F/1.8 Mark II SONY FE",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "AKCSMYFZ8ZZZZZ008",
+          "name": "Samyang Pokrywka na obiektyw do AF 85mm f/1.4 Can/Nik/Sony (CF-77A)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "AKCSMYFZ7ZZZZZ002",
+          "name": "Samyang Osłona przeciwsłoneczna do AF 85mm f/1.4 Canon EF /Nikon F/ Sony FE (HR-85A)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBINIKZ3512S",
+          "name": "Nikon Nikkor Z 35mm f/1.2 S",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBICANRF8512LUSMDS",
+          "name": "Canon RF 85 mm f/1.2 L USM DS.",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lens_fstop_noslash",
+      "query": "24-70mm f2.8",
+      "description": "f2.8 (no slash) must match products with f/2.8 (lens notation normalization)",
+      "expected_products": [
+        {
+          "id": "OBIOLY50200F28PRO",
+          "name": "OM System M.Zuiko Digital ED 50-200 mm F2.8 IS PRO",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "PRZPOKSTGEXTRAI3050",
+          "name": "Stealth Gear Extreme Raincover 30-50 ( pasuje na 300 mm F2.8 / 200-400 mm / Sigma 500 mm F4.5 + body",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIPAN2470F28",
+          "name": "Panasonic LUMIX S 24-70mm f/2.8 (S-E2470)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBIFJIXF3028WR",
+          "name": "FujiFilm Fujinon XF 30 F2.8 R LM WR Macro",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBITAM1120F28DIRXDRF",
+          "name": "Tamron 11-20 mm f2.8 Di III-A RXD Canon RF",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lens_50mm_nospace",
+      "query": "50mm",
+      "description": "50mm must find thousands of results (not just 23)",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR7RFS18150-BA",
+          "name": "Canon EOS R7 + RF-S 18-150mm 3.5-6.3 IS STM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBIPAN2550F17",
+          "name": "Panasonic LEICA DG SUMMILUX 25-50mm F1.7 ASPH (H-X2550)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIPAN45150F4056-K",
+          "name": "Panasonic LUMIX G Vario 45-150mm f/4.0-5.6 ASPH. MEGA O.I.S. czarny",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "AKCTAMKAB150",
+          "name": "Tamron Kabel USB do 28-75MM G2 i 35-150MM F/2-2.8 DI III VXD",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBIOMD401504056",
+          "name": "OM System M.Zuiko Digital ED 40-150mm f/4-5.6 R czarny",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lens_fstop_uppercase",
+      "query": "F2.8",
+      "description": "F2.8 (uppercase, no slash) must match products with f/2.8",
+      "expected_products": [
+        {
+          "id": "OBIOLY50200F28PRO",
+          "name": "OM System M.Zuiko Digital ED 50-200 mm F2.8 IS PRO",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "PRZPOKSTGEXTRAI3050",
+          "name": "Stealth Gear Extreme Raincover 30-50 ( pasuje na 300 mm F2.8 / 200-400 mm / Sigma 500 mm F4.5 + body",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIFJIXF3028WR",
+          "name": "FujiFilm Fujinon XF 30 F2.8 R LM WR Macro",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBITAM1120F28DIRXDRF",
+          "name": "Tamron 11-20 mm f2.8 Di III-A RXD Canon RF",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OSOCANET83F",
+          "name": "Canon ET-83F do RF 70-200 F2.8L IS USM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "lens_70_200_range",
+      "query": "70-200 f2.8",
+      "description": "Telephoto zoom lens search with range",
+      "expected_products": [
+        {
+          "id": "OSOCANET83F",
+          "name": "Canon ET-83F do RF 70-200 F2.8L IS USM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF70200F28LISUSM",
+          "name": "Canon RF 70-200 mm f/2.8 L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBINIKZ70200F28VR",
+          "name": "Nikon Nikkor Z 70-200 mm F/2.8 S VR",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF70200F28LISUSMZBK",
+          "name": "Canon RF 70-200 mm f/2.8 L IS USM Z BK",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBIOLY50200F28PRO",
+          "name": "OM System M.Zuiko Digital ED 50-200 mm F2.8 IS PRO",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "inflection_obiektyw_plural",
+      "query": "obiektywy",
+      "description": "Polish plural 'obiektywy' must find similar results to singular 'obiektyw'",
+      "expected_products": [
+        {
+          "id": "OBIVEOLAOVO4003",
+          "name": "Venus Optics Zestaw obiektywów Laowa Pro2be 24 mm T8 Macro 2:1 do Arri PL",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORTENSFLENS9X48",
+          "name": "Tenba Pokrowiec na obiektyw Tools Soft Lens Pouch 9x4.8",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3842",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Arri PL / Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBIVEOLAOVO3602",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Amber do Sony E",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBIVEOLAOVO3601",
+          "name": "Venus Optics Zestaw obiektywów Laowa Nanomorph 27 mm, 35 mm, 50 mm S35 Blue do Arri PL / Canon EF",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "inflection_used_obiektyw",
+      "query": "używany obiektyw",
+      "description": "Used lens query leverages prefix matching for inflection",
+      "expected_products": [
+        {
+          "id": "UZYOBISONFE40F25_1823227",
+          "name": "Sony Obiektyw Sony FE 40 mm f2.5 G s.n. 1823227",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "UZYOBITOK23ATXPLUSFUJIX_X540994",
+          "name": "Tokina Używany Obiektyw Tokina 23 mm f1.4 ATX-M do Fuji X s.n. X540994",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "POBNIKLC58_OUTLET",
+          "name": "Nikon Outlet LC-58 pokrywka na obiektyw",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "UZYACKNIKFTZII_20475550",
+          "name": "Nikon FTZ II adapter do obiektywów Nikon F dla systemu Nikon Z s.n. 20475550",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "UZYAKCSIGSTDOCK-NIK_56428942",
+          "name": "Sigma USB Dock - stacja kalibrująca do obiektywów/Nikon s.n. 56428942",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mixed_brand_category",
+      "query": "ładowarka Canon",
+      "description": "Brand + category in single query",
+      "expected_products": [
+        {
+          "id": "LADCANLCE4N",
+          "name": "Canon LC-E4N",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "KABCANCB570",
+          "name": "Canon CB-570 kabel do ładowarki samochodowej",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LADCANCA920",
+          "name": "Canon CA-920E",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LADCANCBCE5",
+          "name": "Canon CBC-E5 samochodowa",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LADCANLCE19",
+          "name": "Canon LC-E19",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mixed_filtr_uv_size",
+      "query": "filtr UV 67mm",
+      "description": "Filter + UV + size spec should find matching filters",
+      "expected_products": [
+        {
+          "id": "FILNSIUVPRHU67",
+          "name": "NISI  Filtr UV Pro Nano Huc 67mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "FILCAZTUV67",
+          "name": "Carl Zeiss T* UV 67mm",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "DROPLEVMIST14",
+          "name": "Polar Pro Shortstache Everyday Mist 1/4 /PL 67mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "DROPLCHRVND67",
+          "name": "Polar Pro PolarPro Chroma VND/PL 2-5 stop 67mm",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "DRODJIFILNDMA3PR",
+          "name": "DJI Filtry ND (8/16/32/64) Mavic 3 Pro",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mixed_pasek_apparatu",
+      "query": "pasek do aparatu",
+      "description": "Accessory search in Polish — camera strap",
+      "expected_products": [
+        {
+          "id": "SMRG3927",
+          "name": "Smallrig Pół-etui i pasek na nadgarstek do Fujifilm X-T5 [3927]",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "PASMANMBPLCS",
+          "name": "Manfrotto Pasek do aparatu z zaczepami",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "PASOPEFASHION",
+          "name": "OP/TECH Fashion Strap pasek do aparatu",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "PASPEASLIDELITE3AS-UP",
+          "name": "Peak Design Pasek na szyję lub ramię SLIDE LITE v3 popielaty do lekkich aparatów",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "PASPEASLIDELITE3BK-UP",
+          "name": "Peak Design Pasek na szyję lub ramię SLIDE LITE v3 czarny do lekkich aparatów",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mixed_karta_pamieci",
+      "query": "karta pamięci",
+      "description": "Memory card search in Polish",
+      "expected_products": [
+        {
+          "id": "TORHAMVEGASSDSWM",
+          "name": "Hama VEGAS SD SW M na karty pamięci",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "TORCALCALSMCC02",
+          "name": "Calumet na Karty Pamięci - Wodoodporne",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "SMRG2832B",
+          "name": "Smallrig Etui na karty pamięci [2832B]",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "TORHAMCARDCASE",
+          "name": "Hama na karty pamięci",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "TORJJCBCP4",
+          "name": "JJC BC-P4 na baterie i karty pamięci",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "specific_product_sigma",
+      "query": "Sigma 24-70 f/2.8",
+      "description": "Specific lens search should return exact match first",
+      "expected_products": [
+        {
+          "id": "OBISIGA2470F28DGDNIISOE",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art Sony E",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISIG2470F28DGDNIILM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art L-Mount",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-CAN",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-NIK",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Nikon F",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBISIG2470F28DGDN-LM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN Art L-Mount",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "mixed_lens_hood",
+      "query": "osłona przeciwsłoneczna",
+      "description": "Lens hood search in Polish",
+      "expected_products": [
+        {
+          "id": "AKCDJIOSGIMSUNAV2",
+          "name": "Sunnylife Osłona przeciwsłoneczna obiektywu do DJI Avata 2",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OSOSONALCSH155",
+          "name": "Sony Osłona przeciwsłoneczna ALC-SH155 do obiektywu SEL400F28GM (ALCSH155.SYH)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OSOSONALCSH158",
+          "name": "Sony Osłona przeciwsłoneczna ALC-SH158 do obiektywu SEL600F40GM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OSOSIGLH71601",
+          "name": "Sigma Osłona przeciwsłoneczna LH716-01",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OSOSIGLH88003",
+          "name": "Sigma Osłona przeciwsłoneczna LH880-03",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_a7",
+      "query": "sony a7",
+      "description": "GA4 top query: Sony a7 search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCE7SM3",
+          "name": "Sony A7S III body (ILCE-7SM3)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCE7RV",
+          "name": "Sony A7R V body ILCE7RM5B.CEC",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7CRB",
+          "name": "Sony A7CR body (ILCE7CRB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA7III24105",
+          "name": "Sony A7 III + 24-105 mm f/4.0 (ILCE7M3GBDI.EU)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFSONILCEA7IV24105",
+          "name": "Sony A7 IV + 24-105 mm f/4 (ILCE7M4GBDI.EU)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_r6",
+      "query": "canon r6",
+      "description": "GA4 top query: Canon r6 search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105LISUSM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm F/4 L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105ISSTM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm f/4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKII24105LISUSM",
+          "name": "Canon EOS R6 Mark II + RF 24-105mm F4.0 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR6MKII",
+          "name": "Canon EOS R6 mark II",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r5",
+      "query": "r5",
+      "description": "GA4 top query: 'r5' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR5MKII",
+          "name": "Canon EOS R5 Mark II",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSR5C",
+          "name": "Canon EOS R5 C Body - Zestaw R5 C + RF VCM; 500 zł taniej",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR5MKIIRF24105L",
+          "name": "Canon EOS R5 Mark II + RF 24-105 mm f/4 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR50V",
+          "name": "Canon EOS R50 V",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r8",
+      "query": "r8",
+      "description": "GA4 top query: 'r8' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR8",
+          "name": "Canon EOS R8",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR8LPE17KIT",
+          "name": "Canon EOS R8 + LP- E17 kit",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR824105ISSTM",
+          "name": "Canon EOS R8 + RF 24-105mm F4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR8RF2450ISSTM",
+          "name": "Canon EOS R8 + RF 24-50 mm f/4.5-6.3 IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "BAGCANEGE1",
+          "name": "Canon EG-E1 czarny do EOS RP I EOS R8",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_r5",
+      "query": "canon r5",
+      "description": "GA4 top query: Canon r5 search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR5",
+          "name": "Canon EOS R5",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR5MKII",
+          "name": "Canon EOS R5 Mark II",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSR5C",
+          "name": "Canon EOS R5 C Body - Zestaw R5 C + RF VCM; 500 zł taniej",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR5MKIIRF24105L",
+          "name": "Canon EOS R5 Mark II + RF 24-105 mm f/4 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR50V",
+          "name": "Canon EOS R50 V",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_tamron",
+      "query": "tamron",
+      "description": "GA4 top query: Tamron brand search",
+      "expected_products": [
+        {
+          "id": "OBITAM150500F567NIKZ",
+          "name": "Tamron 150-500 mm f/5-6.7 Di III VC VXD Nikon Z",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBITAM163028-NZ",
+          "name": "Tamron 16-30 mm f/2.8 G2 Nikon Z",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBITAM163028-SONE",
+          "name": "Tamron 16-30 mm f/2.8 G2 Sony E",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBITAM35150228-SON",
+          "name": "Tamron 35-150 mm f/2-2.8 DI III VXD Sony E",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBITAM50400F4NIKZ",
+          "name": "Tamron 50-400 mm f/4.5-6.3 Di III VC VXD Nikon Z",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_r8",
+      "query": "canon r8",
+      "description": "GA4 top query: Canon r8 search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR8",
+          "name": "Canon EOS R8",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR8LPE17KIT",
+          "name": "Canon EOS R8 + LP- E17 kit",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR824105ISSTM",
+          "name": "Canon EOS R8 + RF 24-105mm F4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR8RF2450ISSTM",
+          "name": "Canon EOS R8 + RF 24-50 mm f/4.5-6.3 IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "BAGCANEGE1",
+          "name": "Canon EG-E1 czarny do EOS RP I EOS R8",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a6700",
+      "query": "a6700",
+      "description": "GA4 top query: 'a6700' search",
+      "expected_products": [
+        {
+          "id": "ACFSONA6700-B",
+          "name": "Sony A6700 body (ILCE6700B.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONA6700OB1650-B",
+          "name": "Sony A6700 + 16-50 mm f/3.5-5.6 (ILCE6700LB.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA6700OB18135-B",
+          "name": "Sony A6700 + 18-135 mm f/3.5-5.6 (ILCE6700MB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA6700OB1650II",
+          "name": "Sony A6700 + 16-50 mm f/3.5-5.6 OSS II (ILCE6700KB.CEC)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG4338",
+          "name": "Smallrig Baseplate do Sony A6700 [4338]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a7_v",
+      "query": "a7 v",
+      "description": "GA4 top query: 'a7 v' search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7V",
+          "name": "Sony A7 V body (ILCE7M5B.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCE7SM3",
+          "name": "Sony A7S III body (ILCE-7SM3)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCE7RV",
+          "name": "Sony A7R V body ILCE7RM5B.CEC",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7CRB",
+          "name": "Sony A7CR body (ILCE7CRB.CEC)",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFSONA7III24105",
+          "name": "Sony A7 III + 24-105 mm f/4.0 (ILCE7M3GBDI.EU)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_z8",
+      "query": "z8",
+      "description": "GA4 top query: 'z8' search",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ8",
+          "name": "Nikon Z8 body",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ824120",
+          "name": "Nikon Z8 + 24-120 mm f/4 S",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "AFCPANDCFZ82DEK",
+          "name": "Panasonic DC-FZ82DE-K",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "SMRG4317",
+          "name": "Smallrig Klatka operatorska do Nikon Z8 Night Eagle Cage Kit [4317]",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG3982",
+          "name": "Smallrig Klatka operatorska do Nikon Z8 Cage z MB-N12 Battery Grip [3982]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sigma_24_70",
+      "query": "sigma 24-70",
+      "description": "GA4 top query: Sigma 24-70 search",
+      "expected_products": [
+        {
+          "id": "OBISIGA2470F28DGDNIISOE",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art Sony E",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISIG2470F28DGDNIILM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN II Art L-Mount",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-CAN",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Canon EF",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA2470F28DGHSM-NIK",
+          "name": "Sigma A 24-70 mm f/2.8 DG OS HSM Art Nikon F",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBISIG2470F28DGDN-LM",
+          "name": "Sigma A 24-70 mm f/2.8 DG DN Art L-Mount",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a7_iv",
+      "query": "a7 iv",
+      "description": "GA4 top query: 'a7 iv' search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7IV24105",
+          "name": "Sony A7 IV + 24-105 mm f/4 (ILCE7M4GBDI.EU)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCEA7IV",
+          "name": "Sony A7 IV body (ILCE7M4B.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7IV2870",
+          "name": "Sony A7 IV + 28-70 mm f/3.5-5.6 (ILCE7M4KB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCE7RIV",
+          "name": "Sony A7R IV body ( ILCE7RM4AB.CEC )",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG3666B",
+          "name": "Smallrig Podstawa do Sony A7 IV [3666B]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_24_70",
+      "query": "sony 24-70",
+      "description": "GA4 top query: Sony 24-70 search",
+      "expected_products": [
+        {
+          "id": "OBISONFE2470F28",
+          "name": "Sony FE 24-70 mm f/2.8 GM (SEL2470GM.SYX)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISONFE2470F28GM2",
+          "name": "Sony FE 24-70 mm f/2.8 GM2 (SEL2470GM2.SYX)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISON24704ZAOSS",
+          "name": "Sony FE 24-70 mm f/4 ZA OSS Carl Zeiss Vario-Tessar T* (SEL2470Z.AE)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "UZYOBISON24704ZAOSS_499398",
+          "name": "Sony FE 24-70 mm f/4.0 ZA OSS Carl Zeiss Vario-Tessar T* (SEL2470Z.AE) s.n. 499398",
+          "ideal_position": 4,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r6_ii",
+      "query": "r6 ii",
+      "description": "GA4 top query: 'r6 ii' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105LISUSM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm F/4 L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105ISSTM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm f/4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKII24105LISUSM",
+          "name": "Canon EOS R6 Mark II + RF 24-105mm F4.0 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR6MKII",
+          "name": "Canon EOS R6 mark II",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a7v",
+      "query": "a7v",
+      "description": "GA4 top query: 'a7v' search",
+      "expected_products": [
+        {
+          "id": "SMRG3708",
+          "name": "Smallrig Podstawowy zestaw klatki Rhinoceros do Sony A7 RV/ A7VI/ A7 SIII [3708]",
+          "ideal_position": 1,
+          "weight": 3
+        }
+      ]
+    },
+    {
+      "id": "ga4_nikon_z6",
+      "query": "nikon z6",
+      "description": "GA4 top query: Nikon z6 search",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ6III2470",
+          "name": "Nikon Z6 III + 24-70 mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ6III24200",
+          "name": "Nikon Z6 III + 24-200 mm",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6III24120",
+          "name": "Nikon Z6 III + 24-120 mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6II2470",
+          "name": "Nikon Z6 II + ob. 24-70 mm f/4S",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFNIKZ6II24200",
+          "name": "Nikon Z6 II + ob. 24-200 mm",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_a7v",
+      "query": "sony a7v",
+      "description": "GA4 top query: Sony a7v search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7V",
+          "name": "Sony A7 V body (ILCE7M5B.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCE7SM3",
+          "name": "Sony A7S III body (ILCE-7SM3)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCE7RV",
+          "name": "Sony A7R V body ILCE7RM5B.CEC",
+          "ideal_position": 3,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_85",
+      "query": "rf 85",
+      "description": "GA4 top query: 'rf 85' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF8512LUSMDS",
+          "name": "Canon RF 85 mm f/1.2 L USM DS.",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF85F12LUSMDS",
+          "name": "Canon RF 85 mm f/1.2 L USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF8514LVCM",
+          "name": "Canon RF 85 mm f/1.4 L VCM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF85F2ISSTM",
+          "name": "Canon RF 85 mm f/2 Macro IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBICAZ8514CANOTUS",
+          "name": "Carl Zeiss Otus ML 85 mm f/1.4 Canon RF",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r7",
+      "query": "r7",
+      "description": "GA4 top query: 'r7' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR7-BA",
+          "name": "Canon EOS R7",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR7RFS18150-BA",
+          "name": "Canon EOS R7 + RF-S 18-150mm 3.5-6.3 IS STM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXMFR76",
+          "name": "Godox MF-R76 makro",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXMFR76S",
+          "name": "Godox MF-R76S TTL Macro Ring Flash Sony",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "MIKTASAKDR70C",
+          "name": "Tascam AK-DR70C",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_r7",
+      "query": "canon r7",
+      "description": "GA4 top query: Canon r7 search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR7-BA",
+          "name": "Canon EOS R7",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR7RFS18150-BA",
+          "name": "Canon EOS R7 + RF-S 18-150mm 3.5-6.3 IS STM",
+          "ideal_position": 2,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_50",
+      "query": "rf 50",
+      "description": "GA4 top query: 'rf 50' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF50F14LVCM",
+          "name": "Canon RF 50 mm f/1.4 L VCM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF50F18STM",
+          "name": "Canon RF 50 mm f/1.8 STM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSC80",
+          "name": "Canon EOS C80 Full Frame 6K Body - C80 + RF VCM; 1 500 zł taniej",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSR5C",
+          "name": "Canon EOS R5 C Body - Zestaw R5 C + RF VCM; 500 zł taniej",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBICANRF100500F4571ISUSM",
+          "name": "Canon RF 100-500 mm f/4.5-7.1L IS USM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_r10",
+      "query": "canon r10",
+      "description": "GA4 top query: Canon r10 search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR10-BA",
+          "name": "Canon EOS R10",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR10RFS18150-BA",
+          "name": "Canon EOS R10 + RF-S 18-150 mm f/3.5-6.3 IS STM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR100RFS184575300",
+          "name": "Canon EOS R100 + RF-S 18-45  f/4.5-6.3 IS STM + RF 75-300 f/4-5.6",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR10RFS1845-BA",
+          "name": "Canon EOS R10 + RF-S 18-45mm 4.5-6.3 IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR100RFS1845ISSTMRFS55210",
+          "name": "Canon EOS R100 + RF-S 18-45 mm f/4.5-6.3 IS STM + RF-S 55-210 mm f/5-7.1 IS STM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_godox",
+      "query": "godox",
+      "description": "GA4 top query: Godox brand search",
+      "expected_products": [
+        {
+          "id": "LAMGDXAD100PTK",
+          "name": "Godox AD100 PRO TTL z plecakiem",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMGDXAD300PRO3HKIT",
+          "name": "Godox AD300Pro + AD100Pro 3 heads Kit",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXAD600BII",
+          "name": "Godox AD600BM II mocowanie Bowens",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXAD400PROII",
+          "name": "Godox AD400 PRO II TTL",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LAMGDXLEDSL300R",
+          "name": "Godox LED SL300R RGB, Bowens",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_ftz",
+      "query": "ftz",
+      "description": "GA4 top query: 'ftz' search",
+      "expected_products": [
+        {
+          "id": "ACKNIKFTZII",
+          "name": "Nikon FTZ II adapter do obiektywów Nikon F dla systemu Nikon Z",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "KNWMEGEFTZ21",
+          "name": "Megadap EFTZ21",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "UZYACKNIKFTZII_20475550",
+          "name": "Nikon FTZ II adapter do obiektywów Nikon F dla systemu Nikon Z s.n. 20475550",
+          "ideal_position": 3,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "ga4_x_e5",
+      "query": "x-e5",
+      "description": "GA4 top query: 'x-e5' search",
+      "expected_products": [
+        {
+          "id": "ACFFJIXE5SILVER",
+          "name": "FujiFilm X-E5 body srebrny",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFFJIXE5BLACK",
+          "name": "FujiFilm X-E5 body czarny",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIXE5XF23-S",
+          "name": "FujiFilm X-E5 + XF 23 mm f/2.8 R WR srebrny",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIXE5XF23-B",
+          "name": "FujiFilm X-E5 + XF 23 mm f/2.8 R WR czarny",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG5449",
+          "name": "Smallrig Zestaw skórzanego etui do FUJIFILM X-E5, brązowy [5449]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_ricoh_gr",
+      "query": "ricoh gr",
+      "description": "GA4 top query: Ricoh gr search",
+      "expected_products": [
+        {
+          "id": "ACFRICGRIIIX",
+          "name": "Ricoh GR IIIx",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFRICGRIIIXHDF",
+          "name": "Ricoh GR IIIx HDF",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFPENGRIV",
+          "name": "Ricoh GR IV",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFPENGRIVHDF",
+          "name": "Ricoh GR IV HDF",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFPENGRIVMON",
+          "name": "Ricoh GR IV Monochrome",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r6_mark_iii",
+      "query": "r6 mark iii",
+      "description": "GA4 top query: 'r6 mark iii' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105LISUSM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm F/4 L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105ISSTM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm f/4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKII24105LISUSM",
+          "name": "Canon EOS R6 Mark II + RF 24-105mm F4.0 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOS1DXMIII",
+          "name": "Canon EOS 1DX Mark III",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a6400",
+      "query": "a6400",
+      "description": "GA4 top query: 'a6400' search",
+      "expected_products": [
+        {
+          "id": "ACFSONA6400AB",
+          "name": "Sony A6400 body (ILCE-6400AB)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONA6400OB18135AMB",
+          "name": "Sony A6400 + 18-135 mm f/3.5-5.6 (ILCE-6400AMB)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA6400OB1650AKB",
+          "name": "Sony A6400 + 16-50 mm f/3.5-5.6 (ILCE-6400AKB)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ZPFACFSONA6400-B-ZES",
+          "name": "Sony Aparat cyfrowy Sony A6400 body (ILCE-6400) - zestaw początkującego filmowca",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "SMRG2310C",
+          "name": "Smallrig Klatka operatorska do Sony A6100/A6300/A6400/A6500 [CCS2310C]",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_z6_iii",
+      "query": "z6 iii",
+      "description": "GA4 top query: 'z6 iii' search",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ6III2470",
+          "name": "Nikon Z6 III + 24-70 mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ6III24200",
+          "name": "Nikon Z6 III + 24-200 mm",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6III24120",
+          "name": "Nikon Z6 III + 24-120 mm",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ6III24105",
+          "name": "Nikon Z6 III + 24-105 mm",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFNIKZ6III",
+          "name": "Nikon Z6 III body",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_70_200",
+      "query": "sony 70-200",
+      "description": "GA4 top query: Sony 70-200 search",
+      "expected_products": [
+        {
+          "id": "OBISON70200F28GM2",
+          "name": "Sony FE 70-200 mm f/2.8 GM2 (SEL70200GM2.SYX)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISON70200MMF4G2",
+          "name": "Sony FE 70-200 mm f/4 Macro G OSS II (SEL70200G2.SYX)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISONFE70200F28",
+          "name": "Sony FE 70-200 mm f/2.8 GM OSS (SEL70200GM.SYX)",
+          "ideal_position": 3,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "ga4_nikon_zr",
+      "query": "nikon zr",
+      "description": "GA4 top query: Nikon zr search",
+      "expected_products": [
+        {
+          "id": "ACFNIKZR",
+          "name": "Nikon ZR body",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZR2470F4",
+          "name": "Nikon ZR + 24-70 mm f/4 S",
+          "ideal_position": 2,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "ga4_28_70",
+      "query": "28-70",
+      "description": "GA4 top query: '28-70' search",
+      "expected_products": [
+        {
+          "id": "ACFSONILCEA7III2870",
+          "name": "Sony A7 III + 28-70 mm f/3.5-5.6 (ILCE7M3KB.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF2870F2LUSM",
+          "name": "Canon RF 28-70 mm f/2 L USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7IV2870",
+          "name": "Sony A7 IV + 28-70 mm f/3.5-5.6 (ILCE7M4KB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF2870F28ISSTM",
+          "name": "Canon RF 28-70 mm f/2.8 IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBISONFE2870F20GM",
+          "name": "Sony FE 28-70 mm f/2 GM (SEL2870GMB.SYX)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sigma_18_50",
+      "query": "sigma 18-50",
+      "description": "GA4 top query: Sigma 18-50 search",
+      "expected_products": [
+        {
+          "id": "OBISIGC1850F28CANRFNEW",
+          "name": "Sigma C 18-50 mm f/2.8 DC DN Contemporary Canon RF",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBISIGA1850F28DCDNSONE",
+          "name": "Sigma C 18-50 mm f/2.8 DC DN Contemporary Sony E",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA1850F28DCDNLMO",
+          "name": "Sigma C 18-50 mm f/2.8 DC DN Contemporary L-Mount",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBISIGA1850F28DCDNFUJI",
+          "name": "Sigma C 18-50 mm f/2.8 DC DN Contemporary Fujifilm X",
+          "ideal_position": 4,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_35",
+      "query": "rf 35",
+      "description": "GA4 top query: 'rf 35' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF35F14L",
+          "name": "Canon RF 35 mm f/1.4L VCM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF35F18STMMACRO",
+          "name": "Canon RF 35 mm f/1.8 Macro IS STM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF1535F28LISUSM",
+          "name": "Canon RF 15-35 mm f/2.8 L IS USM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF135F18LISUSM",
+          "name": "Canon RF 135 mm f/1.8 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OBICANRF1435F4",
+          "name": "Canon RF 14-35 mm f/4 L IS USM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_28_70",
+      "query": "rf 28-70",
+      "description": "GA4 top query: 'rf 28-70' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF2870F2LUSM",
+          "name": "Canon RF 28-70 mm f/2 L USM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF2870F28ISSTM",
+          "name": "Canon RF 28-70 mm f/2.8 IS STM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIGFXRFS",
+          "name": "FujiFilm GFX 100RF srebrny",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "KCFCANEOSC80",
+          "name": "Canon EOS C80 Full Frame 6K Body - C80 + RF VCM; 1 500 zł taniej",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105LISUSM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm F/4 L IS USM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_45",
+      "query": "rf 45",
+      "description": "GA4 top query: 'rf 45' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF45F12STM",
+          "name": "Canon RF 45 mm f/1.2 STM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR100RFS184575300",
+          "name": "Canon EOS R100 + RF-S 18-45  f/4.5-6.3 IS STM + RF 75-300 f/4-5.6",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR10RFS1845-BA",
+          "name": "Canon EOS R10 + RF-S 18-45mm 4.5-6.3 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR50RFS1845RFS55210",
+          "name": "Canon EOS R50 + RF-S 18-45 mm f/4.5-6.3 + RF-S 55-210 mm f/5-7.1 IS STM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR50RFS1845ISSTM",
+          "name": "Canon EOS R50 + RF-S 18-45 mm f/4.5-6.3 IS STM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_r6_mark",
+      "query": "r6 mark",
+      "description": "GA4 top query: 'r6 mark' search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSR6MKIII",
+          "name": "Canon EOS R6 mark III",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105LISUSM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm F/4 L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKIII24105ISSTM",
+          "name": "Canon EOS R6 Mark III + RF 24-105 mm f/4-7.1 IS STM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFCANEOSR6MKII24105LISUSM",
+          "name": "Canon EOS R6 Mark II + RF 24-105mm F4.0 L IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFCANEOSR6MKII",
+          "name": "Canon EOS R6 mark II",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_nikon_z5",
+      "query": "nikon z5",
+      "description": "GA4 top query: Nikon z5 search",
+      "expected_products": [
+        {
+          "id": "ACFNIKZ5II24200",
+          "name": "Nikon Z5II + 24-200 mm",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFNIKZ5II",
+          "name": "Nikon Z5II body",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ5II2470",
+          "name": "Nikon Z5II + 24-70 mm f/4",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFNIKZ5",
+          "name": "Nikon Z5 body",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFNIKZ52450",
+          "name": "Nikon Z5 + ob. 24-50 mm",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_nikon_en_el15c",
+      "query": "nikon en-el15c",
+      "description": "GA4 top query: Nikon en-el15c search",
+      "expected_products": [
+        {
+          "id": "BATNIKENEL15C",
+          "name": "Nikon EN-EL15c",
+          "ideal_position": 1,
+          "weight": 3
+        }
+      ]
+    },
+    {
+      "id": "ga4_godox_v1",
+      "query": "godox v1",
+      "description": "GA4 top query: Godox v1 search",
+      "expected_products": [
+        {
+          "id": "LAMGDXV1PROS",
+          "name": "Godox V1 Pro do Sony",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMGDXV1PRON",
+          "name": "Godox V1 Pro do Nikon",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXV1PROO",
+          "name": "Godox V1 Pro do Olympus",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXV1PROF",
+          "name": "Godox V1 Pro do Fuji",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LAMGDXV1PROC",
+          "name": "Godox V1 Pro do Canon",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_a6700",
+      "query": "sony a6700",
+      "description": "GA4 top query: Sony a6700 search",
+      "expected_products": [
+        {
+          "id": "ACFSONA6700-B",
+          "name": "Sony A6700 body (ILCE6700B.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONA6700OB1650-B",
+          "name": "Sony A6700 + 16-50 mm f/3.5-5.6 (ILCE6700LB.CEC)",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA6700OB18135-B",
+          "name": "Sony A6700 + 18-135 mm f/3.5-5.6 (ILCE6700MB.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONA6700OB1650II",
+          "name": "Sony A6700 + 16-50 mm f/3.5-5.6 OSS II (ILCE6700KB.CEC)",
+          "ideal_position": 4,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_70_200",
+      "query": "rf 70-200",
+      "description": "GA4 top query: 'rf 70-200' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF70200F28LISUSM",
+          "name": "Canon RF 70-200 mm f/2.8 L IS USM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF70200F28LISUSMZBK",
+          "name": "Canon RF 70-200 mm f/2.8 L IS USM Z BK",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF70200F4ISUSM",
+          "name": "Canon RF 70-200 mm f/4 L IS USM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF70200F28LISUSMZWH",
+          "name": "Canon RF 70-200 mm f/2.8 L IS USM Z biały",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "OSOCANET83F",
+          "name": "Canon ET-83F do RF 70-200 F2.8L IS USM",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_rf_100",
+      "query": "rf 100",
+      "description": "GA4 top query: 'rf 100' search",
+      "expected_products": [
+        {
+          "id": "OBICANRF100500F4571ISUSM",
+          "name": "Canon RF 100-500 mm f/4.5-7.1L IS USM",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "OBICANRF100300F28LISUSM",
+          "name": "Canon RF 100-300 mm f/2.8L IS USM",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF100F28ISUSM",
+          "name": "Canon RF 100 mm f/2.8 L Macro IS USM",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "OBICANRF100400F5671ISUSM",
+          "name": "Canon RF 100-400 mm f/5.6-8 IS USM",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFFJIGFXRFS",
+          "name": "FujiFilm GFX 100RF srebrny",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_canon_rp",
+      "query": "canon rp",
+      "description": "GA4 top query: Canon rp search",
+      "expected_products": [
+        {
+          "id": "ACFCANEOSRP-BA",
+          "name": "Canon EOS RP",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFCANEOSRPOB24105471ISSTM",
+          "name": "Canon EOS RP + RF 24-105 mm f/4-7.1",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "DRUCANCP1500WRP108-ZES",
+          "name": "Canon CP1500 WiFi biała + papier RP-108",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "POBCANRF3",
+          "name": "Canon R-F-3 zaślepka korpusu",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "PAPCANRP108",
+          "name": "Canon RP-108 10x15cm 108 sztuk",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_t_o",
+      "query": "tło",
+      "description": "GA4 top query: 'tło' search",
+      "expected_products": [
+        {
+          "id": "GADCYFKOSZ24BODYSSMS",
+          "name": "Cyfrowepl Koszulka męska czarna z grafiką Mam idealne body S ŚwiatłoSiła",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "GADCYFKOSZ24BODYSSMM",
+          "name": "Cyfrowepl Koszulka męska czarna z grafiką Mam idealne body M ŚwiatłoSiła",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "GADCYFKOSZ24BODYSSML",
+          "name": "Cyfrowepl Koszulka męska czarna z grafiką Mam idealne body L ŚwiatłoSiła",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "GADCYFKOSZ24BODYSSMXL",
+          "name": "Cyfrowepl Koszulka męska czarna z grafiką Mam idealne body XL ŚwiatłoSiła",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "GADCYFKOSZ24BODYSSDXL",
+          "name": "Cyfrowepl Koszulka damska czarna z grafiką Mam idealne body XL ŚwiatłoSiła",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_plecak",
+      "query": "plecak",
+      "description": "GA4 top query: 'plecak' search",
+      "expected_products": [
+        {
+          "id": "TORPECAMERACUBESMV2-SL",
+          "name": "Peak Design CAMERA CUBE V2 Small - wkład mały do plecaka Travel Line",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "LAMGDXAD100PTK",
+          "name": "Godox AD100 PRO TTL z plecakiem",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "LAMGDXAD300PROX2",
+          "name": "Godox Zestaw AD300PRO zestaw 2 lamp z plecakiem",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "TORDJIAVA2",
+          "name": "DJI Plecak transportowy DJI Avata 2",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "LAMGDXAD100PRO-2",
+          "name": "Godox Zestaw AD100 PRO TTL zestaw 2 lamp z plecakiem",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_a7_iii",
+      "query": "a7 iii",
+      "description": "GA4 top query: 'a7 iii' search",
+      "expected_products": [
+        {
+          "id": "ACFSONA7III24105",
+          "name": "Sony A7 III + 24-105 mm f/4.0 (ILCE7M3GBDI.EU)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFSONILCEA7III902-ZES",
+          "name": "Sony A7 III - zestaw 2 do fotografii w stomatologii",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7III",
+          "name": "Sony A7 III body (ILCE7M3B.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFSONILCEA7III90-ZES",
+          "name": "Sony A7 III - zestaw do fotografii w stomatologii",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFSONILCEA7III2870",
+          "name": "Sony A7 III + 28-70 mm f/3.5-5.6 (ILCE7M3KB.CEC)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_x_t5",
+      "query": "x-t5",
+      "description": "GA4 top query: 'x-t5' search",
+      "expected_products": [
+        {
+          "id": "ACFFJIXT51650-B",
+          "name": "FujiFilm X-T5 + XF 16-50 mm czarny",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "ACFFJIXT51650-S",
+          "name": "FujiFilm X-T5 + XF 16-50 mm srebrny",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIXT5B",
+          "name": "FujiFilm X-T5 czarny body",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "ACFFJIXT5S",
+          "name": "FujiFilm X-T5 srebrny body",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "ACFFJIXT50",
+          "name": "FujiFilm X-T50 body czarny",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "id": "ga4_sony_fx3",
+      "query": "sony fx3",
+      "description": "GA4 top query: Sony fx3 search",
+      "expected_products": [
+        {
+          "id": "KCFSONFX3A",
+          "name": "Sony ILME-FX3A (ILMEFX3AB.CEC)",
+          "ideal_position": 1,
+          "weight": 3
+        },
+        {
+          "id": "KCFSONFX301655GM-ZES",
+          "name": "Sony ILME-FX30 Filmowy zestaw startowy",
+          "ideal_position": 2,
+          "weight": 2
+        },
+        {
+          "id": "KCFSONFX30XLR",
+          "name": "Sony ILME-FX30 + UCHWYT XLR (ILMEFX30.CEC)",
+          "ideal_position": 3,
+          "weight": 2
+        },
+        {
+          "id": "KCFSONFX3A2470GM2-ZES",
+          "name": "Sony ILME-FX3A Profesjonalny zestaw filmowy",
+          "ideal_position": 4,
+          "weight": 1
+        },
+        {
+          "id": "KCFSONFX30",
+          "name": "Sony ILME-FX30 (ILMEFX30B.CEC)",
+          "ideal_position": 5,
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

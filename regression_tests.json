@@ -1,0 +1,942 @@
+{
+    "_comment": "Regression test suite for Cyfrowe.pl search engine. Each test defines a query and expected results. Every change to search_engine.py MUST pass all these tests.",
+    "_categories": {
+        "brand": "Brand recognition and exclusive filtering",
+        "brand_typo": "Brand alias/typo resolution (brand_aliases.json)",
+        "category": "Category/product type searches",
+        "specific": "Specific product model searches",
+        "used": "Used/condition filtering",
+        "compatibility": "Compatibility queries (do/dla/na/pod prepositions)",
+        "lens_notation": "Lens focal length and aperture normalization",
+        "ean": "EAN/barcode exact match",
+        "availability": "In-stock preference",
+        "inflection": "Polish word inflection (prefix matching)",
+        "mixed": "Multi-signal queries combining several features"
+    },
+    "tests": [
+        {
+            "id": "brand_canon",
+            "description": "Searching for a brand should return that brand's products",
+            "query": "Canon",
+            "expect": {
+                "min_results": 10,
+                "top_5_must_contain_brand": "Canon",
+                "all_must_have_brand": "Canon"
+            }
+        },
+        {
+            "id": "brand_nikon",
+            "description": "Searching for Nikon should return Nikon products",
+            "query": "Nikon",
+            "expect": {
+                "min_results": 10,
+                "top_5_must_contain_brand": "Nikon",
+                "all_must_have_brand": "Nikon"
+            }
+        },
+        {
+            "id": "brand_exclusive_sony",
+            "description": "Brand name alone returns exclusively that brand's products",
+            "query": "Sony",
+            "expect": {
+                "min_results": 10,
+                "all_must_have_brand": "Sony"
+            }
+        },
+        {
+            "id": "brand_exclusive_dji",
+            "description": "DJI brand returns only DJI products",
+            "query": "DJI",
+            "expect": {
+                "min_results": 10,
+                "top_5_must_contain_brand": "DJI",
+                "all_must_have_brand": "DJI"
+            }
+        },
+        {
+            "id": "brand_typo_cannon",
+            "description": "Common Canon misspelling 'cannon' resolves to Canon",
+            "query": "cannon",
+            "expect": {
+                "min_results": 100,
+                "all_must_have_brand": "Canon"
+            }
+        },
+        {
+            "id": "brand_typo_nikkon",
+            "description": "Nikon misspelling 'nikkon' resolves and finds Z8",
+            "query": "nikkon z8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Z8",
+                "all_must_have_brand": "Nikon"
+            }
+        },
+        {
+            "id": "brand_typo_soni",
+            "description": "Sony misspelling 'soni' resolves correctly",
+            "query": "soni a7 IV",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7",
+                "all_must_have_brand": "Sony"
+            }
+        },
+        {
+            "id": "brand_alias_lumix",
+            "description": "'lumix' is alias for Panasonic — must resolve to Panasonic brand",
+            "query": "lumix",
+            "expect": {
+                "min_results": 10,
+                "all_must_have_brand": "Panasonic"
+            }
+        },
+        {
+            "id": "brand_alias_fuji",
+            "description": "'fuji' is alias for FujiFilm",
+            "query": "fuji aparat",
+            "expect": {
+                "min_results": 1,
+                "top_10_must_contain_brand_ci": "fuji"
+            }
+        },
+        {
+            "id": "brand_typo_simga",
+            "description": "Sigma misspelling 'simga' resolves to Sigma",
+            "query": "simga 24-70",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Sigma",
+                "all_must_have_brand": "Sigma"
+            }
+        },
+        {
+            "id": "brand_typo_godoks",
+            "description": "Godox misspelling 'godoks' resolves to Godox",
+            "query": "godoks",
+            "expect": {
+                "min_results": 10,
+                "all_must_have_brand": "Godox"
+            }
+        },
+        {
+            "id": "category_obiektyw",
+            "description": "Searching for 'obiektyw' should return lenses across all brands",
+            "query": "obiektyw",
+            "expect": {
+                "min_results": 100,
+                "top_10_brands_min_unique": 2
+            }
+        },
+        {
+            "id": "category_statyw",
+            "description": "Searching for 'statyw' should return tripods",
+            "query": "statyw",
+            "expect": {
+                "min_results": 5,
+                "top_10_must_contain_in_name_or_category": "statyw"
+            }
+        },
+        {
+            "id": "category_gimbal",
+            "description": "Gimbal search returns stabilizers",
+            "query": "gimbal",
+            "expect": {
+                "min_results": 5
+            }
+        },
+        {
+            "id": "category_dron",
+            "description": "Polish 'dron' finds drones",
+            "query": "dron",
+            "expect": {
+                "min_results": 50
+            }
+        },
+        {
+            "id": "category_plecak",
+            "description": "Backpack search",
+            "query": "plecak fotograficzny",
+            "expect": {
+                "min_results": 5,
+                "top_5_must_contain_in_category": "plecak"
+            }
+        },
+        {
+            "id": "specific_canon_r5",
+            "description": "Canon EOS R5 — exact camera model, must be first result",
+            "query": "Canon EOS R5",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "EOS R5"
+            }
+        },
+        {
+            "id": "specific_sony_a7c",
+            "description": "Sony A7C II — specific camera body",
+            "query": "Sony A7C II",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7C"
+            }
+        },
+        {
+            "id": "specific_nikon_z8",
+            "description": "Nikon Z8 — flagship camera body",
+            "query": "Nikon Z8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Z8"
+            }
+        },
+        {
+            "id": "specific_sigma_art",
+            "description": "Sigma Art lens search — specific lens line",
+            "query": "Sigma 35mm f/1.4 Art",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Sigma"
+            }
+        },
+        {
+            "id": "specific_tamron_lens",
+            "description": "Tamron zoom lens",
+            "query": "Tamron 28-75 f/2.8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Tamron"
+            }
+        },
+        {
+            "id": "specific_product_sony_a7",
+            "description": "Camera body search",
+            "query": "Sony A7 IV",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Sony"
+            }
+        },
+        {
+            "id": "specific_rode_videomic",
+            "description": "Rode VideoMic microphone",
+            "query": "Rode VideoMic",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Rode"
+            }
+        },
+        {
+            "id": "filter_filtr_uv",
+            "description": "UV filter search should return filters, not cameras",
+            "query": "filtr UV",
+            "expect": {
+                "min_results": 5,
+                "top_5_must_contain_in_category": "Filtr"
+            }
+        },
+        {
+            "id": "filter_by_size",
+            "description": "Filter search with size spec (77mm)",
+            "query": "filtr 77mm",
+            "expect": {
+                "min_results": 10,
+                "top_3_must_contain_in_name": "77"
+            }
+        },
+        {
+            "id": "mikrofon_rode",
+            "description": "Brand + category search",
+            "query": "mikrofon Rode",
+            "expect": {
+                "min_results": 1,
+                "top_5_must_contain_brand": "Rode"
+            }
+        },
+        {
+            "id": "lampa_godox",
+            "description": "Flash/light search by brand",
+            "query": "lampa Godox",
+            "expect": {
+                "min_results": 5,
+                "top_5_must_contain_brand": "Godox"
+            }
+        },
+        {
+            "id": "tusz_canon",
+            "description": "Ink search — should work for non-photo categories too",
+            "query": "tusz Canon",
+            "expect": {
+                "min_results": 1,
+                "top_5_must_contain_brand": "Canon"
+            }
+        },
+        {
+            "id": "ean_search",
+            "description": "EAN code search should return exact product",
+            "query": "4012240045006",
+            "expect": {
+                "min_results": 1,
+                "first_result_id": "FILBIW1100136"
+            }
+        },
+        {
+            "id": "lens_ean_not_broken",
+            "description": "EAN exact match still works after lens normalization (raw_query used for term match)",
+            "query": "4012240045006",
+            "expect": {
+                "min_results": 1,
+                "first_result_id": "FILBIW1100136"
+            }
+        },
+        {
+            "id": "availability_instock",
+            "description": "In-stock products should rank higher than out-of-stock for same query",
+            "query": "Canon",
+            "expect": {
+                "top_5_majority_availability": "in stock"
+            }
+        },
+        {
+            "id": "used_condition_filter",
+            "description": "Keyword 'używany' must exclusively filter to used products only",
+            "query": "Canon używany",
+            "expect": {
+                "min_results": 10,
+                "all_must_have_condition": "used",
+                "all_must_have_brand": "Canon"
+            }
+        },
+        {
+            "id": "used_condition_no_brand",
+            "description": "Just 'używane' returns all used products across brands",
+            "query": "używane",
+            "expect": {
+                "min_results": 50,
+                "all_must_have_condition": "used",
+                "top_10_brands_min_unique": 3
+            }
+        },
+        {
+            "id": "used_obiektyw",
+            "description": "'używany obiektyw' should find used lenses (500+ via prefix matching), not just 7",
+            "query": "używany obiektyw",
+            "expect": {
+                "min_results": 100,
+                "all_must_have_condition": "used"
+            }
+        },
+        {
+            "id": "compatibility_do_canon",
+            "description": "'obiektyw do Canon' is compatibility query — NOT restricted to Canon brand (>1200 proves no brand filter vs ~1035 Canon-only)",
+            "query": "obiektyw do Canon",
+            "expect": {
+                "min_results": 1200
+            }
+        },
+        {
+            "id": "compatibility_dla_nikon",
+            "description": "'lampa dla Nikon' is compatibility — shows multiple brands",
+            "query": "lampa dla Nikon",
+            "expect": {
+                "min_results": 5,
+                "top_10_brands_min_unique": 2
+            }
+        },
+        {
+            "id": "compatibility_adapter",
+            "description": "'adapter do Sony E' — compatibility query for mount adapter",
+            "query": "adapter do Sony E",
+            "expect": {
+                "min_results": 1,
+                "top_10_brands_min_unique": 2
+            }
+        },
+        {
+            "id": "two_brands_no_filter",
+            "description": "Two brands in query (Sigma Canon) — no brand filter, ambiguous intent",
+            "query": "Sigma 24-70 Canon",
+            "expect": {
+                "min_results": 5,
+                "top_10_brands_min_unique": 2
+            }
+        },
+        {
+            "id": "lens_mm_nospace",
+            "description": "85mm (no space) must match same products as '85 mm' (lens notation normalization)",
+            "query": "85mm f/1.4",
+            "expect": {
+                "min_results": 100,
+                "top_3_must_contain_in_name": "85"
+            }
+        },
+        {
+            "id": "lens_fstop_noslash",
+            "description": "f2.8 (no slash) must match products with f/2.8 (lens notation normalization)",
+            "query": "24-70mm f2.8",
+            "expect": {
+                "min_results": 100,
+                "top_3_must_contain_in_name": "24-70"
+            }
+        },
+        {
+            "id": "lens_50mm_nospace",
+            "description": "50mm must find thousands of results (not just 23)",
+            "query": "50mm",
+            "expect": {
+                "min_results": 500
+            }
+        },
+        {
+            "id": "lens_fstop_uppercase",
+            "description": "F2.8 (uppercase, no slash) must match products with f/2.8",
+            "query": "F2.8",
+            "expect": {
+                "min_results": 100
+            }
+        },
+        {
+            "id": "lens_70_200_range",
+            "description": "Telephoto zoom lens search with range",
+            "query": "70-200 f2.8",
+            "expect": {
+                "min_results": 50,
+                "top_3_must_contain_in_name": "70-200"
+            }
+        },
+        {
+            "id": "inflection_obiektyw_plural",
+            "description": "Polish plural 'obiektywy' must find similar results to singular 'obiektyw'",
+            "query": "obiektywy",
+            "expect": {
+                "min_results": 100,
+                "top_10_brands_min_unique": 2
+            }
+        },
+        {
+            "id": "inflection_used_obiektyw",
+            "description": "Used lens query leverages prefix matching for inflection",
+            "query": "używany obiektyw",
+            "expect": {
+                "min_results": 100,
+                "all_must_have_condition": "used"
+            }
+        },
+        {
+            "id": "mixed_brand_category",
+            "description": "Brand + category in single query",
+            "query": "ładowarka Canon",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon"
+            }
+        },
+        {
+            "id": "mixed_filtr_uv_size",
+            "description": "Filter + UV + size spec should find matching filters",
+            "query": "filtr UV 67mm",
+            "expect": {
+                "min_results": 5,
+                "top_3_must_contain_in_name": "67"
+            }
+        },
+        {
+            "id": "mixed_pasek_apparatu",
+            "description": "Accessory search in Polish — camera strap",
+            "query": "pasek do aparatu",
+            "expect": {
+                "min_results": 5
+            }
+        },
+        {
+            "id": "mixed_karta_pamieci",
+            "description": "Memory card search in Polish",
+            "query": "karta pamięci",
+            "expect": {
+                "min_results": 10
+            }
+        },
+        {
+            "id": "specific_product_sigma",
+            "description": "Specific lens search should return exact match first",
+            "query": "Sigma 24-70 f/2.8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Sigma"
+            }
+        },
+        {
+            "id": "mixed_lens_hood",
+            "description": "Lens hood search in Polish",
+            "query": "osłona przeciwsłoneczna",
+            "expect": {
+                "min_results": 10
+            }
+        },
+        {
+            "id": "ga4_sony_a7",
+            "description": "GA4 top query: Sony a7 search",
+            "query": "sony a7",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "A7"
+            }
+        },
+        {
+            "id": "ga4_canon_r6",
+            "description": "GA4 top query: Canon r6 search",
+            "query": "canon r6",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "R6"
+            }
+        },
+        {
+            "id": "ga4_r5",
+            "description": "GA4 top query: 'r5' search",
+            "query": "r5",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R5"
+            }
+        },
+        {
+            "id": "ga4_r8",
+            "description": "GA4 top query: 'r8' search",
+            "query": "r8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R8"
+            }
+        },
+        {
+            "id": "ga4_canon_r5",
+            "description": "GA4 top query: Canon r5 search",
+            "query": "canon r5",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "R5"
+            }
+        },
+        {
+            "id": "ga4_tamron",
+            "description": "GA4 top query: Tamron brand search",
+            "query": "tamron",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Tamron"
+            }
+        },
+        {
+            "id": "ga4_canon_r8",
+            "description": "GA4 top query: Canon r8 search",
+            "query": "canon r8",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "R8"
+            }
+        },
+        {
+            "id": "ga4_a6700",
+            "description": "GA4 top query: 'a6700' search",
+            "query": "a6700",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A6700"
+            }
+        },
+        {
+            "id": "ga4_a7_v",
+            "description": "GA4 top query: 'a7 v' search",
+            "query": "a7 v",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7"
+            }
+        },
+        {
+            "id": "ga4_z8",
+            "description": "GA4 top query: 'z8' search",
+            "query": "z8",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Z8"
+            }
+        },
+        {
+            "id": "ga4_sigma_24_70",
+            "description": "GA4 top query: Sigma 24-70 search",
+            "query": "sigma 24-70",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sigma",
+                "top_3_must_contain_in_name": "24-70"
+            }
+        },
+        {
+            "id": "ga4_a7_iv",
+            "description": "GA4 top query: 'a7 iv' search",
+            "query": "a7 iv",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7"
+            }
+        },
+        {
+            "id": "ga4_sony_24_70",
+            "description": "GA4 top query: Sony 24-70 search",
+            "query": "sony 24-70",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "24-70"
+            }
+        },
+        {
+            "id": "ga4_r6_ii",
+            "description": "GA4 top query: 'r6 ii' search",
+            "query": "r6 ii",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R6"
+            }
+        },
+        {
+            "id": "ga4_a7v",
+            "description": "GA4 top query: 'a7v' search",
+            "query": "a7v",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7V"
+            }
+        },
+        {
+            "id": "ga4_nikon_z6",
+            "description": "GA4 top query: Nikon z6 search",
+            "query": "nikon z6",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Nikon",
+                "top_3_must_contain_in_name": "Z6"
+            }
+        },
+        {
+            "id": "ga4_sony_a7v",
+            "description": "GA4 top query: Sony a7v search",
+            "query": "sony a7v",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "A7V"
+            }
+        },
+        {
+            "id": "ga4_rf_85",
+            "description": "GA4 top query: 'rf 85' search",
+            "query": "rf 85",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_r7",
+            "description": "GA4 top query: 'r7' search",
+            "query": "r7",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R7"
+            }
+        },
+        {
+            "id": "ga4_canon_r7",
+            "description": "GA4 top query: Canon r7 search",
+            "query": "canon r7",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "R7"
+            }
+        },
+        {
+            "id": "ga4_rf_50",
+            "description": "GA4 top query: 'rf 50' search",
+            "query": "rf 50",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_canon_r10",
+            "description": "GA4 top query: Canon r10 search",
+            "query": "canon r10",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "R10"
+            }
+        },
+        {
+            "id": "ga4_godox",
+            "description": "GA4 top query: Godox brand search",
+            "query": "godox",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Godox"
+            }
+        },
+        {
+            "id": "ga4_ftz",
+            "description": "GA4 top query: 'ftz' search",
+            "query": "ftz",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "FTZ"
+            }
+        },
+        {
+            "id": "ga4_x_e5",
+            "description": "GA4 top query: 'x-e5' search",
+            "query": "x-e5",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "X-E5"
+            }
+        },
+        {
+            "id": "ga4_ricoh_gr",
+            "description": "GA4 top query: Ricoh gr search",
+            "query": "ricoh gr",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Ricoh",
+                "top_3_must_contain_in_name": "GR"
+            }
+        },
+        {
+            "id": "ga4_r6_mark_iii",
+            "description": "GA4 top query: 'r6 mark iii' search",
+            "query": "r6 mark iii",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R6"
+            }
+        },
+        {
+            "id": "ga4_a6400",
+            "description": "GA4 top query: 'a6400' search",
+            "query": "a6400",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A6400"
+            }
+        },
+        {
+            "id": "ga4_z6_iii",
+            "description": "GA4 top query: 'z6 iii' search",
+            "query": "z6 iii",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "Z6"
+            }
+        },
+        {
+            "id": "ga4_sony_70_200",
+            "description": "GA4 top query: Sony 70-200 search",
+            "query": "sony 70-200",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "70-200"
+            }
+        },
+        {
+            "id": "ga4_nikon_zr",
+            "description": "GA4 top query: Nikon zr search",
+            "query": "nikon zr",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Nikon",
+                "top_3_must_contain_in_name": "ZR"
+            }
+        },
+        {
+            "id": "ga4_28_70",
+            "description": "GA4 top query: '28-70' search",
+            "query": "28-70",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "28-70"
+            }
+        },
+        {
+            "id": "ga4_sigma_18_50",
+            "description": "GA4 top query: Sigma 18-50 search",
+            "query": "sigma 18-50",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sigma",
+                "top_3_must_contain_in_name": "18-50"
+            }
+        },
+        {
+            "id": "ga4_rf_35",
+            "description": "GA4 top query: 'rf 35' search",
+            "query": "rf 35",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_rf_28_70",
+            "description": "GA4 top query: 'rf 28-70' search",
+            "query": "rf 28-70",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_rf_45",
+            "description": "GA4 top query: 'rf 45' search",
+            "query": "rf 45",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_r6_mark",
+            "description": "GA4 top query: 'r6 mark' search",
+            "query": "r6 mark",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "R6"
+            }
+        },
+        {
+            "id": "ga4_nikon_z5",
+            "description": "GA4 top query: Nikon z5 search",
+            "query": "nikon z5",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Nikon",
+                "top_3_must_contain_in_name": "Z5"
+            }
+        },
+        {
+            "id": "ga4_nikon_en_el15c",
+            "description": "GA4 top query: Nikon en-el15c search",
+            "query": "nikon en-el15c",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Nikon",
+                "top_3_must_contain_in_name": "EN-EL15C"
+            }
+        },
+        {
+            "id": "ga4_godox_v1",
+            "description": "GA4 top query: Godox v1 search",
+            "query": "godox v1",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Godox",
+                "top_3_must_contain_in_name": "V1"
+            }
+        },
+        {
+            "id": "ga4_sony_a6700",
+            "description": "GA4 top query: Sony a6700 search",
+            "query": "sony a6700",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "A6700"
+            }
+        },
+        {
+            "id": "ga4_rf_70_200",
+            "description": "GA4 top query: 'rf 70-200' search",
+            "query": "rf 70-200",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_rf_100",
+            "description": "GA4 top query: 'rf 100' search",
+            "query": "rf 100",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RF"
+            }
+        },
+        {
+            "id": "ga4_canon_rp",
+            "description": "GA4 top query: Canon rp search",
+            "query": "canon rp",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Canon",
+                "top_3_must_contain_in_name": "RP"
+            }
+        },
+        {
+            "id": "ga4_t_o",
+            "description": "GA4 top query: 'tło' search",
+            "query": "tło",
+            "expect": {
+                "min_results": 3
+            }
+        },
+        {
+            "id": "ga4_plecak",
+            "description": "GA4 top query: 'plecak' search",
+            "query": "plecak",
+            "expect": {
+                "min_results": 3
+            }
+        },
+        {
+            "id": "ga4_a7_iii",
+            "description": "GA4 top query: 'a7 iii' search",
+            "query": "a7 iii",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "A7"
+            }
+        },
+        {
+            "id": "ga4_x_t5",
+            "description": "GA4 top query: 'x-t5' search",
+            "query": "x-t5",
+            "expect": {
+                "min_results": 1,
+                "top_3_must_contain_in_name": "X-T5"
+            }
+        },
+        {
+            "id": "ga4_sony_fx3",
+            "description": "GA4 top query: Sony fx3 search",
+            "query": "sony fx3",
+            "expect": {
+                "min_results": 1,
+                "all_must_have_brand": "Sony",
+                "top_3_must_contain_in_name": "FX3"
+            }
+        }
+    ]
+}

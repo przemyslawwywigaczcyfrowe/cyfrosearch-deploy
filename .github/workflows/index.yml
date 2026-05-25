@@ -1,25 +1,20 @@
-name: Pull GA4 + index products to Elasticsearch
+name: Reindex products + refresh GA4 popularity
 
 on:
   workflow_dispatch:
     inputs:
-      recreate:
-        description: "Delete index first (wipes data, rebuilds mapping)"
-        type: boolean
-        default: false
-      es_index:
-        description: "Target index name"
-        type: string
-        default: "products"
       skip_ga4:
-        description: "Skip GA4 pull, use committed sales_data.json as fallback"
+        description: "Skip GA4 popularity refresh"
         type: boolean
         default: false
+  # Daily 04:00 UTC refresh (matches spec recommendation)
+  schedule:
+    - cron: "0 4 * * *"
 
 jobs:
   index:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -27,39 +22,27 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: indexer/requirements.txt
+          cache-dependency-path: requirements.txt
 
-      - name: Install indexer deps
-        run: pip install -r indexer/requirements.txt
+      - name: Install deps
+        run: pip install -r requirements.txt
 
-      - name: Write GA4 service-account credentials
+      - name: Run indexer (fetch feed, recreate index with mapping, bulk load)
+        env:
+          ELASTIC_URL: ${{ secrets.ES_HOST }}
+          ELASTIC_API_KEY: ${{ secrets.ES_API_KEY }}
+        run: python indexer.py
+
+      - name: Refresh GA4 popularity_score
         if: ${{ !inputs.skip_ga4 }}
         env:
-          GA4_SA_JSON: ${{ secrets.GA4_SA_JSON }}
-        run: |
-          if [ -z "$GA4_SA_JSON" ]; then
-            echo "::error::Secret GA4_SA_JSON is empty"
-            exit 1
-          fi
-          mkdir -p "$RUNNER_TEMP/ga4"
-          printf '%s' "$GA4_SA_JSON" > "$RUNNER_TEMP/ga4/sa.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/ga4/sa.json" >> "$GITHUB_ENV"
-
-      - name: Pull GA4 sales (30d + 365d)
-        if: ${{ !inputs.skip_ga4 }}
-        env:
+          ELASTIC_URL: ${{ secrets.ES_HOST }}
+          ELASTIC_API_KEY: ${{ secrets.ES_API_KEY }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
-          GA4_OUTPUT: ${{ runner.temp }}/sales_data.json
+          GA4_SERVICE_ACCOUNT_JSON: ${{ secrets.GA4_SA_JSON }}
         run: |
-          python indexer/pull_ga4.py
-          echo "SALES_DATA=$RUNNER_TEMP/sales_data.json" >> "$GITHUB_ENV"
-
-      - name: Run indexer
-        env:
-          ES_HOST: ${{ secrets.ES_HOST }}
-          ES_USER: ${{ secrets.ES_USER }}
-          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
-          ES_API_KEY: ${{ secrets.ES_API_KEY }}
-          ES_INDEX: ${{ inputs.es_index }}
-          RECREATE: ${{ inputs.recreate }}
-        run: python indexer/index_products.py
+          if [ -z "$GA4_PROPERTY_ID" ] || [ -z "$GA4_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::GA4 secrets missing — skipping popularity refresh"
+            exit 0
+          fi
+          python ga_updater.py
