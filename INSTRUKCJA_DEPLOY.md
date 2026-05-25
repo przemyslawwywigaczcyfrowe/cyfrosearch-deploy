@@ -1,8 +1,11 @@
 # Instrukcja wdrożenia prototypu CyfroSearch
 
-Postawienie demo od zera: **Bonsai (darmowy ES) + GitHub Actions (indeksowanie) + Render (hosting)**.
+Postawienie demo od zera: **Bonsai (darmowy ES z polskim stempelem) + GA4 service account + GitHub Actions (indeksowanie) + Render (hosting)**.
 
-Wszystko darmowe, bez karty kredytowej. Łączny czas: ~25 minut.
+Wszystko darmowe, bez karty. Łączny czas: ~40 minut (z GA4: +20 min na service account).
+
+> **Aiven OpenSearch nie nadaje się** dla polskich sklepów — brak plugina `analysis-stempel`.
+> Jeśli zacząłeś setup w Aiven, możesz zostawić lub usunąć (Aiven Console → Services → Delete).
 
 ---
 
@@ -10,90 +13,114 @@ Wszystko darmowe, bez karty kredytowej. Łączny czas: ~25 minut.
 
 1. Otwórz <https://bonsai.io/signup>
 2. Załóż konto (email + hasło, bez karty)
-3. Po zalogowaniu: **Create Cluster** → **Sandbox** (free, 125MB)
-4. Nazwa: dowolna (np. `cyfrosearch`), region: **EU** (Frankfurt lub Ireland)
-5. Po utworzeniu klastra wejdź w **Access** → **Credentials**
-6. Skopiuj **Full Access URL** — to jest pełny URL z wbudowanym loginem/hasłem, np.:
+3. **Create Cluster** → **Sandbox** (free, 125 MB), region **EU** (Frankfurt/Ireland)
+4. **Access** → **Credentials** → skopiuj **Full Access URL**, np.:
    ```
    https://abc123:xyz789@cyfrosearch-1234567890.eu-central-1.bonsaisearch.net:443
    ```
-
-> **Sprawdź pluginy:** wejdź w `Plugins` w panelu Bonsai i upewnij się, że są
-> aktywne `analysis-stempel` i `analysis-icu`. Powinny być włączone domyślnie
-> na każdym Sandboxie — jeśli nie są, kliknij **Enable** przy każdym.
+5. **Plugins** w panelu klastra → upewnij się, że `analysis-stempel` i `analysis-icu` są **enabled**.
 
 ---
 
-## 2. Ustaw GitHub Secrets (~2 min)
+## 2. Skonfiguruj GA4 service account (~20 min)
 
-W repozytorium <https://github.com/przemyslawwywigaczcyfrowe/cyfrosearch-deploy>:
+### 2a. GCP project + Analytics Data API
 
-1. **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-2. Dodaj sekret:
-   - **Name:** `ES_HOST`
-   - **Value:** pełny URL z Bonsai (z `https://user:pass@...`)
-3. Zostaw `ES_USER` / `ES_PASSWORD` / `ES_API_KEY` puste — nie trzeba ich tworzyć
-   skoro URL zawiera już credentials.
+1. <https://console.cloud.google.com> → wybierz swój projekt (lub utwórz nowy)
+2. **APIs & Services** → **Library** → wyszukaj `Google Analytics Data API` → **Enable**
+
+### 2b. Service account + klucz
+
+1. **IAM & Admin** → **Service Accounts** → **Create Service Account**
+2. Nazwa: `cyfrosearch-ga4-reader`, opis dowolny → **Create**
+3. Role: pomiń (przyznamy w GA4) → **Done**
+4. Wejdź w utworzony SA → zakładka **Keys** → **Add Key** → **Create new key** → **JSON** → ściągnie się plik `*.json`
+5. **Zachowaj ten plik** — wkleisz całą zawartość jako GitHub secret w kroku 3
+
+### 2c. Daj service accountowi dostęp do GA4 property
+
+1. <https://analytics.google.com> → **Admin** (koło zębate)
+2. W kolumnie **Property** → **Property Access Management**
+3. **+** w prawym górnym → wklej email service accounta (postać `cyfrosearch-ga4-reader@<projekt>.iam.gserviceaccount.com`)
+4. Role: **Viewer** → **Add**
+5. Notatka: GA4 **Property ID** (numer, np. `123456789`) — znajdziesz w **Admin** → **Property Settings** → "Property ID" przy nagłówku. Zapisz, wpiszesz w secrets.
 
 ---
 
-## 3. Odpal indeksowanie (GitHub Actions) (~5 min)
+## 3. Ustaw GitHub Secrets (~3 min)
 
-1. W repo: **Actions** → **Index products to Elasticsearch** (lewa kolumna)
-2. **Run workflow** (prawy górny róg) → zostaw `recreate=false`, `es_index=products` → **Run workflow**
-3. Po ~2-4 min workflow skończy. Sprawdź logi — w `Run indexer` powinieneś zobaczyć:
+W repo: <https://github.com/przemyslawwywigaczcyfrowe/cyfrosearch-deploy/settings/secrets/actions>
+
+| Name | Value |
+|---|---|
+| `ES_HOST` | Full Access URL z Bonsai (z embedded creds) |
+| `GA4_PROPERTY_ID` | numeryczne ID property z GA4 (np. `123456789`) |
+| `GA4_SA_JSON` | **cała** zawartość pliku JSON service accounta (wklej w pole "Value") |
+
+Zostaw `ES_USER` / `ES_PASSWORD` / `ES_API_KEY` puste — nie trzeba ich tworzyć skoro URL z Bonsai zawiera creds.
+
+---
+
+## 4. Odpal pipeline (GitHub Actions) (~3-5 min)
+
+1. <https://github.com/przemyslawwywigaczcyfrowe/cyfrosearch-deploy/actions/workflows/index.yml>
+2. **Run workflow** → zostaw `recreate=false`, `es_index=products`, `skip_ga4=false` → **Run workflow**
+3. Po ~3-5 min sprawdź logi:
    ```
-   [OK] Connected to ES 8.x — cluster 'cyfrosearch-...'
+   [*] Querying GA4 s30: 30daysAgo → yesterday
+   [OK] s30: ~5-15k items with sales
+   [*] Querying GA4 s365: 365daysAgo → yesterday
+   [OK] s365: ~15-25k items with sales
+   [OK] Wrote N SKUs to /tmp/.../sales_data.json
+   ...
+   [OK] Connected to ES 8.x — cluster '...'
    [*] Plugins: [..., 'analysis-icu', 'analysis-stempel', ...]
    [*] Feed contains 17556 products
-   [*] Loaded 16262 sales records
+   [*] Loaded N sales records
    [OK] Indexed ~17500 docs in ~60s
    [OK] Index 'products' now has ~17500 documents
    ```
 
-Jeśli widzisz `Plugin analysis-stempel not detected` — wróć do Bonsai i włącz plugin,
-potem odpal workflow jeszcze raz z `recreate=true`.
+> **Jeśli GA4 zawiedzie** (np. zły property ID, brak permission): odpal workflow ponownie z `skip_ga4=true` — użyje committed `sales_data.json` jako fallback (~16k SKU, stare ale działa).
 
 ---
 
-## 4. Postaw aplikację na Render (~10 min)
+## 5. Postaw aplikację na Render (~10 min)
 
-1. Wejdź na <https://dashboard.render.com>
-2. **New** → **Blueprint**
-3. **Connect a repository** → wybierz `cyfrosearch-deploy`
-4. Render wykryje `render.yaml` i pokaże usługę `cyfrosearch-demo`
-5. Kliknij **Apply** — Render zacznie budować obraz Docker
-6. Podczas pierwszego deployu Render zapyta o brakujące env vars:
-   - **ES_HOST** → wklej ten sam URL co do GitHub Secrets
-   - **ES_USER**, **ES_PASSWORD**, **ES_API_KEY** → zostaw puste
-   - **ES_INDEX** → już ustawione na `products`
-7. Poczekaj ~3-5 minut na deploy (Docker build + start)
+1. <https://dashboard.render.com> → **New** → **Blueprint**
+2. **Connect a repository** → wybierz `cyfrosearch-deploy`
+3. Render wykryje `render.yaml` i pokaże usługę `cyfrosearch-demo` → **Apply**
+4. Przy pierwszym deployu poprosi o env vars:
+   - **ES_HOST** → wklej ten sam URL co do GitHub Secret
+   - **ES_USER**, **ES_PASSWORD**, **ES_API_KEY** → puste
+   - **ES_INDEX** → już `products`
+5. Build + start ~3-5 min
 
-Render poda URL w stylu `https://cyfrosearch-demo-XXXX.onrender.com`. Otwórz go.
+Render poda URL `https://cyfrosearch-demo-XXXX.onrender.com`.
 
 ---
 
-## 5. Weryfikacja (~1 min)
+## 6. Weryfikacja (~1 min)
 
-W przeglądarce:
-
-- `https://<twój-url>/api/health` → powinno zwrócić `{"ok": true, "es_version": "...", "doc_count": 17500}`
-- `https://<twój-url>/` → demo z polem wyszukiwania
-- Wpisz `canon`, `obiektyw`, `karta sd`, `drony` — powinno działać
+- `https://<url>/api/health` → `{"ok": true, "es_version": "8.x", "doc_count": ~17500}`
+- `https://<url>/` → demo, wpisz `canon`, `obiektyw`, `obiektywy do nikona`, `drony`
+- Pierwsze otwarcie po przerwie zajmie ~30s (cold start Render free tier)
 
 ---
 
-## Co dalej?
+## Co dalej
 
-- **Reindex po update feed-a:** odpal workflow z `recreate=true` żeby usunąć stary indeks i zbudować od zera.
-- **Free tier Render usypia po 15 min nieaktywności** — pierwsze otwarcie po dłuższej przerwie zajmie ~30s (cold start). Płatny plan ($7/mc) eliminuje cold start.
-- **Bonsai Sandbox limit:** 125MB / 35k dokumentów. Aktualny dataset (~17.5k) zajmie ~40-60MB, masz zapas.
+- **Reindex po nowych danych GA4:** odpal workflow z `recreate=true` (wyczyści indeks i zbuduje od zera ze świeżymi danymi sprzedażowymi)
+- **Render free usypia po 15 min** — wpierw zapytanie wybudza, kolejne są szybkie. Płatny `$7/mc` eliminuje cold start.
+- **Bonsai Sandbox 125 MB / 35k docs** — dataset 17.5k zajmuje ~50 MB, masz zapas
 
 ## Troubleshooting
 
 | Problem | Co sprawdzić |
 |---|---|
-| `/api/health` zwraca 500 | Logi Render → najczęściej zły `ES_HOST` lub Bonsai cluster wstał |
-| Wyszukiwanie nic nie znajduje | Indeks jest pusty — odpal workflow GitHub Actions z `recreate=true` |
-| `connection error` w workflow | Sprawdź czy secret `ES_HOST` jest ustawiony i URL jest poprawny |
-| `analysis-stempel not detected` | Bonsai → Plugins → włącz `analysis-stempel` i `analysis-icu`, potem reindex |
+| GA4 step: `403 PERMISSION_DENIED` | Service account nie ma dostępu do property — wróć do **2c** |
+| GA4 step: `INVALID_ARGUMENT` | Zły `GA4_PROPERTY_ID` (musi być sam numer, nie `properties/123...`) |
+| GA4 step: 0 wierszy | Property nie ma e-commerce event tracking, lub złe daty — spróbuj `GA4_METRIC=itemPurchaseQuantity` |
+| `/api/health` 500 | Logi Render → najczęściej zły `ES_HOST` lub Bonsai cluster śpi |
+| Wyszukiwanie pusto | Indeks pusty — workflow z `recreate=true` |
+| `analysis-stempel not detected` | Bonsai → Plugins → enable, potem reindex |
