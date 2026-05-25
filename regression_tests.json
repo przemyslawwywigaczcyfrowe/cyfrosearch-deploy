@@ -610,7 +610,7 @@
             "query": "a7v",
             "expect": {
                 "min_results": 1,
-                "top_3_must_contain_in_name": "A7V"
+                "top_3_must_contain_in_name": "A7 V"
             }
         },
         {
@@ -630,7 +630,7 @@
             "expect": {
                 "min_results": 1,
                 "all_must_have_brand": "Sony",
-                "top_3_must_contain_in_name": "A7V"
+                "top_3_must_contain_in_name": "A7 V"
             }
         },
         {
