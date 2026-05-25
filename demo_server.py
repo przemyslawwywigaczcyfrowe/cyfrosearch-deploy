@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from elasticsearch import AsyncElasticsearch
+from opensearchpy import AsyncOpenSearch
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -23,34 +23,29 @@ from fastapi.staticfiles import StaticFiles
 
 # ── Config (env vars for cloud deploy, defaults for local dev) ──
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
-ES_USER = os.environ.get("ES_USER", "elastic")
-ES_PASSWORD = os.environ.get("ES_PASSWORD", "changeme")
+ES_USER = os.environ.get("ES_USER", "")
+ES_PASSWORD = os.environ.get("ES_PASSWORD", "")
 ES_INDEX = os.environ.get("ES_INDEX", "products")
-ES_API_KEY = os.environ.get("ES_API_KEY", "")  # Elastic Cloud uses API key auth
+ES_API_KEY = os.environ.get("ES_API_KEY", "")
 
-_es: AsyncElasticsearch | None = None
+_es: AsyncOpenSearch | None = None
 
 
-async def get_es() -> AsyncElasticsearch:
+async def get_es() -> AsyncOpenSearch:
     global _es
     if _es is None:
-        kwargs: dict[str, Any] = {
-            "hosts": [ES_HOST],
-            "request_timeout": 10,
-        }
-        # Elastic Cloud: use API key auth (preferred)
+        kwargs: dict[str, Any] = {"hosts": [ES_HOST], "timeout": 10}
         if ES_API_KEY:
-            kwargs["api_key"] = ES_API_KEY
-        else:
-            kwargs["basic_auth"] = (ES_USER, ES_PASSWORD)
+            kwargs["headers"] = {"Authorization": f"ApiKey {ES_API_KEY}"}
+        elif ES_USER:
+            kwargs["http_auth"] = (ES_USER, ES_PASSWORD)
+        # else: ES_HOST already has credentials embedded (Bonsai style)
 
-        # Elastic Cloud uses HTTPS with valid certs — no verify_certs=False needed
-        # For self-signed local dev, set ES_VERIFY_CERTS=false
         if os.environ.get("ES_VERIFY_CERTS", "true").lower() == "false":
             kwargs["verify_certs"] = False
             kwargs["ssl_show_warn"] = False
 
-        _es = AsyncElasticsearch(**kwargs)
+        _es = AsyncOpenSearch(**kwargs)
     return _es
 
 
@@ -410,7 +405,7 @@ _brand_set: set[str] = set()            # {"nikon", "canon", "sigma", ...}
 _brand_original: dict[str, str] = {}    # {"nikon": "Nikon", "sigma": "Sigma", ...}
 
 
-async def _ensure_brands(es: AsyncElasticsearch) -> None:
+async def _ensure_brands(es: AsyncOpenSearch) -> None:
     """One-time load of all brand names from ES for brand-intent detection."""
     global _brand_set, _brand_original
     if _brand_set:
@@ -570,7 +565,7 @@ app.add_middleware(
 # SUGGEST ENDPOINT — optimized with msearch + cache
 # ──────────────────────────────────────────────────
 
-async def _suggest_internal(es: AsyncElasticsearch, q: str, limit: int) -> dict:
+async def _suggest_internal(es: AsyncOpenSearch, q: str, limit: int) -> dict:
     """Core suggest logic — executes ES queries, builds response dict. No caching here."""
     product_results = []
     category_results = []

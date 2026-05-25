@@ -6,10 +6,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # Python deps — only what demo_server needs (lean image ~150MB)
+# Using opensearch-py since Bonsai hosts OpenSearch 2.x (not Elasticsearch);
+# OpenSearch ships analysis-stempel + analysis-icu as core plugins so Polish
+# search quality stays intact.
 RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
     "uvicorn[standard]>=0.32.0" \
-    "elasticsearch[async]>=8.12.0,<9.0" \
+    "opensearch-py[async]>=2.4.0" \
     "orjson>=3.9.0"
 
 # Copy demo server + frontend assets + data files

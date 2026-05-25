@@ -25,7 +25,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from elasticsearch import Elasticsearch, helpers
+from opensearchpy import OpenSearch, helpers
 
 ES_HOST = os.environ.get("ES_HOST", "http://localhost:9200")
 ES_USER = os.environ.get("ES_USER", "")
@@ -153,18 +153,14 @@ AVAILABILITY_MAP = {
 }
 
 
-def get_es() -> Elasticsearch:
-    kwargs = {"request_timeout": 60}
+def get_es() -> OpenSearch:
+    kwargs: dict = {"timeout": 60, "hosts": [ES_HOST]}
     if ES_API_KEY:
-        kwargs["hosts"] = [ES_HOST]
-        kwargs["api_key"] = ES_API_KEY
+        kwargs["headers"] = {"Authorization": f"ApiKey {ES_API_KEY}"}
     elif ES_USER:
-        kwargs["hosts"] = [ES_HOST]
-        kwargs["basic_auth"] = (ES_USER, ES_PASSWORD)
-    else:
-        # ES_HOST may have credentials embedded (Bonsai style)
-        kwargs["hosts"] = [ES_HOST]
-    return Elasticsearch(**kwargs)
+        kwargs["http_auth"] = (ES_USER, ES_PASSWORD)
+    # else: credentials may be embedded in ES_HOST (Bonsai style)
+    return OpenSearch(**kwargs)
 
 
 def download_feed(url: str) -> dict:
