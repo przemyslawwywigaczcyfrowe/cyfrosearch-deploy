@@ -135,6 +135,103 @@ def _get_brand_keywords(canonical_brand: str) -> list[str]:
     return [canonical_brand]
 
 
+# =============================================================================
+# Category-term detection ("category browse")
+# =============================================================================
+#
+# PROBLEM: A bare category word like "obiektyw" (lens) does NOT appear in the
+# NAMES of actual category members — lenses are named by brand + focal length
+# + aperture ("Canon RF 50 mm f/1.4"), with "Obiektywy" only in the CATEGORY
+# path. Accessories, however, DO contain the word in their name ("pokrywka na
+# obiektyw" = lens cap). Because literal name matches outrank category matches,
+# a search for "obiektyw" surfaced accessories instead of lenses.
+#
+# SOLUTION (universal, data-driven): build a cache of category-segment head
+# words from the index taxonomy. When a query is a single token that matches a
+# category head (Polish-inflection-aware), treat it as a CATEGORY BROWSE:
+# filter to that category's products and rank by popularity — exactly like a
+# brand-only query. No category names are hard-coded; everything comes from the
+# index. Lens caps live under "Pokrywki ..." (head "pokrywki"), so they fall
+# out of the "obiektyw" → "Obiektywy ..." browse automatically.
+
+_category_cache: dict[str, list[str]] | None = None  # head word → [full category paths]
+
+
+def _get_category_cache() -> dict[str, list[str]]:
+    """Build {category-head-word -> [full category.keyword paths]} from the index.
+
+    The head word is the first word of each non-root category segment
+    (e.g. "Fotografia > Obiektywy do bezlusterkowcow" -> head "obiektywy").
+    The root segment (level 0, e.g. "Fotografia"/"Filmowanie") is skipped so a
+    top-level umbrella word can never browse the whole catalog.
+    """
+    global _category_cache
+    if _category_cache is not None:
+        return _category_cache
+
+    es = get_es_client()
+    resp = es.search(
+        index=INDEX_NAME,
+        body={
+            "size": 0,
+            "aggs": {"all_cats": {"terms": {"field": "category.keyword", "size": 2000}}},
+        },
+    )
+
+    head_to_paths: dict[str, set] = {}
+    for bucket in resp["aggregations"]["all_cats"]["buckets"]:
+        path = bucket["key"]
+        if not path:
+            continue
+        segments = [s.strip() for s in path.split(">")]
+        for seg in segments[1:]:  # skip the root umbrella segment (level 0)
+            words = re.findall(r"\w+", seg, flags=re.UNICODE)
+            if not words:
+                continue
+            head = words[0].lower()
+            if len(head) < 4:  # skip short/stop-like heads ("do", "na", "i")
+                continue
+            head_to_paths.setdefault(head, set()).add(path)
+
+    _category_cache = {h: sorted(p) for h, p in head_to_paths.items()}
+    return _category_cache
+
+
+def _common_prefix_len(a: str, b: str) -> int:
+    n = min(len(a), len(b))
+    i = 0
+    while i < n and a[i] == b[i]:
+        i += 1
+    return i
+
+
+def _detect_category_paths(cleaned_query: str) -> list[str] | None:
+    """If the (single-token) query is a category term, return its category paths.
+
+    Matching is Polish-inflection tolerant: the query and the category head word
+    may differ only in their trailing inflection (e.g. "obiektyw" <-> "obiektywy",
+    "lampa" <-> "lampy", "aparat" <-> "aparaty"). Returns None when the query is
+    multi-token, too short, or does not look like a category name.
+    """
+    q = cleaned_query.strip().lower()
+    if not q or " " in q or len(q) < 4:
+        return None
+    cats = _get_category_cache()
+    best_c = 0
+    best_paths: list[str] = []
+    for head, paths in cats.items():
+        c = _common_prefix_len(q, head)
+        # Require a long shared prefix: full overlap or differing only in the
+        # trailing inflection char, and at least 4 chars in common.
+        if c >= 4 and c >= min(len(q), len(head)) - 1:
+            if c > best_c:
+                best_c = c
+                best_paths = list(paths)
+            elif c == best_c:
+                best_paths = sorted(set(best_paths) | set(paths))
+    return best_paths or None
+
+
 # Polish prepositions indicating "compatible with" (not "made by")
 _COMPAT_PREPOSITIONS = {"do", "dla", "na", "pod"}
 
@@ -328,6 +425,18 @@ def preprocess_query(query: str) -> tuple[str, dict]:
     # Only fall back to original query if no filters were extracted at all
     if not cleaned and not extra_filters:
         cleaned = query.strip()
+
+    # --- Category-term detection → category browse ---
+    # When the remaining query is a single category word ("obiektyw", "aparat",
+    # "statyw"...), browse that category ranked by popularity instead of running
+    # a name-text match (which surfaces accessories that merely contain the word
+    # in their name). UNIVERSAL: the taxonomy comes from the index, not hard-coded.
+    if "category_paths" not in extra_filters:
+        cat_paths = _detect_category_paths(cleaned)
+        if cat_paths:
+            extra_filters["category_paths"] = cat_paths
+            cleaned = ""  # empty text → match_all + category filter + popularity sort
+
     return cleaned, extra_filters
 
 
@@ -494,8 +603,9 @@ def _join_model_codes(query: str) -> str:
 
 
 def warm_caches():
-    """Pre-load brand cache at application startup (called from FastAPI startup event)."""
+    """Pre-load brand + category caches at startup (called from FastAPI startup event)."""
     _get_brand_cache()
+    _get_category_cache()
 
 
 def build_search_query(
@@ -887,6 +997,10 @@ def build_search_query(
     if filters.get("category_lvl0"):
         filter_clauses.append({"term": {"category_lvl0": filters["category_lvl0"]}})
 
+    # Category browse: restrict to the detected category's full paths.
+    if filters.get("category_paths"):
+        filter_clauses.append({"terms": {"category.keyword": filters["category_paths"]}})
+
     if filters.get("price_min") or filters.get("price_max"):
         price_range = {}
         if filters.get("price_min"):
@@ -1059,6 +1173,8 @@ def suggest(query: str, size: int = 7) -> dict:
         filter_clauses.append({"terms": {"brand.keyword": _get_brand_keywords(filters["brand"])}})
     if filters.get("condition"):
         filter_clauses.append({"term": {"condition": filters["condition"]}})
+    if filters.get("category_paths"):
+        filter_clauses.append({"terms": {"category.keyword": filters["category_paths"]}})
 
     if query_text:
         must_query = {
