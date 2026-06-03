@@ -2,9 +2,14 @@
 
 ## 1. Zasada nadrzędna
 
-**Wszystkie reguły rankingu są UNIWERSALNE.** Nie istnieją żadne wyjątki per kategoria,
-marka ani typ produktu. Każdy produkt przechodzi przez identyczny pipeline scoringu.
-Każda zmiana musi być walidowana testami regresyjnymi na pełnym zbiorze zapytań.
+**Wszystkie reguły rankingu są UNIWERSALNE i sterowane danymi.** Nie ma ręcznie
+kodowanych wyjątków dla konkretnej marki, kategorii czy produktu — każda reguła
+działa identycznie dla wszystkich, a parametry (słownik marek, taksonomia
+kategorii) są wczytywane z indeksu. Dotyczy to także **detekcji terminów
+kategorii** (§6.10): mechanizm jest uniwersalny — rozpoznaje dowolny termin
+kategorii na podstawie taksonomii w indeksie, bez listy kategorii w kodzie.
+Każdy produkt przechodzi przez identyczny pipeline scoringu, a każda zmiana
+musi być walidowana testami regresyjnymi na pełnym zbiorze zapytań.
 
 ---
 
@@ -521,6 +526,46 @@ prefiksowo: "obiektyw" → matchuje "obiektyw*" → "obiektywy", "obiektywu" itp
 **Rekomendacja produkcyjna:** Zainstalować plugin `analysis-stempel` na Elastic Cloud
 i dodać filtr `polish_stem` do analizera `polish_with_synonyms`. To wyeliminuje
 potrzebę prefix matching i poprawi recall dla WSZYSTKICH polskich odmian wyrazów.
+
+### 6.10 Detekcja terminów kategorii (category browse)
+
+**Problem:** Czysty termin kategorii jak "obiektyw" NIE występuje w **nazwach**
+produktów tej kategorii — obiektywy są nazywane marką + ogniskową + przysłoną
+("Canon RF 50 mm f/1.4"), a słowo "Obiektywy" jest tylko w **ścieżce kategorii**.
+Akcesoria natomiast mają słowo w nazwie ("pokrywka na obiektyw"). Ponieważ
+dosłowne dopasowanie w nazwie bije dopasowanie w kategorii (§3.1), zapytanie
+"obiektyw" zwracało akcesoria zamiast obiektywów. Kategorie, których produkty
+zawierają słowo w nazwie (plecak, mikrofon, lampa), nie mają tego problemu.
+
+**Rozwiązanie (UNIWERSALNE, sterowane taksonomią z indeksu):**
+
+1. **Cache kategorii** (budowany na starcie, jak cache marek): agregacja
+   `category.keyword` z indeksu → mapa `słowo-głowa → [pełne ścieżki kategorii]`.
+   Słowo-głowa to pierwszy wyraz każdego segmentu (poza korzeniem), np.
+   "Fotografia > Obiektywy do bezlusterkowców" → głowa "obiektywy".
+2. **Detekcja**: gdy oczyszczone zapytanie to **pojedynczy token** (≥4 znaki)
+   pasujący do głowy kategorii z tolerancją polskiej odmiany (wspólny prefiks
+   różniący się najwyżej końcówką: "obiektyw"↔"obiektywy", "lampa"↔"lampy",
+   "aparat"↔"aparaty") → **category browse**.
+3. **Category browse**: filtr `category.keyword` do wykrytych ścieżek + `match_all`,
+   ranking WYŁĄCZNIE po popularności (jak zapytania brand-only, §7). Akcesoria
+   (np. "Pokrywki na obiektyw", głowa "pokrywki") nie należą do ścieżek
+   "Obiektywy ...", więc automatycznie wypadają.
+
+**Zakres (świadome rozszerzenie spec):** uruchamia się TYLKO dla pojedynczych
+słów-kategorii. Zapytania wielowyrazowe (np. "obiektyw do Canon" — kompatybilność,
+"filtr UV 67mm" — specyfikacja) przechodzą normalnym pipeline'em i nie są
+filtrowane do kategorii. Łączy się z filtrem marki: "ładowarka Canon" →
+ładowarki marki Canon wg popularności.
+
+**Przykłady:**
+
+| Zapytanie  | Głowa kategorii | Efekt                                    |
+|------------|-----------------|------------------------------------------|
+| "obiektyw" | obiektywy       | obiektywy wszystkich marek wg popularności |
+| "aparat"   | aparaty         | aparaty wg popularności                  |
+| "statyw"   | statywy         | statywy wg popularności                  |
+| "obiektyw do Canon" | (brak — wielowyraz.) | normalne wyszukiwanie (kompatybilność) |
 
 ---
 

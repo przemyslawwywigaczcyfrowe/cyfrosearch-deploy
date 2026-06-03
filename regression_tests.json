@@ -121,11 +121,12 @@
         },
         {
             "id": "category_obiektyw",
-            "description": "Searching for 'obiektyw' should return lenses across all brands",
+            "description": "Searching for 'obiektyw' should return actual lenses (category browse), across all brands",
             "query": "obiektyw",
             "expect": {
                 "min_results": 100,
-                "top_10_brands_min_unique": 2
+                "top_10_brands_min_unique": 2,
+                "top_5_must_contain_in_category": "Obiektyw"
             }
         },
         {
