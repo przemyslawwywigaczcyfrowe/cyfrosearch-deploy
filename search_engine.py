@@ -241,6 +241,12 @@ _USED_KEYWORDS = {
     "uzywany", "uzywane", "uzywanych", "uzywanego", "uzywana", "uzywanym",
 }
 
+# Brand aliases that are ALSO meaningful product terms and must stay in query text.
+# "rf" triggers the Canon brand filter but stays in the query so "rf 50" boosts
+# RF-mount lenses over EF lenses (both Canon). Without "rf" in the text query,
+# only "50" remains and EF / photo-paper results can outrank the RF lens.
+_PASSTHROUGH_ALIASES = {"rf"}
+
 
 def preprocess_query(query: str) -> tuple[str, dict]:
     """
@@ -399,9 +405,12 @@ def preprocess_query(query: str) -> tuple[str, dict]:
             if not preceded_by_compat:
                 found_brands.append(((i,), canonical))
                 matched_indices.add(i)
-                # Replace the typo in query with canonical brand name
-                words[i] = canonical
-                words_lower[i] = canonical.lower()
+                # Replace the typo/alias in query with canonical brand name.
+                # EXCEPTION: passthrough aliases (e.g. "rf") stay as-is so the
+                # product term remains in the query ("rf 50" boosts RF over EF).
+                if wl not in _PASSTHROUGH_ALIASES:
+                    words[i] = canonical
+                    words_lower[i] = canonical.lower()
 
     # Apply brand filter ONLY if exactly one non-compatibility brand found
     # Multiple brands = ambiguous intent (e.g., "Sigma Canon" = Sigma for Canon mount)
@@ -410,8 +419,11 @@ def preprocess_query(query: str) -> tuple[str, dict]:
         # Remove brand words from query text — the brand filter handles them.
         # This prevents text-match conflicts (e.g., "peak design" not matching "PEAKDESIGN")
         # and lets brand-only queries fall through to match_all + brand filter.
+        # EXCEPTION: passthrough aliases (e.g. "rf") are kept as product terms.
         brand_indices = set(found_brands[0][0])
-        words = [w for i, w in enumerate(words) if i not in brand_indices]
+        is_passthrough = any(words_lower[i] in _PASSTHROUGH_ALIASES for i in brand_indices)
+        if not is_passthrough:
+            words = [w for i, w in enumerate(words) if i not in brand_indices]
 
     cleaned = " ".join(words).strip()
     # If remaining text is too short (≤2 chars), it may be a stop word
