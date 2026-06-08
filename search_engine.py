@@ -241,6 +241,12 @@ _USED_KEYWORDS = {
     "uzywany", "uzywane", "uzywanych", "uzywanego", "uzywana", "uzywanym",
 }
 
+# Brand aliases that are ALSO meaningful product terms and must stay in query text.
+# "rf" triggers the Canon brand filter but stays in the query so "rf 50" boosts
+# RF-mount lenses over EF lenses (both Canon). Without "rf" in the text query,
+# only "50" remains and EF / photo-paper results can outrank the RF lens.
+_PASSTHROUGH_ALIASES = {"rf"}
+
 
 def preprocess_query(query: str) -> tuple[str, dict]:
     """
@@ -399,9 +405,12 @@ def preprocess_query(query: str) -> tuple[str, dict]:
             if not preceded_by_compat:
                 found_brands.append(((i,), canonical))
                 matched_indices.add(i)
-                # Replace the typo in query with canonical brand name
-                words[i] = canonical
-                words_lower[i] = canonical.lower()
+                # Replace the typo/alias in query with canonical brand name.
+                # EXCEPTION: passthrough aliases (e.g. "rf") stay as-is so the
+                # product term remains in the query ("rf 50" boosts RF over EF).
+                if wl not in _PASSTHROUGH_ALIASES:
+                    words[i] = canonical
+                    words_lower[i] = canonical.lower()
 
     # Apply brand filter ONLY if exactly one non-compatibility brand found
     # Multiple brands = ambiguous intent (e.g., "Sigma Canon" = Sigma for Canon mount)
@@ -410,8 +419,11 @@ def preprocess_query(query: str) -> tuple[str, dict]:
         # Remove brand words from query text — the brand filter handles them.
         # This prevents text-match conflicts (e.g., "peak design" not matching "PEAKDESIGN")
         # and lets brand-only queries fall through to match_all + brand filter.
+        # EXCEPTION: passthrough aliases (e.g. "rf") are kept as product terms.
         brand_indices = set(found_brands[0][0])
-        words = [w for i, w in enumerate(words) if i not in brand_indices]
+        is_passthrough = any(words_lower[i] in _PASSTHROUGH_ALIASES for i in brand_indices)
+        if not is_passthrough:
+            words = [w for i, w in enumerate(words) if i not in brand_indices]
 
     cleaned = " ".join(words).strip()
     # If remaining text is too short (≤2 chars), it may be a stop word
@@ -667,6 +679,31 @@ def build_search_query(
     # Handles accidental spaces in the middle of words
     nospace_query = query.replace(" ", "") if " " in query else None
 
+    # === Model-code disambiguation (DIGIT-GATED) ===
+    # Only queries that contain a digit ("a7v", "z5", "r6", "220c") are model
+    # codes that need extra boosts to distinguish a specific model ("Sony A7 V")
+    # from look-alikes ("A7RV"/"A7IV"). Plain category words ("obiektyw",
+    # "lampa", "filtr") contain no digit, so they NEVER receive these boosts —
+    # keeping category browse (§6.10) and generic ranking untouched.
+    soft_split = _soft_split_model_codes(query)
+    has_digit = any(ch.isdigit() for ch in query)
+    model_code_must: list = []
+    model_code_should: list = []
+    if has_digit:
+        model_code_must = [
+            {"match": {"searchable_text": {"query": soft_split, "operator": "or",
+                                           "fuzziness": "AUTO", "prefix_length": 1}}},
+            {"term": {"name.autocomplete": {"value": query.lower(), "boost": 60}}},
+        ]
+        model_code_should = [
+            # Soft-split phrase (slop 1): "a7v"→"a7 v" pins token adjacency, so the
+            # short canonical name "Sony A7 V body" outranks long accessory names.
+            {"match_phrase": {"name.exact": {"query": soft_split, "slop": 1, "boost": 35}}},
+            {"match_phrase_prefix": {"name.exact": {"query": soft_split, "boost": 25}}},
+            {"term": {"name.autocomplete": {"value": query.lower(), "boost": 80}}},
+            {"match": {"searchable_text": {"query": soft_split, "operator": "and", "boost": 20}}},
+        ]
+
     # === Core text query ===
     # Strategy (UNIVERSAL for all categories):
     #
@@ -777,6 +814,8 @@ def build_search_query(
                                 if nospace_query
                                 else []
                             ),
+                            # Model-code recall (digit-gated): soft-split + autocomplete term
+                            *model_code_must,
                             # EAN exact match (raw query — no lens normalization)
                             {"term": {"ean": {"value": raw_query.strip(), "boost": 50}}},
                             # EAN prefix match (partial barcodes)
@@ -897,6 +936,8 @@ def build_search_query(
                         }
                     }
                 },
+                # Model-code disambiguation boosts (digit-gated, see above)
+                *model_code_should,
                 # Name.exact AND match — NO synonyms, rewards products where
                 # query words appear LITERALLY in name (not via category path)
                 # "akumulator" in name beats "akumulator" only in category
