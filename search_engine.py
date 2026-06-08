@@ -667,6 +667,31 @@ def build_search_query(
     # Handles accidental spaces in the middle of words
     nospace_query = query.replace(" ", "") if " " in query else None
 
+    # === Model-code disambiguation (DIGIT-GATED) ===
+    # Only queries that contain a digit ("a7v", "z5", "r6", "220c") are model
+    # codes that need extra boosts to distinguish a specific model ("Sony A7 V")
+    # from look-alikes ("A7RV"/"A7IV"). Plain category words ("obiektyw",
+    # "lampa", "filtr") contain no digit, so they NEVER receive these boosts —
+    # keeping category browse (§6.10) and generic ranking untouched.
+    soft_split = _soft_split_model_codes(query)
+    has_digit = any(ch.isdigit() for ch in query)
+    model_code_must: list = []
+    model_code_should: list = []
+    if has_digit:
+        model_code_must = [
+            {"match": {"searchable_text": {"query": soft_split, "operator": "or",
+                                           "fuzziness": "AUTO", "prefix_length": 1}}},
+            {"term": {"name.autocomplete": {"value": query.lower(), "boost": 60}}},
+        ]
+        model_code_should = [
+            # Soft-split phrase (slop 1): "a7v"→"a7 v" pins token adjacency, so the
+            # short canonical name "Sony A7 V body" outranks long accessory names.
+            {"match_phrase": {"name.exact": {"query": soft_split, "slop": 1, "boost": 35}}},
+            {"match_phrase_prefix": {"name.exact": {"query": soft_split, "boost": 25}}},
+            {"term": {"name.autocomplete": {"value": query.lower(), "boost": 80}}},
+            {"match": {"searchable_text": {"query": soft_split, "operator": "and", "boost": 20}}},
+        ]
+
     # === Core text query ===
     # Strategy (UNIVERSAL for all categories):
     #
@@ -777,6 +802,8 @@ def build_search_query(
                                 if nospace_query
                                 else []
                             ),
+                            # Model-code recall (digit-gated): soft-split + autocomplete term
+                            *model_code_must,
                             # EAN exact match (raw query — no lens normalization)
                             {"term": {"ean": {"value": raw_query.strip(), "boost": 50}}},
                             # EAN prefix match (partial barcodes)
@@ -897,6 +924,8 @@ def build_search_query(
                         }
                     }
                 },
+                # Model-code disambiguation boosts (digit-gated, see above)
+                *model_code_should,
                 # Name.exact AND match — NO synonyms, rewards products where
                 # query words appear LITERALLY in name (not via category path)
                 # "akumulator" in name beats "akumulator" only in category
